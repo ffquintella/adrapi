@@ -16,6 +16,18 @@ From the command line simply type: dotnet run
 
 You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
 
+### Security
+
+Since our api has no database we use the security.json to determine witch apiKeys can connect to our system
+
+Basically what you need to configure there is: 
+
+- secretKey: Some random string to work as the Authentication key
+- keyID: Unique identifier for the key
+- authorizedIP: The IP address authorized to use this key (for now it must be an ip for each key)
+- claims: Permission claims we support now the following:
+    - isAdministrator -> Determines that the person is an administrator and that it can do everthing 
+
 ## Author
 Felipe F Quintella 
 
