@@ -31,6 +31,20 @@ namespace adrapi
 
             services.AddApiVersioning(o => o.ApiVersionReader = new HeaderApiVersionReader("api-version"));
 
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy(
+                    "Writting",
+                    policyBuilder => policyBuilder.RequireClaim("isAdministrator"));
+                options.AddPolicy(
+                    "Reading",
+                    policyBuilder => policyBuilder.RequireAssertion(
+                        context => context.User.HasClaim(claim =>
+                                       claim.Type == "isAdministrator"
+                                       || claim.Type == "isMonitor"))
+                    );
+            });
+
             // configure basic authentication 
             services.AddAuthentication("BasicAuthentication")
                 .AddScheme<AuthenticationSchemeOptions, Security.BasicAuthenticationHandler>("BasicAuthentication", null);

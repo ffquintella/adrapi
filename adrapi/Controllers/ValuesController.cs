@@ -9,7 +9,8 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace adrapi.Controllers
 {
-    [Authorize]
+    //[Authorize]
+    [Authorize(Policy = "Reading")]
     [ApiVersion("1.0")]
     [Route("api/[controller]")]
     [ApiController]
