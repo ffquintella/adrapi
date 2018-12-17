@@ -5,9 +5,11 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using static adrapi.domain.LoggingEvents;
+using Microsoft.AspNetCore.Authorization;
 
 namespace adrapi.Controllers
 {
+    [Authorize]
     [ApiVersion("1.0")]
     [Route("api/[controller]")]
     [ApiController]

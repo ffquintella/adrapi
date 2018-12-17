@@ -12,6 +12,21 @@ To develop or use it with the command linet you must have dotnet core 2.1 sdk in
 
 From the command line simply type: dotnet run
 
+### Consuming the API
+
+To be able to consume the api you will need an apikey (see bellow) and define an api version 
+
+#### Versioning 
+
+The api is versioned through passing a header called api-version with a number. The header is mandatory and failing to set it will result on a error message.
+
+The valid values are:
+ - 1.0 -> first api version (12-2018)
+ 
+#### API Key
+
+ There must be a header called api-key witch is created with *key-ID:secretKey* 
+
 ## Configuration
 
 You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
