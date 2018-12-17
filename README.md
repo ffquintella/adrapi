@@ -42,6 +42,7 @@ Basically what you need to configure there is:
 - authorizedIP: The IP address authorized to use this key (for now it must be an ip for each key)
 - claims: Permission claims we support now the following:
     - isAdministrator -> Determines that the person is an administrator and that it can do everthing 
+    - isMonitor -> Can read most of things
     
 **WARNING** Change the security.json file or your api will be open!    
     
