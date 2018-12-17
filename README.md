@@ -12,6 +12,10 @@ To develop or use it with the command linet you must have dotnet core 2.1 sdk in
 
 From the command line simply type: dotnet run
 
+## Configuration
+
+You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
+
 ## Author
 Felipe F Quintella 
 

@@ -41,6 +41,10 @@
     <None Remove="domain\obj\Debug\netstandard2.0\domain.dll" />
     <None Remove="domain\obj\Debug\netstandard2.0\domain.pdb" />
     <None Remove="domain\obj\Debug\netstandard2.0\domain.csproj.FileListAbsolute.txt" />
+    <None Remove="%24{basedir}\logs\internal-nlog.txt" />
+    <None Remove="%24{specialfolder:folder=ApplicationData}\logs\internal-nlog.txt" />
+    <None Remove="logs\logs\2018-12-17\nlog-all-2018-12-17.log" />
+    <None Remove="logs\logs\2018-12-17\nlog-own-2018-12-17.log" />
   </ItemGroup>
   <ItemGroup>
     <Content Remove="domain\obj\project.assets.json" />
@@ -54,5 +58,10 @@
     <Content Update="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Link>README.md</Link>
+    </None>
   </ItemGroup>
 </Project>
