@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using static adrapi.domain.LoggingEvents;
 
 namespace adrapi.Controllers
 {
@@ -11,10 +13,19 @@ namespace adrapi.Controllers
     [ApiController]
     public class ValuesController : ControllerBase
     {
+
+        private readonly ILogger _logger;
+
+        public ValuesController(ILogger<ValuesController> logger)
+        {
+            _logger = logger;
+        }
+
         // GET api/values
         [HttpGet]
         public ActionResult<IEnumerable<string>> Get()
         {
+            _logger.LogInformation(GetItem, "Getting item test");
             return new string[] { "value1", "value2" };
         }
 
