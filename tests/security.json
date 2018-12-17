@@ -1,0 +1,8 @@
+﻿[
+  {
+    "secretKey": "abc1234",
+    "keyID": "dev-local",
+    "authorizedIP": "127.0.0.1",
+    "claims": [ "isAdministrator" ]
+  }
+]

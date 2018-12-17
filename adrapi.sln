@@ -5,6 +5,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "domain", "domain\domain.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "adrapi", "adrapi\adrapi.csproj", "{46C3C672-9805-4677-A44F-CE94F674087B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tests", "tests\tests.csproj", "{12678FE9-54AD-4F74-8CD7-29ECE9A78147}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,5 +21,9 @@ Global
 		{46C3C672-9805-4677-A44F-CE94F674087B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{46C3C672-9805-4677-A44F-CE94F674087B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{46C3C672-9805-4677-A44F-CE94F674087B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12678FE9-54AD-4F74-8CD7-29ECE9A78147}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12678FE9-54AD-4F74-8CD7-29ECE9A78147}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12678FE9-54AD-4F74-8CD7-29ECE9A78147}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12678FE9-54AD-4F74-8CD7-29ECE9A78147}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
