@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.Extensions.Options;
 
 namespace adrapi
@@ -26,6 +27,7 @@ namespace adrapi
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            services.AddApiVersioning(o => o.ApiVersionReader = new HeaderApiVersionReader("api-version"));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
