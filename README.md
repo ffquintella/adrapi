@@ -45,7 +45,11 @@ Basically what you need to configure there is:
     - isMonitor -> Can read most of things
     
 **WARNING** Change the security.json file or your api will be open!    
-    
+
+## API
+
+- GET - /api/users - List all users        
+            
 ## Author
 Felipe F Quintella 
 

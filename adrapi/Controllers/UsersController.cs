@@ -5,6 +5,8 @@ using static adrapi.domain.LoggingEvents;
 using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using adrapi.Ldap;
 
 namespace adrapi.Controllers
 {
@@ -16,15 +18,14 @@ namespace adrapi.Controllers
     {
 
         private readonly ILogger _logger;
+        private IConfiguration configuration;
 
-
-        public UsersController(ILogger<ValuesController> logger)
+        public UsersController(ILogger<ValuesController> logger, IConfiguration iConfig)
         {
-
-            //string api_key = this.HttpContext.Request.Headers["api-key"];
-            //requesterID = api_key.Split(':')[0];
-
+      
             _logger = logger;
+
+            configuration = iConfig;
         }
 
         // GET api/users
@@ -34,7 +35,14 @@ namespace adrapi.Controllers
 
             this.ProcessRequest();
 
-            _logger.LogInformation(GetItem, "{1} getting all users", requesterID);
+            _logger.LogInformation(GetItem, "{1} listing all users", requesterID);
+
+            var ldapConf = new Ldap.LdapConfig(configuration);
+
+            var lcm = LdapConnectionManager.Instance;
+
+            var con = lcm.GetConnection(ldapConf);
+
             return new string[] { "value1", "value2" };
         }
 
