@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Folder Include="wwwroot\" />
+    <Folder Include="Ldap\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,6 +16,7 @@
     <PackageReference Include="NLog" Version="4.5.11" />
     <PackageReference Include="NLog.Web.AspNetCore" Version="4.7.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.1.6" />
+    <PackageReference Include="Novell.Directory.Ldap.NETStandard2_0" Version="3.1.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +27,7 @@
     <Compile Remove="domain\LogginEvents.cs" />
     <Compile Remove="domain\obj\Debug\netstandard2.0\domain.AssemblyInfo.cs" />
     <Compile Remove="Security\ApiClaimsPrincipalFactory.cs" />
+    <Compile Remove="Ldap\EmptyClass.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="domain\obj\Debug\netstandard2.0\domain.assets.cache" />
