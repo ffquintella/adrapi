@@ -47,6 +47,8 @@
     <None Remove="%24{specialfolder:folder=ApplicationData}\logs\internal-nlog.txt" />
     <None Remove="logs\logs\2018-12-17\nlog-all-2018-12-17.log" />
     <None Remove="logs\logs\2018-12-17\nlog-own-2018-12-17.log" />
+    <None Remove="logs\2018-12-17\nlog-all-2018-12-17.log" />
+    <None Remove="logs\2018-12-17\nlog-own-2018-12-17.log" />
   </ItemGroup>
   <ItemGroup>
     <Content Remove="domain\obj\project.assets.json" />
