@@ -6,5 +6,7 @@ namespace adrapi.domain
         public Group()
         {
         }
+
+        public string DN { get; set; }
     }
 }
