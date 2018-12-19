@@ -27,14 +27,48 @@ namespace adrapi
 
         #endregion
 
-        public List<User> GetList()
+        /// <summary>
+        /// Return a string list of the users DNs
+        /// </summary>
+        /// <returns>The list.</returns>
+        public List<String> GetList()
+        {
+            var users = new List<String>();
+
+            var sMgmt = LdapSearchManager.Instance;
+            var queue = sMgmt.SendSearch("", LdapSearchType.User);
+
+            LdapMessage message;
+
+            int results = 0;
+            while ((message = queue.GetResponse()) != null)
+            {
+                if (message is LdapSearchResult)
+                {
+                    LdapEntry entry = ((LdapSearchResult)message).Entry;
+                    users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                    results++;
+                }
+            }
+
+            logger.Debug("User search executed results:{result}", results);
+
+
+            return users;
+        }
+
+        /// <summary>
+        /// Gets the list of all users.
+        /// </summary>
+        /// <returns>The users.</returns>
+        public List<User> GetUsers()
         {
 
             var users = new List<User>();
 
             var sMgmt = LdapSearchManager.Instance;
 
-
+            
             var queue = sMgmt.SendSearch("", LdapSearchType.User);
 
 
@@ -57,6 +91,11 @@ namespace adrapi
             return users;
         }
 
+        public User GetUser (string Login)
+        {
+            return new User();
+        }
+
         private User ConvertfromLdap(LdapEntry entry)
         {
             var user = new User();
@@ -68,9 +107,24 @@ namespace adrapi
 
             var sid = ConvertByteToStringSid((byte[])(Array)entry.GetAttribute("objectSid").ByteValue);
 
-            //var ssid = Encoding.Default.GetString(bsid);
-
             user.ID = sid;
+
+            user.DN = entry.GetAttribute("distinguishedName").StringValue;
+           
+
+            if (entry.GetAttribute("memberOf") != null)
+            {
+                var moff = entry.GetAttribute("memberOf").StringValues;
+
+                while (moff.MoveNext())
+                {
+                    var group = new Group();
+                    if (moff != null && moff.Current != null)
+                        group.DN = moff.Current;
+                    user.MemberOf.Add(group);
+                }
+            }
+
 
             return user;
         }

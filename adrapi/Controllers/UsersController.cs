@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using adrapi.Ldap;
 using Newtonsoft.Json;
+using adrapi.Web;
+
 
 namespace adrapi.Controllers
 {
@@ -32,7 +34,7 @@ namespace adrapi.Controllers
 
         // GET api/users
         [HttpGet]
-        public ActionResult<IEnumerable<domain.User>> Get()
+        public ActionResult<IEnumerable<String>> Get()
         {
 
             this.ProcessRequest();
@@ -42,17 +44,36 @@ namespace adrapi.Controllers
             var uManager = UserManager.Instance;
             var users = uManager.GetList();
 
-            //return JsonConvert.SerializeObject(users);
             return users;
 
         }
 
-        // GET api/users/5
-        [HttpGet("{id}")]
-        public ActionResult<string> Get(string name)
+
+        // GET api/users 
+        [HttpGet]
+        public ActionResult<IEnumerable<domain.User>> Get([RequiredFromQuery]bool _full)
         {
-            return "value";
+            if (_full)
+            {
+                this.ProcessRequest();
+
+                _logger.LogInformation(GetItem, "{1} getting all users objects", requesterID);
+
+                var uManager = UserManager.Instance;
+                var users = uManager.GetUsers();
+
+                return users;
+            }
+            else
+            {
+                return new List<domain.User>();
+            }
         }
+
+
+        // GET api/users/5
+        //[HttpGet("{DN}")]
+        //public ActionResult<IEnumerable<domain.User>> Get(string DN)
 
 
     }

@@ -7,6 +7,7 @@
   <ItemGroup>
     <Folder Include="wwwroot\" />
     <Folder Include="Ldap\" />
+    <Folder Include="Web\" />
   </ItemGroup>
 
   <ItemGroup>

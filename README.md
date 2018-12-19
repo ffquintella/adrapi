@@ -48,7 +48,9 @@ Basically what you need to configure there is:
 
 ## API
 
-- GET - /api/users - List all users        
+- GET - /api/users - List all users 
+    - _full = bool - Returns a full list
+- GET - /api/users/:user - Get the user details       
             
 ## Author
 Felipe F Quintella 
