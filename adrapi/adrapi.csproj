@@ -16,7 +16,7 @@
     <PackageReference Include="NLog" Version="4.5.11" />
     <PackageReference Include="NLog.Web.AspNetCore" Version="4.7.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.1.6" />
-    <PackageReference Include="Novell.Directory.Ldap.NETStandard2_0" Version="3.1.0" />
+    <PackageReference Include="Novell.Directory.Ldap.NETStandard" Version="3.0.0-beta4" />
   </ItemGroup>
 
   <ItemGroup>

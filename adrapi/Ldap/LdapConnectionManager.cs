@@ -83,6 +83,25 @@ namespace adrapi.Ldap
             {
                 var srv = GetOptimalSever(config.servers);
                 con.Connect(srv.FQDN, srv.Port);
+                try
+                {
+                    con.Bind(config.bindDn, config.bindCredentials);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error on bind opperation");
+
+                    throw new domain.Exceptions.InvalidCredentialsException(ex.Message);
+                }
+            }
+
+            if(!con.Connected || !con.Connected)
+            {
+                logger.Error("Error using a closed connection");
+            }
+            else
+            {
+                logger.Debug("Connected to server: {server} on port: {port}", con.Host, con.Port);
             }
 
             return con;
