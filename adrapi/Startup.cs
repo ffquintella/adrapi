@@ -20,6 +20,9 @@ namespace adrapi
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
+
+            var conf = ConfigurationManager.Instance;
+            conf.Config = configuration;
         }
 
         public IConfiguration Configuration { get; }

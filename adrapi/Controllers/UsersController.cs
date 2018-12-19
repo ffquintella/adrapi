@@ -20,7 +20,7 @@ namespace adrapi.Controllers
         private readonly ILogger _logger;
         private IConfiguration configuration;
 
-        public UsersController(ILogger<ValuesController> logger, IConfiguration iConfig)
+        public UsersController(ILogger<UsersController> logger, IConfiguration iConfig)
         {
       
             _logger = logger;
@@ -37,11 +37,8 @@ namespace adrapi.Controllers
 
             _logger.LogInformation(GetItem, "{1} listing all users", requesterID);
 
-            var ldapConf = new Ldap.LdapConfig(configuration);
-
-            var lcm = LdapConnectionManager.Instance;
-
-            var con = lcm.GetConnection(ldapConf);
+            var uManager = UserManager.Instance;
+            var users = uManager.GetList();
 
             return new string[] { "value1", "value2" };
         }
