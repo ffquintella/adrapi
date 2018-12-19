@@ -1,10 +1,10 @@
 ﻿using System;
 namespace adrapi.domain.Exceptions
 {
-    public class NullException: Exception
+    public class WrongParameterException: Exception
     {
-        public NullException() : base() { }
-        public NullException(string message): base(message) { }
+        public WrongParameterException() : base() { }
+        public WrongParameterException(string message): base(message) { }
 
     }
 }
