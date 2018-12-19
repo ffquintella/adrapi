@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 
 namespace adrapi.Controllers
 {
+    //[Produces("application/json")]
     [Authorize(Policy = "Reading")]
     [ApiVersion("1.0")]
     [Route("api/[controller]")]
@@ -31,7 +32,7 @@ namespace adrapi.Controllers
 
         // GET api/users
         [HttpGet]
-        public ActionResult<string> Get()
+        public ActionResult<IEnumerable<domain.User>> Get()
         {
 
             this.ProcessRequest();
@@ -41,7 +42,9 @@ namespace adrapi.Controllers
             var uManager = UserManager.Instance;
             var users = uManager.GetList();
 
-            return JsonConvert.SerializeObject(users);
+            //return JsonConvert.SerializeObject(users);
+            return users;
+
         }
 
         // GET api/users/5
