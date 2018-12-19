@@ -55,7 +55,7 @@ namespace adrapi.Ldap
 
             var req = new LdapSearchRequest(sb, LdapConnection.ScopeSub, filter, null, 0, config.maxResults, 0, false, null);
             var queue = con.SendRequest(req, null);
-
+            
             return queue;
 
         }
