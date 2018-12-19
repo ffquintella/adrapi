@@ -13,6 +13,7 @@ namespace adrapi.Ldap
         public string searchFilter { get; set; }
         public string adminCn { get; set; }
         public short poolSize { get; set; }
+        public int maxResults { get; set; }
         public string[] servers { get; set; }
 
         /// <summary>
@@ -32,6 +33,7 @@ namespace adrapi.Ldap
             bindCredentials = config.GetSection("ldap").GetValue<string>("bindCredentials");
             searchBase = config.GetSection("ldap").GetValue<string>("searchBase");
             searchFilter = config.GetSection("ldap").GetValue<string>("searchFilter");
+            maxResults = config.GetSection("ldap").GetValue<int>("maxResults");
             adminCn = config.GetSection("ldap").GetValue<string>("adminCn");
         }
 
@@ -45,11 +47,12 @@ namespace adrapi.Ldap
         /// <param name="searchBase">Search base.</param>
         /// <param name="searchFilter">Search filter.</param>
         /// <param name="adminCn">Admin cn.</param>
-        public LdapConfig(String[] servers, bool ssl, short poolSize, string bindDn, string bindCredentials, string searchBase, string searchFilter, string adminCn)
+        public LdapConfig(String[] servers, bool ssl, int maxResults, short poolSize, string bindDn, string bindCredentials, string searchBase, string searchFilter, string adminCn)
         {
 
             this.servers = servers;
             this.ssl = ssl;
+            this.maxResults = maxResults;
             this.poolSize = poolSize;
             this.bindDn = bindDn;
             this.bindCredentials = bindCredentials;

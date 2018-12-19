@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using adrapi.Ldap;
+using Newtonsoft.Json;
 
 namespace adrapi.Controllers
 {
@@ -30,7 +31,7 @@ namespace adrapi.Controllers
 
         // GET api/users
         [HttpGet]
-        public ActionResult<IEnumerable<string>> Get()
+        public ActionResult<string> Get()
         {
 
             this.ProcessRequest();
@@ -40,7 +41,7 @@ namespace adrapi.Controllers
             var uManager = UserManager.Instance;
             var users = uManager.GetList();
 
-            return new string[] { "value1", "value2" };
+            return JsonConvert.SerializeObject(users);
         }
 
         // GET api/users/5
