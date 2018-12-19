@@ -60,6 +60,17 @@ namespace adrapi.Ldap
 
         }
 
+        public LdapEntry GetRegister(string DN)
+        {
+            var lcm = LdapConnectionManager.Instance;
+            var con = lcm.GetConnection();
+
+            var res = con.Read(DN);
+
+            return res;
+
+        }
+
 
     }
 }

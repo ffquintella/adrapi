@@ -68,7 +68,6 @@ namespace adrapi
 
             var sMgmt = LdapSearchManager.Instance;
 
-            
             var queue = sMgmt.SendSearch("", LdapSearchType.User);
 
 
@@ -90,10 +89,19 @@ namespace adrapi
 
             return users;
         }
-
-        public User GetUser (string Login)
+        /// <summary>
+        /// Gets the user.
+        /// </summary>
+        /// <returns>The user.</returns>
+        /// <param name="DN">The Disitnguesh name of the user</param>
+        public User GetUser (string DN)
         {
-            return new User();
+            var sMgmt = LdapSearchManager.Instance;
+
+            var entry = sMgmt.GetRegister(DN);
+
+            var user = ConvertfromLdap(entry);
+            return user;
         }
 
         private User ConvertfromLdap(LdapEntry entry)

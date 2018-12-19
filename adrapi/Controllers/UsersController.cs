@@ -71,9 +71,16 @@ namespace adrapi.Controllers
         }
 
 
-        // GET api/users/5
-        //[HttpGet("{DN}")]
-        //public ActionResult<IEnumerable<domain.User>> Get(string DN)
+        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br
+        [HttpGet("{DN}")]
+        public ActionResult<domain.User> Get(string DN)
+        {
+            var uManager = UserManager.Instance;
+
+            var user = uManager.GetUser(DN);
+
+            return user;
+        }
 
 
     }
