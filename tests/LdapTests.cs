@@ -14,7 +14,7 @@ namespace tests
 
             string[] servers = new string[] { "teste:389", "teste2:389" };
 
-            var lconfig = new LdapConfig(servers, false, 2, "testeDN", "testCred", "testSearch", "testFilter", "testAdmin");
+            var lconfig = new LdapConfig(servers, false, 1000, 2, "testeDN", "testCred", "testSearch", "testFilter", "testAdmin");
 
             Assert.NotNull(lconfig.adminCn);
 
@@ -24,7 +24,7 @@ namespace tests
 
             Exception ex = Assert.Throws<NullException>(() => lcm.GetConnection(null));
 
-            Exception ex2 = Assert.Throws<Novell.Directory.Ldap.LdapException>(() => lcm.GetConnection(lconfig));
+            Exception ex2 = Assert.ThrowsAny<Exception>(() => lcm.GetConnection(lconfig));
 
                 
 
