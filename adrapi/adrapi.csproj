@@ -8,6 +8,7 @@
     <Folder Include="wwwroot\" />
     <Folder Include="Ldap\" />
     <Folder Include="Web\" />
+    <Folder Include="Ldap\Controls\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,6 +30,11 @@
     <Compile Remove="domain\obj\Debug\netstandard2.0\domain.AssemblyInfo.cs" />
     <Compile Remove="Security\ApiClaimsPrincipalFactory.cs" />
     <Compile Remove="Ldap\EmptyClass.cs" />
+    <Compile Remove="Ldap\Controls\LdapPersistSearchControl.cs" />
+    <Compile Remove="Ldap\Controls\LdapSortControl.cs" />
+    <Compile Remove="Ldap\Asn1\Asn1Decoder.cs" />
+    <Compile Remove="Ldap\Asn1\Asn1Encoder.cs" />
+    <Compile Remove="Ldap\Controls\LdapEntryChangeControl.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="domain\obj\Debug\netstandard2.0\domain.assets.cache" />

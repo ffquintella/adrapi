@@ -36,11 +36,15 @@ namespace adrapi
             var users = new List<String>();
 
             var sMgmt = LdapSearchManager.Instance;
+
+            int results = 0;
+
+            /*
             var queue = sMgmt.SendSearch("", LdapSearchType.User);
 
             LdapMessage message;
 
-            int results = 0;
+
             while ((message = queue.GetResponse()) != null)
             {
                 if (message is LdapSearchResult)
@@ -49,6 +53,15 @@ namespace adrapi
                     users.Add(entry.GetAttribute("distinguishedName").StringValue);
                     results++;
                 }
+            }
+            */
+
+            var resps = sMgmt.ExecutePagedSearch("", $"(&(objectClass=user)(objectCategory=person))");
+
+            foreach(var entry in resps)
+            {
+                users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                results++;
             }
 
             logger.Debug("User search executed results:{result}", results);

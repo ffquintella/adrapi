@@ -37,6 +37,8 @@ namespace adrapi.Ldap
         public LdapConnection GetConnection(LdapConfig config)
         {
 
+            int LdapVersion = LdapConnection.LdapV3;
+
             if (config == null) throw new NullException("Config cannot be null");
 
             if(ConnectionPool == null)
@@ -55,7 +57,7 @@ namespace adrapi.Ldap
 
                     try
                     {
-                        cn.Bind(config.bindDn, config.bindCredentials);
+                        cn.Bind(LdapVersion, config.bindDn, config.bindCredentials);
                     }catch(Exception ex)
                     {
                         logger.Error(ex, "Error on bind opperation");
@@ -85,7 +87,7 @@ namespace adrapi.Ldap
                 con.Connect(srv.FQDN, srv.Port);
                 try
                 {
-                    con.Bind(config.bindDn, config.bindCredentials);
+                    con.Bind(LdapVersion, config.bindDn, config.bindCredentials);
                 }
                 catch (Exception ex)
                 {

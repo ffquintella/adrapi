@@ -49,8 +49,11 @@ Basically what you need to configure there is:
 ## API
 
 - GET - /api/users - List all users 
-    - _full = bool - Returns a full list
-- GET - /api/users/:user - Get the user details       
+    - _full (bool) - Returns a full list
+    - _start (int) - Results index to start form
+    - _end (int) - Results index to end form
+- GET - /api/users/:user - Get the user details     
+- GET - /api/users/:user/exists - Returns code 200 if OK and 404 if not found.
             
 ## Author
 Felipe F Quintella 

@@ -34,7 +34,7 @@ namespace adrapi.Controllers
 
         // GET api/users
         [HttpGet]
-        public ActionResult<IEnumerable<String>> Get()
+        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end)
         {
 
             this.ProcessRequest();
@@ -51,7 +51,7 @@ namespace adrapi.Controllers
 
         // GET api/users 
         [HttpGet]
-        public ActionResult<IEnumerable<domain.User>> Get([RequiredFromQuery]bool _full)
+        public ActionResult<IEnumerable<domain.User>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
         {
             if (_full)
             {
@@ -81,6 +81,34 @@ namespace adrapi.Controllers
 
             return user;
         }
+
+
+        //[ProducesResponseType(200, Type = typeof(Product))]
+        //[ProducesResponseType(404)]
+
+        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/exists
+        [HttpGet("{DN}/exists")]
+        public IActionResult GetExists(string DN)
+        {
+            var uManager = UserManager.Instance;
+
+            try
+            {
+                _logger.LogDebug("User DN={dn} found");
+                var user = uManager.GetUser(DN);
+
+                return Ok();
+
+            }
+            catch(Exception ex)
+            {
+                _logger.LogDebug("User DN={dn} not found.");
+                return NotFound();
+            }
+
+        }
+
+
 
 
     }
