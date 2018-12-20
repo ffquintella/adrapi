@@ -105,7 +105,7 @@ namespace adrapi
 
             var sMgmt = LdapSearchManager.Instance;
 
-            var queue = sMgmt.SendSearch("", LdapSearchType.User);
+            /*var queue = sMgmt.SendSearch("", LdapSearchType.User);
 
 
             LdapMessage message;
@@ -119,6 +119,15 @@ namespace adrapi
                     users.Add(ConvertfromLdap(entry));
                     results++;
                 }
+            }*/
+
+            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User);
+            int results = 0;
+
+            foreach (var entry in resps)
+            {
+                users.Add(ConvertfromLdap(entry));
+                results++;
             }
 
             logger.Debug("User search executed results:{result}", results);
@@ -126,6 +135,31 @@ namespace adrapi
 
             return users;
         }
+
+
+        public List<User> GetUsers(int start, int end)
+        {
+            var users = new List<User>();
+
+            var sMgmt = LdapSearchManager.Instance;
+
+            int results = 0;
+
+
+            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end);
+
+            foreach (var entry in resps)
+            {
+                users.Add(ConvertfromLdap(entry));
+                results++;
+            }
+
+            logger.Debug("User search executed results:{result}", results);
+
+
+            return users;
+        }
+
         /// <summary>
         /// Gets the user.
         /// </summary>
