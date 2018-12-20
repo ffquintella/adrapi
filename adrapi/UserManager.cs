@@ -56,9 +56,33 @@ namespace adrapi
             }
             */
 
-            var resps = sMgmt.ExecutePagedSearch("", $"(&(objectClass=user)(objectCategory=person))");
+            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User);
 
             foreach(var entry in resps)
+            {
+                users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                results++;
+            }
+
+            logger.Debug("User search executed results:{result}", results);
+
+
+            return users;
+        }
+
+
+        public List<String> GetList(int start, int end)
+        {
+            var users = new List<String>();
+
+            var sMgmt = LdapSearchManager.Instance;
+
+            int results = 0;
+
+
+            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end);
+
+            foreach (var entry in resps)
             {
                 users.Add(entry.GetAttribute("distinguishedName").StringValue);
                 results++;
