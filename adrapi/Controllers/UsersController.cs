@@ -42,9 +42,16 @@ namespace adrapi.Controllers
             _logger.LogInformation(GetItem, "{1} listing all users", requesterID);
 
             var uManager = UserManager.Instance;
-            var users = uManager.GetList();
 
-            return users;
+            if(_start == 0 && _end != 0)
+            {
+                return Conflict();
+            }
+
+            if (_start == 0 && _end == 0) return uManager.GetList();
+            else return uManager.GetList(_start, _end);
+
+            //return users;
 
         }
 

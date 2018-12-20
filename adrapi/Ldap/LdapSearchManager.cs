@@ -63,6 +63,129 @@ namespace adrapi.Ldap
 
         }
 
+        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, LdapSearchType type, int start, int end)
+        {
+            switch (type)
+            {
+                case LdapSearchType.User:
+                    logger.Debug("Serching all users");
+                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))", start, end);
+                case LdapSearchType.Group:
+                    logger.Debug("Serching all groups");
+                    return ExecuteLimitedSearch(searchBase, $"(objectClass=group)", start, end);
+                case LdapSearchType.OU:
+                    logger.Debug("Serching all OUs");
+                    return ExecuteLimitedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))", start, end);
+                case LdapSearchType.Machine:
+                    logger.Debug("Serching all computers");
+                    return ExecuteLimitedSearch(searchBase, $"(objectClass=computer)", start, end);
+                default:
+                    logger.Error("Search type not specified.");
+                    throw new domain.Exceptions.WrongParameterException("Search type not specified");
+            }
+        }
+
+        /// <summary>
+        /// Executes the limited search.
+        /// </summary>
+        /// <returns>The limited search.</returns>
+        /// <param name="searchBase">Search base.</param>
+        /// <param name="filter">Filter.</param>
+        /// <param name="start">Must be 1 or greater</param>
+        /// <param name="end">End.</param>
+        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, string filter, int start, int end)
+        {
+            var results = new List<LdapEntry>();
+
+            var lcm = LdapConnectionManager.Instance;
+            var conn = lcm.GetConnection();
+
+            var sb = searchBase + config.searchBase;
+
+            LdapControl[] requestControls = new LdapControl[2];
+
+            LdapSortKey[] keys = new LdapSortKey[1];
+            keys[0] = new LdapSortKey("name");
+
+            // Create the sort control 
+            requestControls[0] = new LdapSortControl(keys, true);
+
+
+            requestControls[1] = new LdapVirtualListControl(start,
+                                     0, end, config.maxResults);
+
+            // Set the controls to be sent as part of search request
+            LdapSearchConstraints cons = conn.SearchConstraints;
+            cons.SetControls(requestControls);
+            conn.Constraints = cons;
+
+
+            // Send the search request - Synchronous Search is being used here 
+            logger.Debug("Calling Asynchronous Search...");
+            ILdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+
+            // Loop through the results and print them out
+            while (res.HasMore())
+            {
+
+                /* Get next returned entry.  Note that we should expect a Ldap-
+                *Exception object as well just in case something goes wrong
+                */
+                LdapEntry nextEntry = null;
+                try
+                {
+                    nextEntry = res.Next();
+                    results.Add(nextEntry);
+                }
+                catch (Exception e)
+                {
+                    if (e is LdapReferralException)
+                        continue;
+                    else
+                    {
+                        logger.Error("Search stopped with exception " + e.ToString());
+                        break;
+                    }
+                }
+
+                /* Print out the returned Entries distinguished name.  */
+                logger.Debug(nextEntry.Dn);
+
+            }
+
+            return results;
+        }
+
+        public List<LdapEntry> ExecutePagedSearch(string searchBase, LdapSearchType type)
+        {
+            switch (type)
+            {
+                case LdapSearchType.User:
+                    logger.Debug("Serching all users");
+                    return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))");
+                case LdapSearchType.Group:
+                    logger.Debug("Serching all groups");
+                    return ExecutePagedSearch(searchBase, $"(objectClass=group)");
+                case LdapSearchType.OU:
+                    logger.Debug("Serching all OUs");
+                    return ExecutePagedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))");
+                case LdapSearchType.Machine:
+                    logger.Debug("Serching all computers");
+                    return ExecutePagedSearch(searchBase, $"(objectClass=computer)");
+                default:
+                    logger.Error("Search type not specified.");
+                    throw new domain.Exceptions.WrongParameterException("Search type not specified");
+            }
+        }
+
+
+        /// <summary>
+        /// Executes the paged search.
+        /// </summary>
+        /// <returns>The paged search.</returns>
+        /// <param name="searchBase">Search base.</param>
+        /// <param name="filter">Filter.</param>
+        /// <param name="page">Page.</param>
         public List<LdapEntry> ExecutePagedSearch(string searchBase, string filter, int page=0)
         {
             var results = new List<LdapEntry>();
