@@ -86,7 +86,8 @@ namespace Novell.Directory.Ldap.Controls
 			 * the ASN.1 encoded value of this control.  This encoding will be
 			 * appended to the search request when the control is sent.
 			 */
-			setValue(m_pagedSearchRequest.getEncoding(new LBEREncoder()));
+     
+			SetValue(m_pagedSearchRequest.GetEncoding(new LberEncoder()));
 			return ;
 		}
 
@@ -98,8 +99,8 @@ namespace Novell.Directory.Ldap.Controls
 			m_pagedSearchRequest = new Asn1Sequence(2);
 
 			/* Add the pageSize and cookie to the sequence */
-			m_pagedSearchRequest.add(new Asn1Integer (m_pageSize));
-			m_pagedSearchRequest.add (new Asn1OctetString (m_cookie));
+			m_pagedSearchRequest.Add(new Asn1Integer (m_pageSize));
+			m_pagedSearchRequest.Add(new Asn1OctetString (m_cookie));
 
 			return ;
 		}
@@ -113,7 +114,7 @@ namespace Novell.Directory.Ldap.Controls
 				// in response to a Paged Results Request - same OID
 				try
 				{
-					register(responseOID, Type.GetType("Novell.Directory.Ldap.Controls.LdapPagedResultsResponse"));
+					Register(responseOID, Type.GetType("Novell.Directory.Ldap.Controls.LdapPagedResultsResponse"));
 				}
 				catch (Exception e)
 				{

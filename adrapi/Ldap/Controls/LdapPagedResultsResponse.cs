@@ -60,16 +60,16 @@ namespace Novell.Directory.Ldap.Controls
 		private String m_cookie;
 
 		[CLSCompliantAttribute(false)]
-		public LdapPagedResultsResponse(String oid, bool critical, sbyte[] values):base(oid, critical, values)
+		public LdapPagedResultsResponse(String oid, bool critical, byte[] values):base(oid, critical, values)
 		{
-		
-			/* Create a decoder object */
-			LBERDecoder decoder = new LBERDecoder ();
+
+            /* Create a decoder object */
+            LberDecoder decoder = new LberDecoder ();
 			if (decoder == null)
 				throw new System.IO.IOException ("Decoding error");
 
 			/* We should get back an ASN.1 Sequence object */
-			Asn1Object asnObj = decoder.decode (values);
+			Asn1Object asnObj = decoder.Decode (values);
 			if ((asnObj == null) || (!(asnObj is Asn1Sequence)))
 				throw new System.IO.IOException ("Decoding error");
 
@@ -79,7 +79,7 @@ namespace Novell.Directory.Ldap.Controls
 			 */
 			Asn1Object asn1Size = ((Asn1Sequence)asnObj).get_Renamed (0);
 			if ((asn1Size != null) && (asn1Size is Asn1Integer))
-				m_size = ((Asn1Integer)asn1Size).intValue ();
+				m_size = ((Asn1Integer)asn1Size).IntValue ();
 			else
 				throw new System.IO.IOException ("Decoding error");
 
@@ -89,7 +89,7 @@ namespace Novell.Directory.Ldap.Controls
 			 */
 			Asn1Object asn1Cookie = ((Asn1Sequence)asnObj).get_Renamed (1);
 			if ((asn1Cookie != null) && (asn1Cookie is Asn1OctetString))
-				m_cookie = ((Asn1OctetString)asn1Cookie).stringValue ();
+				m_cookie = ((Asn1OctetString)asn1Cookie).StringValue ();
 			else
 				throw new System.IO.IOException ("Decoding error");
 
