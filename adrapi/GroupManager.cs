@@ -49,7 +49,6 @@ namespace adrapi
             return groups;
         }
 
-
         //TODO: Verify the lower limit witch is not working
         /// <summary>
         /// Gets the list, based on a start and end
@@ -80,7 +79,6 @@ namespace adrapi
             return groups;
         }
 
-
         /// <summary>
         /// Gets the list of all groups.
         /// </summary>
@@ -107,6 +105,11 @@ namespace adrapi
             return groups;
         }
 
+        /// <summary>
+        /// Converts the data from the LDAP result
+        /// </summary>
+        /// <returns>The LDAP.</returns>
+        /// <param name="entry">Entry.</param>
         private Group ConvertfromLdap(LdapEntry entry)
         {
             var group = new Group();
@@ -151,6 +154,21 @@ namespace adrapi
             }
 
 
+            return group;
+        }
+
+        /// <summary>
+        /// Gets the group.
+        /// </summary>
+        /// <returns>The user.</returns>
+        /// <param name="DN">The Disitnguesh name of the group</param>
+        public Group GetGroup(string DN)
+        {
+            var sMgmt = LdapSearchManager.Instance;
+
+            var entry = sMgmt.GetRegister(DN);
+
+            var group = ConvertfromLdap(entry);
             return group;
         }
     }

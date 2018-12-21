@@ -355,7 +355,7 @@ namespace adrapi.Ldap
         public LdapEntry GetRegister(string DN)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = lcm.GetConnection();
+            var con = lcm.GetConnection(true);
 
             var res = con.Read(DN);
 

@@ -55,7 +55,7 @@ namespace adrapi.Controllers
 
         }
 
-        // GET api/users 
+        // GET api/groups 
         [HttpGet]
         public ActionResult<IEnumerable<domain.Group>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
         {
@@ -83,6 +83,17 @@ namespace adrapi.Controllers
             {
                 return new List<domain.Group>();
             }
+        }
+
+        // GET api/groups/CN=Convidados,CN=Builtin,DC=labesi,DC=fgv,DC=br
+        [HttpGet("{DN}")]
+        public ActionResult<domain.Group> Get(string DN)
+        {
+            var gManager = GroupManager.Instance;
+
+            var group = gManager.GetGroup(DN);
+
+            return group;
         }
     }
 }
