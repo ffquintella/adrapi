@@ -123,7 +123,38 @@ namespace adrapi.Controllers
 
         }
 
+        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/member-of/Administrators
+        [HttpGet("{DN}/member-of/{group}")]
+        public IActionResult IsMemberOf(string DN, string group)
+        {
+            var uManager = UserManager.Instance;
 
+            try
+            {
+                _logger.LogDebug("User DN={dn} found");
+                var user = uManager.GetUser(DN);
+
+
+                foreach(domain.Group grp in user.MemberOf)
+                {
+                    if (grp.DN == group)
+                    {
+                        return Ok();
+                    }
+                }
+
+                // Rerturns 460 code telling that the user exists but it's not a member 
+                return StatusCode(250);
+
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("User DN={dn} not found.");
+                return NotFound();
+            }
+
+        }
 
 
     }
