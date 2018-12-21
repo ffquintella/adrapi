@@ -54,7 +54,7 @@ Basically what you need to configure there is:
     - _full (bool) - Returns a full list
     - _start (int) - Results index to start form
     - _end (int) - Results index to end form
-- GET - /api/users/:user - Get the user details     
+- GET - /api/users/:user - Gets the user's details     
 - GET - /api/users/:user/exists - Returns code 200 if true and 404 if false.
 - GET - /user/:user/member-of/:group - Returns code 200 if true, 404 if user is not found and 250 if not member.
 
@@ -64,6 +64,7 @@ Basically what you need to configure there is:
     - _full (bool) - Returns a full list
     - _start (int) - Results index to start form
     - _end (int) - Results index to end form
+- GET - /api/groups/:group - Gets the group's details
             
 ## Author
 Felipe F Quintella 

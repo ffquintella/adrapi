@@ -26,15 +26,16 @@ namespace adrapi.Ldap
         #endregion
 
         private List<LdapConnection> ConnectionPool;
+        private List<LdapConnection> CleanConnectionPool;
 
-        public LdapConnection GetConnection()
+        public LdapConnection GetConnection(bool clean = false)
         {
             var ldapConf = new Ldap.LdapConfig();
-            return this.GetConnection(ldapConf);
+            return this.GetConnection(ldapConf, clean);
         }
 
 
-        public LdapConnection GetConnection(LdapConfig config)
+        public LdapConnection GetConnection(LdapConfig config, bool clean = false)
         {
 
             int LdapVersion = LdapConnection.LdapV3;
@@ -44,21 +45,31 @@ namespace adrapi.Ldap
             if(ConnectionPool == null)
             {
                 ConnectionPool = new List<LdapConnection>();
+                CleanConnectionPool = new List<LdapConnection>();
 
-                for(short openConn = 0; openConn < config.poolSize; openConn++)
+                for (short openConn = 0; openConn < config.poolSize; openConn++)
                 {
                     var cn = new LdapConnection();
+                    var cnClean = new LdapConnection();
 
-                    if (config.ssl) cn.SecureSocketLayer = true;
+                    if (config.ssl)
+                    {
+                        cn.SecureSocketLayer = true;
+                        cnClean.SecureSocketLayer = true;
+                    }
   
                     var server = GetOptimalSever(config.servers);
+                    var server2 = GetOptimalSever(config.servers);
 
                     cn.Connect(server.FQDN, server.Port);
+                    cnClean.Connect(server2.FQDN, server2.Port);
 
                     try
                     {
                         cn.Bind(LdapVersion, config.bindDn, config.bindCredentials);
-                    }catch(Exception ex)
+                        cnClean.Bind(LdapVersion, config.bindDn, config.bindCredentials);
+                    }
+                    catch(Exception ex)
                     {
                         logger.Error(ex, "Error on bind opperation");
 
@@ -68,6 +79,7 @@ namespace adrapi.Ldap
                     //TODO: Verify connection and treat errors
 
                     ConnectionPool.Add(cn);
+                    CleanConnectionPool.Add(cnClean);
 
                 }
 
@@ -77,9 +89,20 @@ namespace adrapi.Ldap
             //TODO: Optimize code
             var rnd = new Random();
 
-            int sorted = rnd.Next(0, ConnectionPool.Count);
+            int sorted;
+            LdapConnection con;
 
-            var con = ConnectionPool[sorted];
+            if (clean)
+            {
+                sorted = rnd.Next(0, CleanConnectionPool.Count);
+                con = ConnectionPool[sorted];
+            }
+            else
+            {
+                sorted = rnd.Next(0, ConnectionPool.Count);
+                con = ConnectionPool[sorted];
+            }
+
 
             if (!con.Connected)
             {
@@ -105,6 +128,16 @@ namespace adrapi.Ldap
             {
                 logger.Debug("Connected to server: {server} on port: {port}", con.Host, con.Port);
             }
+
+            /*
+            LdapControl[] requestControls = new LdapControl[0];
+
+            LdapConstraints lc = new LdapConstraints();
+            lc.SetControls(requestControls);
+
+            con.Constraints = lc;
+            */
+            
 
             return con;
         }
