@@ -85,6 +85,7 @@ namespace adrapi.Controllers
             }
         }
 
+        //TODO: BUG There is a bug related to doing a limited search then doing another one here... FIX IT! :-)
         // GET api/groups/CN=Convidados,CN=Builtin,DC=labesi,DC=fgv,DC=br
         [HttpGet("{DN}")]
         public ActionResult<domain.Group> Get(string DN)
