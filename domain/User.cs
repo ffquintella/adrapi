@@ -5,16 +5,13 @@ namespace adrapi.domain
 {
     public class User
     {
-
-        private List<Group> _memberOf;
-
-
         public string Name { get; set; }
         public string Login { get; set; }
         public string Description { get; set; }
         public string ID { get; set; }
         public string DN { get; set; }
 
+        private List<Group> _memberOf;
         public List<Group> MemberOf
         {
             get

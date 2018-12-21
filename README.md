@@ -48,6 +48,8 @@ Basically what you need to configure there is:
 
 ## API
 
+### Users
+
 - GET - /api/users - List all users 
     - _full (bool) - Returns a full list
     - _start (int) - Results index to start form
@@ -55,6 +57,13 @@ Basically what you need to configure there is:
 - GET - /api/users/:user - Get the user details     
 - GET - /api/users/:user/exists - Returns code 200 if true and 404 if false.
 - GET - /user/:user/member-of/:group - Returns code 200 if true, 404 if user is not found and 250 if not member.
+
+### Groups
+
+- GET - /api/groups - List all groups
+    - _full (bool) - Returns a full list
+    - _start (int) - Results index to start form
+    - _end (int) - Results index to end form
             
 ## Author
 Felipe F Quintella 
