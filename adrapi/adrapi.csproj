@@ -9,6 +9,7 @@
     <Folder Include="Ldap\" />
     <Folder Include="Web\" />
     <Folder Include="Ldap\Controls\" />
+    <Folder Include="Ldap\Security\" />
   </ItemGroup>
 
   <ItemGroup>
