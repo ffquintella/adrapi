@@ -95,7 +95,7 @@ namespace adrapi.Ldap
             if (clean)
             {
                 sorted = rnd.Next(0, CleanConnectionPool.Count);
-                con = ConnectionPool[sorted];
+                con = CleanConnectionPool[sorted];
             }
             else
             {
