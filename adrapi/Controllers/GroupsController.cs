@@ -9,7 +9,7 @@ using Microsoft.Extensions.Configuration;
 using adrapi.Ldap;
 using Newtonsoft.Json;
 using adrapi.Web;
-
+using NLog;
 
 namespace adrapi.Controllers
 {
@@ -21,13 +21,13 @@ namespace adrapi.Controllers
     public class GroupsController: BaseController
     {
 
-        private readonly ILogger _logger;
+
         private IConfiguration configuration;
 
         public GroupsController(ILogger<GroupsController> logger, IConfiguration iConfig)
         {
       
-            _logger = logger;
+            this._logger = logger;
 
             configuration = iConfig;
         }
@@ -91,10 +91,19 @@ namespace adrapi.Controllers
         public ActionResult<domain.Group> Get(string DN)
         {
             var gManager = GroupManager.Instance;
+            try
+            {
+                var group = gManager.GetGroup(DN);
+                return group;
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError("Error getting group ex:{0}", ex.Message);
+                return null;
+            }
 
-            var group = gManager.GetGroup(DN);
 
-            return group;
+
         }
     }
 }

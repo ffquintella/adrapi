@@ -20,8 +20,7 @@ namespace adrapi.Controllers
     [ApiController]
     public class UsersController: BaseController
     {
-
-        private readonly ILogger _logger;
+    
         private IConfiguration configuration;
 
         public UsersController(ILogger<UsersController> logger, IConfiguration iConfig)

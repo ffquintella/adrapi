@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace adrapi.Controllers
 {
@@ -8,6 +9,7 @@ namespace adrapi.Controllers
     {
         protected string requesterID { get; set; }
 
+        protected ILogger _logger;
 
         public void ProcessRequest()
         {
