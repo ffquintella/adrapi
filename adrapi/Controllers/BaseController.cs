@@ -10,7 +10,7 @@ namespace adrapi.Controllers
     {
         protected string requesterID { get; set; }
 
-        protected ILogger _logger;
+        protected ILogger logger;
 
         protected IConfiguration configuration;
 

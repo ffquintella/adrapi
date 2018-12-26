@@ -25,7 +25,7 @@ namespace adrapi.Controllers
         public UsersController(ILogger<UsersController> logger, IConfiguration iConfig)
         {
       
-            _logger = logger;
+            base.logger = logger;
 
             configuration = iConfig;
         }
@@ -37,7 +37,8 @@ namespace adrapi.Controllers
 
             this.ProcessRequest();
 
-            _logger.LogInformation(GetItem, "{1} listing all users", requesterID);
+            logger.LogInformation(ListItems, "{0} listing all users", requesterID);
+
 
             var uManager = UserManager.Instance;
 
@@ -62,7 +63,7 @@ namespace adrapi.Controllers
             {
                 this.ProcessRequest();
 
-                _logger.LogInformation(GetItem, "{1} getting all users objects", requesterID);
+                logger.LogInformation(ListItems, "{0} getting all users objects", requesterID);
 
                 if (_start == 0 && _end != 0)
                 {
@@ -84,7 +85,7 @@ namespace adrapi.Controllers
         }
 
 
-        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br
+        // GET api/users/:user
         [HttpGet("{DN}")]
         public ActionResult<domain.User> Get(string DN)
         {
@@ -92,6 +93,7 @@ namespace adrapi.Controllers
             var uManager = UserManager.Instance;
 
             var user = uManager.GetUser(DN);
+            logger.LogDebug(GetItem, "User DN={dn} found", DN);
 
             return user;
         }
@@ -100,7 +102,7 @@ namespace adrapi.Controllers
         //[ProducesResponseType(200, Type = typeof(Product))]
         //[ProducesResponseType(404)]
 
-        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/exists
+        // GET api/users/:user/exists
         [HttpGet("{DN}/exists")]
         public IActionResult GetExists(string DN)
         {
@@ -110,7 +112,7 @@ namespace adrapi.Controllers
 
             try
             {
-                _logger.LogDebug("User DN={dn} found");
+                logger.LogDebug(ItemExists, "User DN={dn} found");
                 var user = uManager.GetUser(DN);
 
                 return Ok();
@@ -118,13 +120,13 @@ namespace adrapi.Controllers
             }
             catch(Exception ex)
             {
-                _logger.LogDebug("User DN={dn} not found.");
+                logger.LogDebug(ItemExists, "User DN={dn} not found.");
                 return NotFound();
             }
 
         }
 
-        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/member-of/Administrators
+        // GET api/users/:user/member-of/:group
         [HttpGet("{DN}/member-of/{group}")]
         public IActionResult IsMemberOf(string DN, string group)
         {
@@ -134,7 +136,7 @@ namespace adrapi.Controllers
 
             try
             {
-                _logger.LogDebug("User DN={dn} found");
+                logger.LogDebug(ItemExists, "User DN={dn} found");
                 var user = uManager.GetUser(DN);
 
 
@@ -153,7 +155,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogDebug("User DN={dn} not found.");
+                logger.LogDebug(ItemExists, "User DN={dn} not found.");
                 return NotFound();
             }
 
