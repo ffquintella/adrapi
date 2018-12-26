@@ -29,7 +29,7 @@ namespace adrapi
         {
             var ous = new List<String>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
 
@@ -55,7 +55,7 @@ namespace adrapi
         /// <param name="DN">The Disitnguesh name of the OU</param>
         public OU GetOU(string DN)
         {
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             var entry = sMgmt.GetRegister(DN);
 

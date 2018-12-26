@@ -30,7 +30,7 @@ namespace adrapi
         {
             var groups = new List<String>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
 
@@ -60,7 +60,7 @@ namespace adrapi
         {
             var groups = new List<String>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
 
@@ -88,7 +88,7 @@ namespace adrapi
 
             var groups = new List<Group>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.Group);
             int results = 0;
@@ -164,7 +164,7 @@ namespace adrapi
         /// <param name="DN">The Disitnguesh name of the group</param>
         public Group GetGroup(string DN)
         {
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             var entry = sMgmt.GetRegister(DN);
 
