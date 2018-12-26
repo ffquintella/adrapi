@@ -105,5 +105,49 @@ namespace adrapi.Controllers
 
 
         }
+
+        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/exists
+        [HttpGet("{DN}/exists")]
+        public IActionResult GetExists(string DN)
+        {
+            var gManager = GroupManager.Instance;
+
+            try
+            {
+                _logger.LogDebug("Group DN={dn} found");
+                var group = gManager.GetGroup(DN);
+
+                return Ok();
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("Group DN={dn} not found.");
+                return NotFound();
+            }
+
+        }
+
+        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/members
+        [HttpGet("{DN}/members")]
+        public ActionResult<List<String>> GetMembers(string DN)
+        {
+            var gManager = GroupManager.Instance;
+
+            try
+            {
+                _logger.LogDebug("Group DN={dn} found");
+                var group = gManager.GetGroup(DN);
+
+                return group.Member;
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("Group DN={dn} not found.");
+                return NotFound();
+            }
+
+        }
     }
 }
