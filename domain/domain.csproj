@@ -13,4 +13,7 @@
     <Folder Include="Security\" />
     <Folder Include="Exceptions\" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CoreCompat.System.ComponentModel.DataAnnotations" Version="4.2.3-r7" />
+  </ItemGroup>
 </Project>

@@ -7,7 +7,7 @@ using System.Text;
 
 namespace adrapi.Ldap
 {
-    public class LdapSearchManager
+    public class LdapQueryManager
     {
         public NLog.Logger logger;
 
@@ -15,18 +15,18 @@ namespace adrapi.Ldap
 
         #region SINGLETON
 
-        private static readonly Lazy<LdapSearchManager> lazy = new Lazy<LdapSearchManager>(() => new LdapSearchManager());
+        private static readonly Lazy<LdapQueryManager> lazy = new Lazy<LdapQueryManager>(() => new LdapQueryManager());
 
-        public static LdapSearchManager Instance { get { return lazy.Value; } }
+        public static LdapQueryManager Instance { get { return lazy.Value; } }
 
-        private LdapSearchManager()
+        private LdapQueryManager()
         {
             logger = NLog.LogManager.GetCurrentClassLogger();
             config = new Ldap.LdapConfig();
         }
         #endregion
 
-
+        #region READ
         public LdapMessageQueue SendSearch(string searchBase, LdapSearchType type)
         {
             switch (type) {
@@ -362,6 +362,23 @@ namespace adrapi.Ldap
             return res;
 
         }
+
+        #endregion
+
+        #region WRITE
+
+        public void SaveEntry(LdapEntry entry)
+        {
+            var lcm = LdapConnectionManager.Instance;
+            var con = lcm.GetConnection(true);
+
+            //Add the entry to the directory
+            con.Add(entry);
+
+            return;
+        }
+
+        #endregion
 
 
     }

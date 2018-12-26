@@ -33,7 +33,7 @@ namespace adrapi
         {
             var users = new List<String>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
 
@@ -80,7 +80,7 @@ namespace adrapi
         {
             var users = new List<String>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
 
@@ -108,23 +108,7 @@ namespace adrapi
 
             var users = new List<User>();
 
-            var sMgmt = LdapSearchManager.Instance;
-
-            /*var queue = sMgmt.SendSearch("", LdapSearchType.User);
-
-
-            LdapMessage message;
-
-            int results = 0;
-            while((message = queue.GetResponse()) != null)
-            {
-                if (message is LdapSearchResult)
-                {
-                    LdapEntry entry = ((LdapSearchResult)message).Entry;
-                    users.Add(ConvertfromLdap(entry));
-                    results++;
-                }
-            }*/
+            var sMgmt = LdapQueryManager.Instance;
 
             var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User);
             int results = 0;
@@ -146,7 +130,7 @@ namespace adrapi
         {
             var users = new List<User>();
 
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
 
@@ -172,12 +156,76 @@ namespace adrapi
         /// <param name="DN">The Disitnguesh name of the user</param>
         public User GetUser (string DN)
         {
-            var sMgmt = LdapSearchManager.Instance;
+            var sMgmt = LdapQueryManager.Instance;
 
-            var entry = sMgmt.GetRegister(DN);
+            try
+            {
+                var entry = sMgmt.GetRegister(DN);
+                var user = ConvertfromLdap(entry);
+                return user;
+            }catch(LdapException ex)
+            {
+                logger.Debug("User not found {0} Ex: {1}", DN, ex.Message);
+                return null;
+            }
 
-            var user = ConvertfromLdap(entry);
-            return user;
+        }
+
+        /// <summary>
+        /// Creates the user on LDAP Directory.
+        /// </summary>
+        /// <returns> -1 Error </returns>
+        /// <returns> 0 OK </returns>
+        /// <param name="user">User.</param>
+        public int CreateUser(User user)
+        {
+
+            //Creates the List attributes of the entry and add them to attributeset
+
+            LdapAttributeSet attributeSet = new LdapAttributeSet();
+
+            //attributeSet.Add(new LdapAttribute("objectclass", "inetOrgPerson"));
+            //attributeSet.Add(new LdapAttribute("objectclass", "organizationalPerson"));
+            attributeSet.Add(new LdapAttribute("objectclass", new string[] {"top", "person", "organizationalPerson", "user" }));
+            attributeSet.Add(new LdapAttribute("cn", new string[] { user.Login }));
+            attributeSet.Add(new LdapAttribute("name", user.Name ));
+            attributeSet.Add(new LdapAttribute("sAMAccountName",  user.Login ));
+            //attributeSet.Add(new LdapAttribute("sAMAccountType", "805306368"));
+            
+
+
+            attributeSet.Add(new LdapAttribute("displayName",  user.Name ));
+            attributeSet.Add(new LdapAttribute("description",  user.Description ));
+
+            int accountControl = 544;
+
+            attributeSet.Add(new LdapAttribute("userAccountControl", accountControl.ToString() ));
+
+            //attributeSet.Add(new LdapAttribute("givenname", "James"));
+            //attributeSet.Add(new LdapAttribute("sn", "Smith"));
+            //attributeSet.Add(new LdapAttribute("mail", "JSmith@Acme.com"));
+
+            // DN of the entry to be added
+            string dn = user.DN;
+
+            LdapEntry newEntry = new LdapEntry(dn, attributeSet);
+
+
+            var qMgmt = LdapQueryManager.Instance;
+
+            try
+            {
+                qMgmt.SaveEntry(newEntry);
+                return 0;
+
+            }catch(Exception ex)
+            {
+                logger.Error("Error saving user");
+                logger.Log(LogLevel.Error, ex);
+                return -1;
+            }
+
+            //return -1;
         }
 
         private User ConvertfromLdap(LdapEntry entry)
