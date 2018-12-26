@@ -67,7 +67,13 @@ Basically what you need to configure there is:
 - GET - /api/groups/:group - Gets the group's details
 - GET - /api/groups/:group/exists - Returns code 200 if true and 404 if false.
 - GET - /api/groups/:group/members - Returns a list of the DNs of the groups members.
-                 
+
+### OUs
+
+- GET - /api/ous - List all ous
+- GET - /api/ous/:ou - Gets the ou's details     
+- GET - /api/ous/:ou/exists - Returns code 200 if true and 404 if false.                     
+                                                   
 ## Author
 Felipe F Quintella 
 

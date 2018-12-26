@@ -24,26 +24,22 @@ namespace adrapi.Controllers
         public OUsController(ILogger<GroupsController> logger, IConfiguration iConfig)
         {
 
-            this._logger = logger;
+            this.logger = logger;
 
             configuration = iConfig;
         }
 
-        // GET: api/values
+        // GET: api/ous
         [HttpGet]
-        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end)
+        public ActionResult<IEnumerable<String>> Get()
         {
 
             this.ProcessRequest();
 
-            _logger.LogInformation(GetItem, "{1} listing all ous", requesterID);
+            logger.LogInformation(GetItem, "{1} listing all ous", requesterID);
 
             var oManager = OUManager.Instance;
 
-            if (_start == 0 && _end != 0)
-            {
-                return Conflict();
-            }
 
             //if (_start == 0 && _end == 0)
                 return oManager.GetList();
@@ -52,6 +48,51 @@ namespace adrapi.Controllers
 
         }
 
+        // GET: api/ous/:ou
+        [HttpGet("{DN}")]
+        public ActionResult<domain.OU> Get(string DN)
+        {
+            this.ProcessRequest();
 
+            var oManager = OUManager.Instance;
+            try
+            {
+                var ou = oManager.GetOU(DN);
+                logger.LogDebug(GetItem, "Getting OU={0}", ou.Name);
+                return ou;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(GetItem, "Error getting ou ex:{0}", ex.Message);
+                return null;
+            }
+
+
+
+        }
+
+        // GET api/ous/:ou/exists
+        [HttpGet("{DN}/exists")]
+        public IActionResult GetExists(string DN)
+        {
+            this.ProcessRequest();
+
+            var oManager = OUManager.Instance;
+
+            try
+            {
+                logger.LogDebug(ItemExists, "OU DN={dn} found");
+                var ou = oManager.GetOU(DN);
+
+                return Ok();
+
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ItemExists, "OU DN={dn} not found.");
+                return NotFound();
+            }
+
+        }
     }
 }

@@ -25,7 +25,7 @@ namespace adrapi.Controllers
         public GroupsController(ILogger<GroupsController> logger, IConfiguration iConfig)
         {
       
-            this._logger = logger;
+            this.logger = logger;
 
             configuration = iConfig;
         }
@@ -37,7 +37,7 @@ namespace adrapi.Controllers
 
             this.ProcessRequest();
 
-            _logger.LogInformation(GetItem, "{1} listing all groups", requesterID);
+            logger.LogDebug(GetItem, "{0} listing all groups", requesterID);
 
             var gManager = GroupManager.Instance;
 
@@ -61,7 +61,7 @@ namespace adrapi.Controllers
             {
                 this.ProcessRequest();
 
-                _logger.LogInformation(GetItem, "{1} getting all groups objects", requesterID);
+                logger.LogDebug(ListItems, "{0} getting all groups objects", requesterID);
 
                 if (_start == 0 && _end != 0)
                 {
@@ -84,7 +84,7 @@ namespace adrapi.Controllers
         }
 
         //TODO: BUG There is a bug related to doing a limited search then doing another one here... FIX IT! :-)
-        // GET api/groups/CN=Convidados,CN=Builtin,DC=labesi,DC=fgv,DC=br
+        // GET api/groups/:group
         [HttpGet("{DN}")]
         public ActionResult<domain.Group> Get(string DN)
         {
@@ -94,11 +94,12 @@ namespace adrapi.Controllers
             try
             {
                 var group = gManager.GetGroup(DN);
+                logger.LogDebug(GetItem, "Getting OU={0}", group.Name);
                 return group;
             }
             catch(Exception ex)
             {
-                _logger.LogError("Error getting group ex:{0}", ex.Message);
+                logger.LogError(GetItem, "Error getting group ex:{0}", ex.Message);
                 return null;
             }
 
@@ -106,7 +107,7 @@ namespace adrapi.Controllers
 
         }
 
-        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/exists
+        // GET api/groups/:group/exists
         [HttpGet("{DN}/exists")]
         public IActionResult GetExists(string DN)
         {
@@ -116,7 +117,7 @@ namespace adrapi.Controllers
 
             try
             {
-                _logger.LogDebug("Group DN={dn} found");
+                logger.LogDebug(ItemExists, "Group DN={dn} found", DN);
                 var group = gManager.GetGroup(DN);
 
                 return Ok();
@@ -124,13 +125,13 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogDebug("Group DN={dn} not found.");
+                logger.LogDebug(ItemExists, "Group DN={dn} not found.");
                 return NotFound();
             }
 
         }
 
-        // GET api/users/CN=Administrador,CN=Users,DC=labesi,DC=fgv,DC=br/members
+        // GET api/groups/:group/members
         [HttpGet("{DN}/members")]
         public ActionResult<List<String>> GetMembers(string DN)
         {
@@ -139,7 +140,7 @@ namespace adrapi.Controllers
 
             try
             {
-                _logger.LogDebug("Group DN={dn} found");
+                logger.LogDebug(ListItems, "Group DN={dn} found");
                 var group = gManager.GetGroup(DN);
 
                 return group.Member;
@@ -147,7 +148,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogDebug("Group DN={dn} not found.");
+                logger.LogDebug(ListItems, "Group DN={dn} not found.");
                 return NotFound();
             }
 
