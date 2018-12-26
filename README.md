@@ -65,7 +65,9 @@ Basically what you need to configure there is:
     - _start (int) - Results index to start form
     - _end (int) - Results index to end form
 - GET - /api/groups/:group - Gets the group's details
-            
+- GET - /api/groups/:group/exists - Returns code 200 if true and 404 if false.
+- GET - /api/groups/:group/members - Returns a list of the DNs of the groups members.
+                 
 ## Author
 Felipe F Quintella 
 
