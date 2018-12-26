@@ -22,8 +22,6 @@ namespace adrapi.Controllers
     {
 
 
-        private IConfiguration configuration;
-
         public GroupsController(ILogger<GroupsController> logger, IConfiguration iConfig)
         {
       
@@ -90,6 +88,8 @@ namespace adrapi.Controllers
         [HttpGet("{DN}")]
         public ActionResult<domain.Group> Get(string DN)
         {
+            this.ProcessRequest();
+
             var gManager = GroupManager.Instance;
             try
             {
@@ -110,6 +110,8 @@ namespace adrapi.Controllers
         [HttpGet("{DN}/exists")]
         public IActionResult GetExists(string DN)
         {
+            this.ProcessRequest();
+
             var gManager = GroupManager.Instance;
 
             try
@@ -132,6 +134,7 @@ namespace adrapi.Controllers
         [HttpGet("{DN}/members")]
         public ActionResult<List<String>> GetMembers(string DN)
         {
+            this.ProcessRequest();
             var gManager = GroupManager.Instance;
 
             try

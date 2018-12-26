@@ -20,8 +20,7 @@ namespace adrapi.Controllers
     [ApiController]
     public class UsersController: BaseController
     {
-    
-        private IConfiguration configuration;
+   
 
         public UsersController(ILogger<UsersController> logger, IConfiguration iConfig)
         {
@@ -89,6 +88,7 @@ namespace adrapi.Controllers
         [HttpGet("{DN}")]
         public ActionResult<domain.User> Get(string DN)
         {
+            this.ProcessRequest();
             var uManager = UserManager.Instance;
 
             var user = uManager.GetUser(DN);
@@ -104,6 +104,8 @@ namespace adrapi.Controllers
         [HttpGet("{DN}/exists")]
         public IActionResult GetExists(string DN)
         {
+            this.ProcessRequest();
+
             var uManager = UserManager.Instance;
 
             try
@@ -126,6 +128,8 @@ namespace adrapi.Controllers
         [HttpGet("{DN}/member-of/{group}")]
         public IActionResult IsMemberOf(string DN, string group)
         {
+            this.ProcessRequest();
+
             var uManager = UserManager.Instance;
 
             try
