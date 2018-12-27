@@ -374,6 +374,7 @@ namespace adrapi.Ldap
 
             //Add the entry to the directory
             con.Add(entry);
+            
 
             return;
         }

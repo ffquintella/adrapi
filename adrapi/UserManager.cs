@@ -201,15 +201,18 @@ namespace adrapi
             if (user.Password == null) user.IsDisabled = true;
             else
             {
+                user.IsDisabled = false;
                 var ldapCfg = new LdapConfig();
                 if(ldapCfg.ssl == false)
                 {
                     throw new domain.Exceptions.SSLRequiredException();
                 }
 
-
-                byte[] encodedBytes = Encoding.Unicode.GetBytes(user.Password);
+                string quotePwd = String.Format(@"""{0}""", user.Password);
+                byte[] encodedBytes = Encoding.Unicode.GetBytes(quotePwd);
                 attributeSet.Add(new LdapAttribute("unicodePwd", encodedBytes));
+
+               
             }
 
             attributeSet.Add(new LdapAttribute("userAccountControl", user.accountControl.ToString() ));
