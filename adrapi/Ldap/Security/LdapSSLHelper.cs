@@ -7,10 +7,18 @@ namespace adrapi.Ldap.Security
 {
     public static class LdapSSLHelper
     {
+
+        /// <summary>
+        /// Handles the remote certificate validation callback.
+        /// </summary>
+        /// <returns><c>true</c>, if remote certificate validation callback was handled, <c>false</c> otherwise.</returns>
+        /// <param name="sender">Sender.</param>
+        /// <param name="certificate">Certificate.</param>
+        /// <param name="chain">Chain.</param>
+        /// <param name="sslPolicyErrors">Ssl policy errors.</param>
         public static bool HandleRemoteCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
         {
-            int a = 0;
-            a++;
+            //TODO: Create a real server certificate validation (maybe a hash validation would suffice)
             return true;
         }
 
