@@ -60,6 +60,8 @@ namespace adrapi.Ldap
                         cn.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
 
                         cnClean.SecureSocketLayer = true;
+
+                        cnClean.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
                     }
 
 
