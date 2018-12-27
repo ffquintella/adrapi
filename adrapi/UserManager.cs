@@ -206,11 +206,66 @@ namespace adrapi
 
         }
 
+        /// <summary>
+        /// Saves the user.
+        /// </summary>
+        /// <returns>The user. Must have DN set</returns>
+        /// <param name="user">User.</param>
         public int SaveUser(User user)
         {
 
+            var qMgmt = LdapQueryManager.Instance;
 
-            return -1;
+            var modList = new List<LdapModification>();
+
+            var atributes = GetAttributeSet(user);
+
+            //Get user from the Directory
+            try
+            {
+                var duser = GetUser(user.DN);
+
+                var dattrs = GetAttributeSet(duser);
+
+   
+                foreach (LdapAttribute attr in atributes)
+                {
+                    if (
+                        attr.Name != "cn"
+                        && attr.Name != "objectclass"
+                      )
+                    {
+                        //TODO FIX COMPARASION
+                        if(attr.ByteValue != dattrs.GetAttribute(attr.Name).ByteValue )
+                            modList.Add(new LdapModification(LdapModification.Replace, attr));
+                    }
+
+           
+                }
+
+
+
+                try
+                {
+                    qMgmt.SaveEntry(user.DN, modList.ToArray());
+                    return 0;
+
+                }
+                catch (Exception ex)
+                {
+                    logger.Error("Error updating user");
+                    logger.Log(LogLevel.Error, ex);
+                    return -1;
+                }
+
+            }catch(Exception ex)
+            {
+                logger.Error("Error user not found");
+                logger.Log(LogLevel.Error, ex);
+                return -1;
+            }
+
+
         }
 
 
@@ -228,10 +283,13 @@ namespace adrapi
             attributeSet.Add(new LdapAttribute("description", user.Description));
 
 
-            if (user.Password == null) user.IsDisabled = true;
+            if (user.Password == null )
+            {
+                if(user.IsDisabled == null) user.IsDisabled = true;
+            }
             else
             {
-                user.IsDisabled = false;
+                if (user.IsDisabled == null) user.IsDisabled = false;
                 var ldapCfg = new LdapConfig();
                 if (ldapCfg.ssl == false)
                 {

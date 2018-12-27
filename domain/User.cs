@@ -17,16 +17,17 @@ namespace adrapi.domain
         public string Password { get; set; }
 
 
-        public Boolean IsDisabled { get; set; }
-        public Boolean IsLocked { get; set; }
-        public Boolean PasswordExpired { get; set; }
+        public bool? IsDisabled { get; set; }
+        public bool IsLocked { get; set; }
+        public bool PasswordExpired { get; set; }
 
         public int accountControl {
             get
             {
                 int val = 512;
 
-                if (IsDisabled) val += 2;
+                if (IsDisabled == true) val += 2;
+                
                 if (IsLocked) val += 16;
                 if (PasswordExpired) val += 8388608;
 
