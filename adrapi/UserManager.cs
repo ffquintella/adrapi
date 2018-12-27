@@ -182,44 +182,7 @@ namespace adrapi
 
             //Creates the List attributes of the entry and add them to attributeset
 
-            LdapAttributeSet attributeSet = new LdapAttributeSet();
-
-            //attributeSet.Add(new LdapAttribute("objectclass", "inetOrgPerson"));
-            //attributeSet.Add(new LdapAttribute("objectclass", "organizationalPerson"));
-            attributeSet.Add(new LdapAttribute("objectclass", new string[] {"top", "person", "organizationalPerson", "user" }));
-            attributeSet.Add(new LdapAttribute("cn", new string[] { user.Login }));
-            attributeSet.Add(new LdapAttribute("name", user.Name ));
-            attributeSet.Add(new LdapAttribute("sAMAccountName",  user.Login ));
-            //attributeSet.Add(new LdapAttribute("sAMAccountType", "805306368"));
-            
-
-
-            attributeSet.Add(new LdapAttribute("displayName",  user.Name ));
-            attributeSet.Add(new LdapAttribute("description",  user.Description ));
-
-            //int accountControl = 544;
-            if (user.Password == null) user.IsDisabled = true;
-            else
-            {
-                user.IsDisabled = false;
-                var ldapCfg = new LdapConfig();
-                if(ldapCfg.ssl == false)
-                {
-                    throw new domain.Exceptions.SSLRequiredException();
-                }
-
-                string quotePwd = String.Format(@"""{0}""", user.Password);
-                byte[] encodedBytes = Encoding.Unicode.GetBytes(quotePwd);
-                attributeSet.Add(new LdapAttribute("unicodePwd", encodedBytes));
-
-               
-            }
-
-            attributeSet.Add(new LdapAttribute("userAccountControl", user.accountControl.ToString() ));
-
-            //attributeSet.Add(new LdapAttribute("givenname", "James"));
-            //attributeSet.Add(new LdapAttribute("sn", "Smith"));
-            //attributeSet.Add(new LdapAttribute("mail", "JSmith@Acme.com"));
+            LdapAttributeSet attributeSet = GetAttributeSet(user);
 
             // DN of the entry to be added
             string dn = user.DN;
@@ -231,7 +194,7 @@ namespace adrapi
 
             try
             {
-                qMgmt.SaveEntry(newEntry);
+                qMgmt.AddEntry(newEntry);
                 return 0;
 
             }catch(Exception ex)
@@ -241,7 +204,54 @@ namespace adrapi
                 return -1;
             }
 
-            //return -1;
+        }
+
+        public int SaveUser(User user)
+        {
+
+
+            return -1;
+        }
+
+
+        private LdapAttributeSet GetAttributeSet(User user)
+        {
+            LdapAttributeSet attributeSet = new LdapAttributeSet();
+
+            attributeSet.Add(new LdapAttribute("objectclass", new string[] { "top", "person", "organizationalPerson", "user" }));
+            attributeSet.Add(new LdapAttribute("cn", new string[] { user.Login }));
+            attributeSet.Add(new LdapAttribute("name", user.Name));
+            attributeSet.Add(new LdapAttribute("sAMAccountName", user.Login));
+
+
+            attributeSet.Add(new LdapAttribute("displayName", user.Name));
+            attributeSet.Add(new LdapAttribute("description", user.Description));
+
+
+            if (user.Password == null) user.IsDisabled = true;
+            else
+            {
+                user.IsDisabled = false;
+                var ldapCfg = new LdapConfig();
+                if (ldapCfg.ssl == false)
+                {
+                    throw new domain.Exceptions.SSLRequiredException();
+                }
+
+                string quotePwd = String.Format(@"""{0}""", user.Password);
+                byte[] encodedBytes = Encoding.Unicode.GetBytes(quotePwd);
+                attributeSet.Add(new LdapAttribute("unicodePwd", encodedBytes));
+
+
+            }
+
+            attributeSet.Add(new LdapAttribute("userAccountControl", user.accountControl.ToString()));
+
+            //attributeSet.Add(new LdapAttribute("givenname", "James"));
+            //attributeSet.Add(new LdapAttribute("sn", "Smith"));
+            //attributeSet.Add(new LdapAttribute("mail", "JSmith@Acme.com"));
+
+            return attributeSet;
         }
 
         private User ConvertfromLdap(LdapEntry entry)

@@ -55,9 +55,24 @@ Basically what you need to configure there is:
     - _start (int) - Results index to start form
     - _end (int) - Results index to end form
 - GET - /api/users/:user - Gets the user's details  
-- PUT - /api/users/:user - Creates a new user   
+- PUT - /api/users/:user - Creates a new user (1)  
+    - Body user json:
+        - String: name
+        - String: login
+        - String: description (optional)
+        - String: password (optional)
+        - Boolean: IsDisabled (optional)
+        - Boolea: IsLocked (optional)
+        - Boolean: PasswordExpired (optional)
+        - Array(String): memberof - List of DNs
 - GET - /api/users/:user/exists - Returns code 200 if true and 404 if false.
 - GET - /user/:user/member-of/:group - Returns code 200 if true, 404 if user is not found and 250 if not member.
+
+
+
+#### Observations
+
+* (1) It's only possible to create users with passwords with an active directory configured to use SSL
 
 ### Groups
 
