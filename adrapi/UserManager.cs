@@ -197,9 +197,22 @@ namespace adrapi
             attributeSet.Add(new LdapAttribute("displayName",  user.Name ));
             attributeSet.Add(new LdapAttribute("description",  user.Description ));
 
-            int accountControl = 544;
+            //int accountControl = 544;
+            if (user.Password == null) user.IsDisabled = true;
+            else
+            {
+                var ldapCfg = new LdapConfig();
+                if(ldapCfg.ssl == false)
+                {
+                    throw new domain.Exceptions.SSLRequiredException();
+                }
 
-            attributeSet.Add(new LdapAttribute("userAccountControl", accountControl.ToString() ));
+
+                byte[] encodedBytes = Encoding.Unicode.GetBytes(user.Password);
+                attributeSet.Add(new LdapAttribute("unicodePwd", encodedBytes));
+            }
+
+            attributeSet.Add(new LdapAttribute("userAccountControl", user.accountControl.ToString() ));
 
             //attributeSet.Add(new LdapAttribute("givenname", "James"));
             //attributeSet.Add(new LdapAttribute("sn", "Smith"));

@@ -14,8 +14,26 @@ namespace adrapi.domain
         public string ID { get; set; }
         public string DN { get; set; }
 
+        public string Password { get; set; }
 
 
+        public Boolean IsDisabled { get; set; }
+        public Boolean IsLocked { get; set; }
+        public Boolean PasswordExpired { get; set; }
+
+        public int accountControl {
+            get
+            {
+                int val = 512;
+
+                if (IsDisabled) val += 2;
+                if (IsLocked) val += 16;
+                if (PasswordExpired) val += 8388608;
+
+
+                return val;
+            }
+        }
 
         private List<Group> _memberOf;
         public List<Group> MemberOf

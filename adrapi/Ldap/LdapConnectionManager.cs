@@ -3,7 +3,8 @@ using Novell.Directory.Ldap;
 using System.Collections.Generic;
 using adrapi.domain.Exceptions;
 using NLog;
-
+using System.Security.Cryptography.X509Certificates;
+using System.Net.Security;
 
 namespace adrapi.Ldap
 {
@@ -55,9 +56,13 @@ namespace adrapi.Ldap
                     if (config.ssl)
                     {
                         cn.SecureSocketLayer = true;
+
+                        cn.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
+
                         cnClean.SecureSocketLayer = true;
                     }
-  
+
+
                     var server = GetOptimalSever(config.servers);
                     var server2 = GetOptimalSever(config.servers);
 
@@ -141,6 +146,8 @@ namespace adrapi.Ldap
 
             return con;
         }
+
+
 
 
         private LdapServer GetOptimalSever(string[] servers)
