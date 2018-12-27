@@ -202,10 +202,10 @@ namespace adrapi
             else
             {
                 var ldapCfg = new LdapConfig();
-                /*if(ldapCfg.ssl == false)
+                if(ldapCfg.ssl == false)
                 {
                     throw new domain.Exceptions.SSLRequiredException();
-                }*/
+                }
 
 
                 byte[] encodedBytes = Encoding.Unicode.GetBytes(user.Password);
