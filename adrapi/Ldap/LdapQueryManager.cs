@@ -2,6 +2,7 @@
 using Novell.Directory.Ldap;
 using Novell.Directory.Ldap.Controls;
 using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
 using System.Text;
 
@@ -379,7 +380,16 @@ namespace adrapi.Ldap
             return;
         }
 
+        public void SaveEntry(String dn, LdapModification[] modList)
+        {
+            var lcm = LdapConnectionManager.Instance;
+            var con = lcm.GetConnection(true);
 
+            //Add the entry to the directory
+            con.Modify(dn, modList);
+
+            return;
+        }
 
         #endregion
 

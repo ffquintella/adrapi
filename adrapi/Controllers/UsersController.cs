@@ -225,6 +225,12 @@ namespace adrapi.Controllers
                     // Update 
                     logger.LogInformation(UpdateItem, "Updating user DN={DN}", DN);
 
+                    user.DN = DN;
+
+                    var result = uManager.SaveUser(user);
+                    if (result == 0) return Ok();
+                    else return this.StatusCode(500);
+
                 }
 
                 logger.LogDebug(PutItem, "User DN={dn} found", DN);
