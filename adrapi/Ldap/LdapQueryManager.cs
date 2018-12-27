@@ -367,7 +367,7 @@ namespace adrapi.Ldap
 
         #region WRITE
 
-        public void SaveEntry(LdapEntry entry)
+        public void AddEntry(LdapEntry entry)
         {
             var lcm = LdapConnectionManager.Instance;
             var con = lcm.GetConnection(true);
@@ -378,6 +378,8 @@ namespace adrapi.Ldap
 
             return;
         }
+
+
 
         #endregion
 
