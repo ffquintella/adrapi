@@ -1,10 +1,10 @@
 ﻿using System;
 namespace adrapi.domain.Exceptions
 {
-    public class NullException: Exception
+    public class SSLRequiredException: Exception
     {
-        public NullException() : base() { }
-        public NullException(string message): base(message) { }
+        public SSLRequiredException() : base() { }
+        public SSLRequiredException(string message): base(message) { }
 
     }
 }
