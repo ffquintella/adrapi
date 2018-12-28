@@ -11,6 +11,7 @@ namespace adrapi.domain
         public const int DeleteItem = 1005;
         public const int ItemExists = 1006;
         public const int PutItem = 1007;
+        public const int AuthenticationItem = 1008;
 
         public const int GetItemNotFound = 4000;
         public const int UpdateItemNotFound = 4001;
