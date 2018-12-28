@@ -7,10 +7,10 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using adrapi.Ldap;
-using Newtonsoft.Json;
 using adrapi.Web;
 using adrapi.domain;
 using System.Text.RegularExpressions;
+
 
 
 namespace adrapi.Controllers
