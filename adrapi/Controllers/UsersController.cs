@@ -196,6 +196,30 @@ namespace adrapi.Controllers
             }
 
         }
+
+        // GET api/users/authenticate
+        [HttpPost("authenticate")]
+        public ActionResult AuthenticateDirect([FromBody] AuthenticationRequest req)
+        {
+
+            var uManager = UserManager.Instance;
+
+            string login;
+
+            if (req.Login == null)
+            {
+                logger.LogDebug(AuthenticationItem, "Invalid Authentication request without login");
+                return BadRequest();
+            }
+            else login = req.Login;
+
+            var success = uManager.ValidateAuthentication(login, req.Password);
+
+            if (success) return Ok();
+            return StatusCode(401);
+
+
+        }
         #endregion
 
 

@@ -54,9 +54,13 @@ Basically what you need to configure there is:
     - _full (bool) - Returns a full list
     - _start (int) - Results index to start form
     - _end (int) - Results index to end form
+- POST - /user/authenticate - Returns 200 if OK 400 if login or password is not present and 401 if password is wrong
+    - Body json:
+        - String: login
+        - String: password
 - GET - /api/users/:user - Gets the user's details  
 - PUT - /api/users/:user - Creates a new user (1)  
-    - Body user json:
+    - Body json:
         - String: name
         - String: login
         - String: description (optional)
