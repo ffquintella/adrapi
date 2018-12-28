@@ -12,6 +12,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication;
+using Swashbuckle.AspNetCore.Swagger;
+using Microsoft.OpenApi.Models;
+
 
 namespace adrapi
 {
@@ -58,6 +61,13 @@ namespace adrapi
                 o.DefaultApiVersion = new ApiVersion(1, 0);
                 o.ApiVersionReader = new HeaderApiVersionReader("api-version");
             });*/
+
+            services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "ADRAPI", Version = "v1" });
+                c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+            });
+         
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -77,6 +87,13 @@ namespace adrapi
             app.UseAuthentication();
 
             //app.UseMiddleware<Security.KeyAuthenticationMiddleware>();
+
+            app.UseSwagger();
+
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "ADRAPI V1");
+            });
 
             app.UseMvc();
         }

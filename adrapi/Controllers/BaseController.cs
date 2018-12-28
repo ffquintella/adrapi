@@ -14,7 +14,7 @@ namespace adrapi.Controllers
 
         protected IConfiguration configuration;
 
-        public void ProcessRequest()
+        protected void ProcessRequest()
         {
             requesterID = this.Request.Headers["api-key"].ToString().Split(':')[0];
         }
