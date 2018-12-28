@@ -62,9 +62,12 @@ Basically what you need to configure there is:
         - String: description (optional)
         - String: password (optional)
         - Boolean: IsDisabled (optional)
-        - Boolea: IsLocked (optional)
+        - Boolean: IsLocked (optional)
         - Boolean: PasswordExpired (optional)
         - Array(String): memberof - List of DNs
+- POST - /user/:user/authenticate - Returns 200 if OK 404 if user not found and 401 if password is wrong
+    - Body json:
+        - String: password
 - GET - /api/users/:user/exists - Returns code 200 if true and 404 if false.
 - GET - /user/:user/member-of/:group - Returns code 200 if true, 404 if user is not found and 250 if not member.
 

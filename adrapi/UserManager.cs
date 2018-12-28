@@ -276,6 +276,15 @@ namespace adrapi
 
         }
 
+        public bool ValidateAuthentication(string login, string password)
+        {
+
+            LdapConnectionManager lcm = LdapConnectionManager.Instance;
+
+            return lcm.ValidateAuthentication(login, password);
+
+        }
+
 
         private LdapAttributeSet GetAttributeSet(User user)
         {
