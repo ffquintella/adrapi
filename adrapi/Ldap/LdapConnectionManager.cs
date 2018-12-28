@@ -144,11 +144,51 @@ namespace adrapi.Ldap
 
             con.Constraints = lc;
             */
-            
+
 
             return con;
         }
 
+
+        public bool ValidateAuthentication(string login, string password)
+        {
+            int LdapVersion = LdapConnection.LdapV3;
+
+            var ldapConf = new Ldap.LdapConfig();
+
+            var server = GetOptimalSever(ldapConf.servers);
+
+            logger.Debug("Authenticating user: {login} on server: {server}", login, server);
+
+            var cn = new LdapConnection();
+
+            if (ldapConf.ssl)
+            {
+                cn.SecureSocketLayer = true;
+
+                cn.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
+
+            }
+
+            cn.Connect(server.FQDN, server.Port);
+
+            ldapConf.bindDn = login;
+            ldapConf.bindCredentials = password;
+
+
+            try
+            {
+                cn.Bind(LdapVersion, ldapConf.bindDn, ldapConf.bindCredentials);
+                cn.Disconnect();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.Info(ex, "Authentication failed for login:{user}", login);
+                return false;
+            }
+
+        }
 
 
 

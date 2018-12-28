@@ -165,10 +165,42 @@ namespace adrapi.Controllers
         }
         #endregion
 
-        #region POST
 
 
+        #region Authentication
 
+        // GET api/users/:user/authenticate
+        [HttpPost("{DN}/authenticate")]
+        public ActionResult Authenticate(string DN, [FromBody] AuthenticationRequest req)
+        {
+
+            var uManager = UserManager.Instance;
+            var aduser = uManager.GetUser(DN);
+
+            if (aduser == null)
+            {
+                logger.LogDebug(PutItem, "User DN={dn} found", DN);
+                return NotFound();
+            }
+            else
+            {
+                string login;
+
+                if (req.Login == null) login = aduser.Login;
+                else login = req.Login;
+
+                var success = uManager.ValidateAuthentication(login, req.Password);
+
+                if (success) return Ok();
+                return StatusCode(401);
+            }
+
+        }
+        #endregion
+
+
+        #region PUT
+        // PUT api/users/:user
         /// <summary>
         /// Creates the specified user.
         /// </summary>
@@ -208,6 +240,7 @@ namespace adrapi.Controllers
 
                 var aduser = uManager.GetUser(DN);
 
+
                 if(aduser == null)
                 {
                     // New User
@@ -233,9 +266,7 @@ namespace adrapi.Controllers
 
                 }
 
-                logger.LogDebug(PutItem, "User DN={dn} found", DN);
-
-
+              
 
             }
             else
