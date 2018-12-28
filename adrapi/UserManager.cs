@@ -6,6 +6,7 @@ using System.Linq;
 using Novell.Directory.Ldap;
 using System.Text;
 using NLog;
+using adrapi.Tools;
 
 namespace adrapi
 {
@@ -233,10 +234,16 @@ namespace adrapi
                     if (
                         attr.Name != "cn"
                         && attr.Name != "objectclass"
+                        && attr.Name != "userAccountControl"
                       )
                     {
-                        //TODO FIX COMPARASION
-                        if(attr.ByteValue != dattrs.GetAttribute(attr.Name).ByteValue )
+
+                        var b1 = attr.ByteValue;
+                        var b2 = dattrs.GetAttribute(attr.Name).ByteValue;
+
+                        var equal = ByteTools.Equality(b1, b2);
+                                     
+                        if (! equal)
                             modList.Add(new LdapModification(LdapModification.Replace, attr));
                     }
 
