@@ -231,6 +231,7 @@ namespace adrapi
    
                 foreach (LdapAttribute attr in atributes)
                 {
+                    //TODO: Threat the userAccountControl
                     if (
                         attr.Name != "cn"
                         && attr.Name != "objectclass"
