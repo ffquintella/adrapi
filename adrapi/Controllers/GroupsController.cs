@@ -10,6 +10,8 @@ using adrapi.Ldap;
 using Newtonsoft.Json;
 using adrapi.Web;
 using NLog;
+using adrapi.domain;
+using System.Text.RegularExpressions;
 
 namespace adrapi.Controllers
 {
@@ -30,6 +32,7 @@ namespace adrapi.Controllers
             configuration = iConfig;
         }
 
+        #region GET
         // GET api/groups
         [HttpGet]
         public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end)
@@ -131,6 +134,8 @@ namespace adrapi.Controllers
 
         }
 
+
+
         // GET api/groups/:group/members
         [HttpGet("{DN}/members")]
         public ActionResult<List<String>> GetMembers(string DN)
@@ -153,5 +158,85 @@ namespace adrapi.Controllers
             }
 
         }
+        #endregion
+
+        #region PUT
+        // PUT api/groups/:group
+        /// <summary>
+        /// Creates the specified group.
+        /// </summary>
+        /// <returns>The put.</returns>
+        /// <param name="group">Group.</param>
+        [Authorize(Policy = "Writting")]
+        [HttpPut("{DN}")]
+        public ActionResult Put(string DN, [FromBody] domain.Group group)
+        {
+            ProcessRequest();
+
+            logger.LogDebug(PutItem, "Tring to create group:{0}", DN);
+
+            if (ModelState.IsValid)
+            {
+                if (group.DN != null && group.DN != DN)
+                {
+                    logger.LogError(PutItem, "Group DN different of the URL DN in put request group.DN={0} DN={1}", group.DN, DN);
+                    return Conflict();
+                }
+
+                Regex regex = new Regex(@"\Acn=(?<gname>[^,]+?),", RegexOptions.IgnoreCase);
+
+                Match match = regex.Match(DN);
+
+                if (!match.Success)
+                {
+                    logger.LogError(PutItem, "DN is not correcly formated  DN={0}", DN);
+                    return Conflict();
+                }
+
+                var gName= match.Groups["gname"];
+
+                var gManager = GroupManager.Instance;
+
+                var adgroup = gManager.GetGroup(DN);
+
+
+                if (adgroup == null)
+                {
+                    // New Group
+                    logger.LogInformation(InsertItem, "Creating group DN={DN}", DN);
+
+                    group.DN = DN;
+
+                    var result = gManager.CreateGroup(group);
+
+                    if (result == 0) return Ok();
+                    else return this.StatusCode(500);
+
+                }
+                else
+                {
+                    // Update 
+                    logger.LogInformation(UpdateItem, "Updating group DN={DN}", DN);
+
+                    group.DN = DN;
+
+                    var result = gManager.SaveGroup(group);
+                    if (result == 0) return Ok();
+                    else return this.StatusCode(500);
+
+                }
+
+
+
+            }
+            else
+            {
+                return BadRequest();
+            }
+
+            //return Conflict();
+        }
+
+        #endregion
     }
 }
