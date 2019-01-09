@@ -11,8 +11,6 @@ using adrapi.Web;
 using adrapi.domain;
 using System.Text.RegularExpressions;
 
-
-
 namespace adrapi.Controllers
 {
     //[Produces("application/json")]
@@ -20,13 +18,13 @@ namespace adrapi.Controllers
     [ApiVersion("1.0")]
     [Route("api/[controller]")]
     [ApiController]
-    public class UsersController: BaseController
+    public class UsersController : BaseController
     {
-   
+
 
         public UsersController(ILogger<UsersController> logger, IConfiguration iConfig)
         {
-      
+
             base.logger = logger;
 
             configuration = iConfig;
@@ -45,7 +43,7 @@ namespace adrapi.Controllers
 
             var uManager = UserManager.Instance;
 
-            if(_start == 0 && _end != 0)
+            if (_start == 0 && _end != 0)
             {
                 return Conflict();
             }
@@ -121,7 +119,7 @@ namespace adrapi.Controllers
                 return Ok();
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 logger.LogDebug(ItemExists, "User DN={dn} not found.");
                 return NotFound();
@@ -143,7 +141,7 @@ namespace adrapi.Controllers
                 var user = uManager.GetUser(DN);
 
 
-                foreach(domain.Group grp in user.MemberOf)
+                foreach (domain.Group grp in user.MemberOf)
                 {
                     if (grp.DN == group)
                     {
@@ -164,8 +162,6 @@ namespace adrapi.Controllers
 
         }
         #endregion
-
-
 
         #region Authentication
 
@@ -222,7 +218,6 @@ namespace adrapi.Controllers
         }
         #endregion
 
-
         #region PUT
         // PUT api/users/:user
         /// <summary>
@@ -232,7 +227,7 @@ namespace adrapi.Controllers
         /// <param name="user">User.</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public ActionResult Put (string DN, [FromBody] User user)
+        public ActionResult Put(string DN, [FromBody] User user)
         {
             ProcessRequest();
 
@@ -249,10 +244,10 @@ namespace adrapi.Controllers
 
                 //Regex regex = new Regex(@"cn=([^,]+?),", RegexOptions.IgnoreCase);
                 Regex regex = new Regex(@"\Acn=(?<login>[^,]+?),", RegexOptions.IgnoreCase);
-           
+
                 Match match = regex.Match(DN);
 
-                if(!match.Success)
+                if (!match.Success)
                 {
                     logger.LogError(PutItem, "DN is not correcly formated  DN={0}", DN);
                     return Conflict();
@@ -265,7 +260,7 @@ namespace adrapi.Controllers
                 var aduser = uManager.GetUser(DN);
 
 
-                if(aduser == null)
+                if (aduser == null)
                 {
                     // New User
                     logger.LogInformation(InsertItem, "Creating user DN={DN}", DN);
@@ -290,7 +285,7 @@ namespace adrapi.Controllers
 
                 }
 
-              
+
 
             }
             else
@@ -303,5 +298,65 @@ namespace adrapi.Controllers
 
         #endregion
 
+        #region DELETE
+
+        /// <summary>
+        /// Delete the specified DN.
+        /// </summary>
+        /// <response code="200">Deleted Ok</response>
+        /// <response code="404">User not found</response>
+        /// <response code="500">Internal Server error</response>
+        [Authorize(Policy = "Writting")]
+        [HttpDelete("{DN}")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(500)]
+        public ActionResult Delete(string DN)
+        {
+            ProcessRequest();
+
+            logger.LogDebug(PutItem, "Tring to delete user:{0}", DN);
+
+            Regex regex = new Regex(@"\Acn=(?<login>[^,]+?),", RegexOptions.IgnoreCase);
+
+            Match match = regex.Match(DN);
+
+            if (!match.Success)
+            {
+                logger.LogError(PutItem, "DN is not correcly formated  DN={0}", DN);
+                return Conflict();
+            }
+
+
+            var uLogin = match.Groups["login"];
+
+            var uManager = UserManager.Instance;
+
+            var duser = uManager.GetUser(DN);
+
+            if (duser == null)
+            {
+                // No User
+                logger.LogError(DeleteItem, "Tring to delete unexistent user DN={DN}", DN);
+
+                return NotFound();
+
+            }
+            else
+            {
+                // Delete 
+                logger.LogInformation(DeleteItem, "Deleting user DN={DN}", DN);
+
+                var result = uManager.DeleteUser(duser);
+                if (result == 0) return Ok();
+                else return this.StatusCode(500);
+
+            }
+
+
+        }
+
+        #endregion
     }
+
 }

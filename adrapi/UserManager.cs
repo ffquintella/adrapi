@@ -362,5 +362,30 @@ namespace adrapi
             return user;
         }
 
+        /// <summary>
+        /// Deletes the user.
+        /// </summary>
+        /// <returns>0 for success -1 for error.</returns>
+        /// <param name="user">User.</param>
+        public int DeleteUser(User user)
+        {
+        
+
+            var qMgmt = LdapQueryManager.Instance;
+
+            try
+            {
+                qMgmt.DeleteEntry(user.DN);
+                return 0;
+
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Error deleting user");
+                logger.Log(LogLevel.Error, ex);
+                return -1;
+            }
+
+        }
     }
 }

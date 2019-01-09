@@ -48,6 +48,8 @@ Basically what you need to configure there is:
 
 ## API
 
+Here there is a short description of the api. But you can also get the documentation running the program and accessing /swagger on it.
+
 ### Users
 
 - GET - /api/users - List all users 
@@ -69,6 +71,7 @@ Basically what you need to configure there is:
         - Boolean: IsLocked (optional)
         - Boolean: PasswordExpired (optional)
         - Array(String): memberof - List of DNs
+- DELETE - /api/users/:user - Deletes the user
 - POST - /user/:user/authenticate - Returns 200 if OK 404 if user not found and 401 if password is wrong
     - Body json:
         - String: password
