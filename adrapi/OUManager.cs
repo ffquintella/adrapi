@@ -214,5 +214,31 @@ namespace adrapi
 
         }
 
+        /// <summary>
+        /// Deletes the ou.
+        /// </summary>
+        /// <returns>The ou.</returns>
+        /// <param name="ou">OU.</param>
+        public int DeleteOU(OU ou)
+        {
+
+
+            var qMgmt = LdapQueryManager.Instance;
+
+            try
+            {
+                qMgmt.DeleteEntry(ou.DN);
+                return 0;
+
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Error deleting OU={OU}", ou.DN);
+                logger.Log(LogLevel.Error, ex);
+                return -1;
+            }
+
+        }
+
     }
 }
