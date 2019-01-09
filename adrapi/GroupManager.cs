@@ -329,5 +329,27 @@ namespace adrapi
             return attributeSet;
         }
 
+
+        public int DeleteGroup(Group group)
+        {
+
+
+            var qMgmt = LdapQueryManager.Instance;
+
+            try
+            {
+                qMgmt.DeleteEntry(group.DN);
+                return 0;
+
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Error deleting group={group}", group.DN);
+                logger.Log(LogLevel.Error, ex);
+                return -1;
+            }
+
+        }
+
     }
 }
