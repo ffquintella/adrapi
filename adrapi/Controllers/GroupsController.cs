@@ -237,6 +237,49 @@ namespace adrapi.Controllers
             //return Conflict();
         }
 
+
+
+        // PUT api/groups/:group/members
+        [HttpPut("{DN}/members")]
+        public ActionResult PutMembers(string DN, [FromBody] String[] members)
+        {
+            this.ProcessRequest();
+            var gManager = GroupManager.Instance;
+
+            try
+            {
+                logger.LogDebug(ListItems, "Group DN={dn} found");
+                var group = gManager.GetGroup(DN);
+
+                group.Member.Clear();
+
+                foreach(String member in members)
+                {
+                    group.Member.Add(member);
+                }
+
+                try
+                {
+                    logger.LogInformation(PutItem, "Saving group members for group:{DN}", DN);
+                    gManager.SaveGroup(group);
+                    return Ok();
+                }catch(Exception ex)
+                {
+                    logger.LogError(InternalError, "Error saving DN={dn} EX:", DN, ex.Message);
+                    return this.StatusCode(500);
+                }
+
+                //return group.Member;
+
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ListItems, "Group DN={dn} not found.", DN);
+                return NotFound();
+            }
+
+        }
+
         #endregion
     }
 }
