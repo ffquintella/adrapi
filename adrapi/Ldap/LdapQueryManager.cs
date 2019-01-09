@@ -380,6 +380,16 @@ namespace adrapi.Ldap
             return;
         }
 
+        public void DeleteEntry(String dn)
+        {
+            var lcm = LdapConnectionManager.Instance;
+            var con = lcm.GetConnection(true);
+
+            con.Delete(dn);
+
+            return;
+        }
+
         public void SaveEntry(String dn, LdapModification[] modList)
         {
             var lcm = LdapConnectionManager.Instance;
