@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using static adrapi.domain.LoggingEvents;
 using Microsoft.Extensions.Configuration;
+using adrapi.domain;
+using System.Text.RegularExpressions;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -29,6 +31,7 @@ namespace adrapi.Controllers
             configuration = iConfig;
         }
 
+        #region GET
         // GET: api/ous
         [HttpGet]
         public ActionResult<IEnumerable<String>> Get()
@@ -94,5 +97,87 @@ namespace adrapi.Controllers
             }
 
         }
+        #endregion
+
+        #region PUT
+
+        // PUT api/ous/:ou
+        /// <summary>
+        /// Creates the specified ou.
+        /// </summary>
+        /// <returns>The put.</returns>
+        /// <param name="OU">ou.</param>
+        [Authorize(Policy = "Writting")]
+        [HttpPut("{DN}")]
+        public ActionResult Put(string DN, [FromBody] OU ou)
+        {
+            ProcessRequest();
+
+            logger.LogDebug(PutItem, "Tring to create OU:{0}", DN);
+
+            if (ModelState.IsValid)
+            {
+                if (ou.DN != null && ou.DN != DN)
+                {
+                    logger.LogError(PutItem, "Ou DN different of the URL DN in put request ou.DN={0} DN={1}", ou.DN, DN);
+                    return Conflict();
+                }
+
+                Regex regex = new Regex(@"\Aou=(?<oname>[^,]+?),", RegexOptions.IgnoreCase);
+
+                Match match = regex.Match(DN);
+
+                if (!match.Success)
+                {
+                    logger.LogError(PutItem, "DN is not correcly formated  DN={0}", DN);
+                    return Conflict();
+                }
+
+                var oName = match.Groups["oname"];
+
+                var oManager = OUManager.Instance;
+
+                var adou = oManager.GetOU(DN);
+
+
+                if (adou == null)
+                {
+                    // New Group
+                    logger.LogInformation(InsertItem, "Creating OU DN={DN}", DN);
+
+                    ou.DN = DN;
+
+                    var result = oManager.CreateOU(ou);
+
+                    if (result == 0) return Ok();
+                    else return this.StatusCode(500);
+
+                }
+                else
+                {
+                    // Update 
+                    logger.LogInformation(UpdateItem, "Updating OU DN={DN}", DN);
+
+                    ou.DN = DN;
+
+                    var result = oManager.SaveOU(ou);
+                    if (result == 0) return Ok();
+                    else return this.StatusCode(500);
+
+                    //return this.StatusCode(500);
+                }
+
+
+
+            }
+            else
+            {
+                return BadRequest();
+            }
+
+            //return Conflict();
+        }
+
+        #endregion
     }
 }
