@@ -281,5 +281,62 @@ namespace adrapi.Controllers
         }
 
         #endregion
+
+        #region DELETE
+
+        /// <summary>
+        /// Delete the specified DN.
+        /// </summary>
+        /// <response code="200">Deleted Ok</response>
+        /// <response code="404">User not found</response>
+        /// <response code="500">Internal Server error</response>
+        [Authorize(Policy = "Writting")]
+        [HttpDelete("{DN}")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(204)]
+        [ProducesResponseType(500)]
+        public ActionResult Delete(string DN)
+        {
+            ProcessRequest();
+
+            logger.LogDebug(PutItem, "Tring to delete group:{0}", DN);
+
+            Regex regex = new Regex(@"\Acn=(?<login>[^,]+?),", RegexOptions.IgnoreCase);
+
+            Match match = regex.Match(DN);
+
+            if (!match.Success)
+            {
+                logger.LogError(PutItem, "DN is not correcly formated  DN={0}", DN);
+                return Conflict();
+            }
+
+            var gManager = GroupManager.Instance;
+
+            var dgroup = gManager.GetGroup(DN);
+
+            if (dgroup == null)
+            {
+                // No User
+                logger.LogError(DeleteItem, "Tring to delete unexistent group DN={DN}", DN);
+
+                return NotFound();
+
+            }
+            else
+            {
+                // Delete 
+                logger.LogInformation(DeleteItem, "Deleting group DN={DN}", DN);
+
+                var result = gManager.DeleteGroup(dgroup);
+                if (result == 0) return Ok();
+                else return this.StatusCode(500);
+
+            }
+
+
+        }
+
+        #endregion
     }
 }
