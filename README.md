@@ -103,6 +103,11 @@ Basically what you need to configure there is:
 ### OUs
 
 - GET - /api/ous - List all ous
+- PUT - /api/ous - Creates a new OU
+    - Body json:
+        - String: name
+        - String: dn
+        - String: description (optional)
 - GET - /api/ous/:ou - Gets the ou's details     
 - GET - /api/ous/:ou/exists - Returns code 200 if true and 404 if false.                     
                                                    
