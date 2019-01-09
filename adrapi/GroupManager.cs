@@ -233,22 +233,50 @@ namespace adrapi
 
                 var dattrs = GetAttributeSet(dgroup);
 
+                bool members_clean = false;
 
                 foreach (LdapAttribute attr in atributes)
                 {
                     if (
                         attr.Name != "cn"
                         && attr.Name != "objectclass"
+                        && attr.Name != "member"
                       )
                     {
 
                         var b1 = attr.ByteValue;
-                        var b2 = dattrs.GetAttribute(attr.Name).ByteValue;
 
-                        var equal = ByteTools.Equality(b1, b2);
+                        var attribute = dattrs.GetAttribute(attr.Name);
+
+                        bool equal = true;
+
+                        if (attribute != null)
+                        {
+                            var b2 = attribute.ByteValue;
+                            
+                            equal = ByteTools.Equality(b1, b2);
+                        }
+
 
                         if (!equal)
                             modList.Add(new LdapModification(LdapModification.Replace, attr));
+                    }
+                    else
+                    {
+                        if(attr.Name == "member")
+                        {
+                            if (!members_clean)
+                            {
+                                var dattr = dattrs.GetAttribute("member");
+
+                                modList.Add(new LdapModification(LdapModification.Delete, dattr));
+
+                                members_clean = true;
+                            }
+
+
+                            modList.Add(new LdapModification(LdapModification.Add, attr));
+                        }
                     }
 
 
@@ -288,12 +316,15 @@ namespace adrapi
             attributeSet.Add(new LdapAttribute("sAMAccountName", group.Name));
             attributeSet.Add(new LdapAttribute("cn", group.Name));
             attributeSet.Add(new LdapAttribute("description", group.Description));
-                    
-            foreach(String member in group.Member)
+
+            var amember = new LdapAttribute("member");
+
+            foreach (String member in group.Member)
             {
-                attributeSet.Add(new LdapAttribute("member", member));
+                amember.AddValue(member);
             }
 
+            attributeSet.Add(amember);
 
             return attributeSet;
         }
