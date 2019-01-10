@@ -27,6 +27,8 @@ class Build : NukeBuild
 
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
+    AbsolutePath PackDirectory => RootDirectory / "artifacts/nupkg";
+    AbsolutePath AppDirectory => RootDirectory / "artifacts/app";
 
     string ChangeLogFile => RootDirectory / "CHANGELOG.md";
 
@@ -50,23 +52,42 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
+            EnsureExistingDirectory(AppDirectory);
+
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
                 .SetAssemblyVersion(GitVersion.GetNormalizedAssemblyVersion())
                 .SetFileVersion(GitVersion.GetNormalizedFileVersion())
                 .SetInformationalVersion(GitVersion.InformationalVersion)
+                .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
+        });
+
+    Target LocalPublish => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            Logger.Log("Poblishing to artifacts...");
+            EnsureExistingDirectory(AppDirectory);
+           
         });
 
     Target Pack => _ => _
         .DependsOn(Compile)
         .Executes(() =>
         {
+
+            Logger.Log("Creating Nupackages...");
             var changeLog = GetCompleteChangeLog(ChangeLogFile)
                 .EscapeStringPropertyForMsBuild();
-            DotNetPack((settings) => new DotNetPackSettings()
+
+            DotNetPack(s => s
+                .SetProject(Solution)
+                .SetConfiguration(Configuration)
+                .SetOutputDirectory(PackDirectory)
                 .SetPackageReleaseNotes(changeLog));
+                
         });
 
 }
