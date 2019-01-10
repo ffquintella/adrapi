@@ -5,11 +5,14 @@ using Nuke.Common.Git;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.GitVersion;
+using Nuke.Docker;
 using static Nuke.Common.EnvironmentInfo;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
+using static Nuke.Docker.DockerBuildSettings;
+using static Nuke.Docker.DockerTasks;
 
 
 
@@ -29,6 +32,8 @@ class Build : NukeBuild
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     AbsolutePath PackDirectory => RootDirectory / "artifacts/nupkg";
     AbsolutePath AppDirectory => RootDirectory / "artifacts/app";
+
+    AbsolutePath DockerFile => RootDirectory / "Dockerfile";
 
     string ChangeLogFile => RootDirectory / "CHANGELOG.md";
 
@@ -88,6 +93,21 @@ class Build : NukeBuild
                 .SetOutputDirectory(PackDirectory)
                 .SetPackageReleaseNotes(changeLog));
                 
+        });
+
+    Target Create_Docker_Image => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            Logger.Log("Creating Docker Image...");
+
+        DockerBuild(s => s
+            .AddLabel("adrapi")
+            .SetFile(DockerFile)
+            .SetForceRm(true)
+            .SetPath(RootDirectory)
+            );
+
         });
 
 }
