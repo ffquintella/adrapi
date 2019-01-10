@@ -37,6 +37,9 @@ class Build : NukeBuild
 
     string ChangeLogFile => RootDirectory / "CHANGELOG.md";
 
+
+    string[] Authors = { "Felipe F Quintella" };
+
     Target Clean => _ => _
         .Executes(() =>
         {
@@ -65,16 +68,23 @@ class Build : NukeBuild
                 .SetAssemblyVersion(GitVersion.GetNormalizedAssemblyVersion())
                 .SetFileVersion(GitVersion.GetNormalizedFileVersion())
                 .SetInformationalVersion(GitVersion.InformationalVersion)
-                .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
         });
 
-    Target LocalPublish => _ => _
+    Target Local_Publish => _ => _
         .DependsOn(Compile)
         .Executes(() =>
         {
-            Logger.Log("Poblishing to artifacts...");
+            Logger.Log("Publishing to artifacts...");
             EnsureExistingDirectory(AppDirectory);
+            DotNetPublish(s => s
+                .SetConfiguration(Configuration)
+                .SetAuthors(Authors)
+                .SetVersion(GitVersion.GetNormalizedFileVersion())
+                .SetTitle("ADRAPI")
+                .SetOutput(AppDirectory)
+            );
+            CopyFile(RootDirectory + "/adrapi/NLog.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
            
         });
 
@@ -96,17 +106,18 @@ class Build : NukeBuild
         });
 
     Target Create_Docker_Image => _ => _
-        .DependsOn(Compile)
+        .DependsOn(Local_Publish)
         .Executes(() =>
         {
             Logger.Log("Creating Docker Image...");
 
-        DockerBuild(s => s
-            .AddLabel("adrapi")
-            .SetFile(DockerFile)
-            .SetForceRm(true)
-            .SetPath(RootDirectory)
-            );
+            DockerBuild(s => s
+                .AddLabel("adrapi")
+                .SetTag("ffquintella/adrapi:latest")
+                .SetFile(DockerFile)
+                .SetForceRm(true)
+                .SetPath(RootDirectory)
+                );
 
         });
 

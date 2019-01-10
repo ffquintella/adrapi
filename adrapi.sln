@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		build.ps1 = build.ps1
 		build.sh = build.sh
 		CHANGELOG.md = CHANGELOG.md
+		test-run.sh = test-run.sh
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "build\_build.csproj", "{86B64EAA-D356-4543-BE41-7DC09E078A2E}"
