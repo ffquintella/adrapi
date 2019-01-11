@@ -118,7 +118,7 @@ class Build : NukeBuild
 
             DockerBuild(s => s
                 .AddLabel("adrapi")
-                .SetTag("ffquintella/adrapi:latest")
+                .SetTag("ffquintella/adrapi:" + GitVersion.GetNormalizedFileVersion())
                 .SetFile(DockerFile)
                 .SetForceRm(true)
                 .SetPath(RootDirectory)
