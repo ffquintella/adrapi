@@ -23,5 +23,5 @@ exec {'Pre Run CMD':
 # Starting adrapi
 exec {'Starting Adrapi':
   path  => '/bin:/sbin:/usr/bin:/usr/sbin',
-  command => "echo \"Starting Adrapi Server ...\"; cd /app;  dotnet adrapi.dll ",
+  command => "echo \"Starting Adrapi Server ...\"; cd /app;  dotnet adrapi.dll --hosturl http://0.0.0.0:5000 ",
 }
