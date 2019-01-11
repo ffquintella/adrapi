@@ -3,6 +3,7 @@ using System.Linq;
 using Nuke.Common;
 using Nuke.Common.Git;
 using Nuke.Common.ProjectModel;
+using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using Nuke.Common.Tools.GitVersion;
 using Nuke.Docker;
@@ -68,6 +69,7 @@ class Build : NukeBuild
                 .SetAssemblyVersion(GitVersion.GetNormalizedAssemblyVersion())
                 .SetFileVersion(GitVersion.GetNormalizedFileVersion())
                 .SetInformationalVersion(GitVersion.InformationalVersion)
+                .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
         });
 
@@ -83,8 +85,11 @@ class Build : NukeBuild
                 .SetVersion(GitVersion.GetNormalizedFileVersion())
                 .SetTitle("ADRAPI")
                 .SetOutput(AppDirectory)
+                .SetWorkingDirectory(RootDirectory)
+                .SetProject(Solution)
             );
-            CopyFile(RootDirectory + "/adrapi/NLog.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
+          
+            CopyFile(RootDirectory + "/adrapi/nLog.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
            
         });
 
