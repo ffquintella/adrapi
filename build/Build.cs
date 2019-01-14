@@ -14,7 +14,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
 using static Nuke.Docker.DockerBuildSettings;
 using static Nuke.Docker.DockerTasks;
-
+using System.IO;
 
 
 class Build : NukeBuild
@@ -73,7 +73,7 @@ class Build : NukeBuild
                 .EnableNoRestore());
         });
 
-    Target Local_Publish => _ => _
+    private Target Local_Publish => _ => _
         .DependsOn(Compile)
         .Executes(() =>
         {
@@ -90,7 +90,13 @@ class Build : NukeBuild
             );
           
             CopyFile(RootDirectory + "/adrapi/nLog.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
-           
+
+            string fileName = AppDirectory + "/version.txt";
+            using (StreamWriter sw = new StreamWriter(fileName, false))
+            {
+                sw.WriteLine(GitVersion.GetNormalizedFileVersion());
+            }
+            
         });
 
     Target Pack => _ => _
