@@ -89,7 +89,7 @@ class Build : NukeBuild
                 .SetProject(Solution)
             );
           
-            CopyFile(RootDirectory + "/adrapi/nLog.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
+            CopyFile(RootDirectory + "/adrapi/nLog.prod.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
 
             string fileName = AppDirectory + "/version.txt";
             using (StreamWriter sw = new StreamWriter(fileName, false))
