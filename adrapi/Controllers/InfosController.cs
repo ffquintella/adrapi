@@ -40,7 +40,9 @@ namespace adrapi.Controllers
             switch (info)
             {
                 case "version":
-                    resp = "0.2.0";
+                    string text = System.IO.File.ReadAllText(@"version.txt");
+
+                    resp = text;
                     return Ok(resp);
                 case "about":
                     resp = "This is the Active Directory Read API or just ADRAPI.";
