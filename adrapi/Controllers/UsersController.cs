@@ -33,7 +33,7 @@ namespace adrapi.Controllers
         #region GET
         // GET api/users
         [HttpGet]
-        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end)
+        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end, [FromQuery] string _attribute = "")
         {
 
             this.ProcessRequest();
@@ -47,9 +47,17 @@ namespace adrapi.Controllers
             {
                 return Conflict();
             }
-
-            if (_start == 0 && _end == 0) return uManager.GetList();
-            else return uManager.GetList(_start, _end);
+            
+            if (_attribute == "")
+            {
+                if (_start == 0 && _end == 0) return uManager.GetList();
+                else return uManager.GetList(_start, _end);
+            }
+            else
+            {
+                if (_start == 0 && _end == 0) return uManager.GetList(_attribute);
+                else return uManager.GetList(_start, _end, _attribute);
+            }
 
             //return users;
 
