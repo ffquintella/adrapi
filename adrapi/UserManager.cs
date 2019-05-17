@@ -5,6 +5,7 @@ using adrapi.Ldap;
 using System.Linq;
 using Novell.Directory.Ldap;
 using System.Text;
+using adrapi.Ldap.Security;
 using NLog;
 using adrapi.Tools;
 
@@ -37,7 +38,6 @@ namespace adrapi
             var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
-
 
             var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User);
 
@@ -72,7 +72,6 @@ namespace adrapi
             var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
-
 
             var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end);
 
@@ -146,18 +145,34 @@ namespace adrapi
         /// </summary>
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the user</param>
-        public User GetUser (string DN)
+        public User GetUser (string userID, string attribute = "")
         {
             var sMgmt = LdapQueryManager.Instance;
 
             try
             {
-                var entry = sMgmt.GetRegister(DN);
+
+                LdapEntry entry;
+                
+                if (attribute != "")
+                {
+                    
+                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+
+                    entry = results.First();
+
+                }
+                else
+                {
+                    entry = sMgmt.GetRegister(userID);
+                }
+                
+                //entry = sMgmt.GetRegister(userID);
                 var user = ConvertfromLdap(entry);
                 return user;
             }catch(LdapException ex)
             {
-                logger.Debug("User not found {0} Ex: {1}", DN, ex.Message);
+                logger.Debug("User not found {0} Ex: {1}", userID, ex.Message);
                 return null;
             }
 
