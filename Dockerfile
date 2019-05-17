@@ -31,6 +31,8 @@ RUN chmod +x /opt/scripts/start-service.sh ; ln -s /opt/scripts/start-service.sh
 RUN mkdir /app
 COPY artifacts/app /app
 
+RUN dotnet dev-certs https -q
+
 # Aspnet webserver
 EXPOSE 5000/tcp
 EXPOSE 5001/tcp
