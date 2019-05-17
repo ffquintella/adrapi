@@ -20,61 +20,6 @@ enabled=1
 gpgcheck=0'
 }
 
-class { 'jdk_oracle':
-  version     => $java_version,
-  install_dir => $java_home,
-  version_update => $java_version_update,
-  version_build  => $java_version_build,
-  version_hash  => $java_version_hash,
-  package     => 'server-jre'
-}
-
--> file { '/etc/pki/tls/certs/java':
-  ensure  => directory
-}
-
--> file { '/etc/pki/tls/certs/java/cacerts':
-  ensure  => link,
-  target  => '/etc/pki/ca-trust/extracted/java/cacerts'
-}
-
--> file { "/opt/java_home/jdk1.${java_version}.0_${java_version_update}/jre/lib/security/cacerts":
-  ensure  => link,
-  target  => '/etc/pki/tls/certs/java/cacerts'
-}
-
--> class { 'jira':
-  javahome       => $java_home,
-  version        => $jira_version,
-  installdir     => $jira_installdir,
-  homedir        => $jira_home,
-  service_manage => false
-}
-
--> file {'/opt/jira-config':
-  ensure  => directory,
-  source  => "file:///${jira_installdir}/atlassian-jira-software-${jira_version}-standalone/conf",
-  recurse => 'true'
-} ->
-
-file {'/opt/scripts/fixline.sh':
-  mode    => '0777',
-  content => 'find . -iname \'*.sh\' | xargs dos2unix',
-  require => Package['dos2unix']
-} ->
-
-# Fix dos2unix
-exec {'dos2unix-fix':
-  path    => '/bin:/sbin:/usr/bin:/usr/sbin',
-  cwd     => "${jira_installdir}/atlassian-jira-software-${jira_version}-standalone/bin",
-  command => '/opt/scripts/fixline.sh'
-} ->
-
-exec {'dos2unix-fix-start-service':
-  path    => '/bin:/sbin:/usr/bin:/usr/sbin',
-  cwd     => "/opt/scripts",
-  command => '/opt/scripts/fixline.sh'
-} ->
 
 file { '/usr/bin/start-service':
   ensure => link,
