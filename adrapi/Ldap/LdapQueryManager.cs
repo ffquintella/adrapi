@@ -86,15 +86,7 @@ namespace adrapi.Ldap
             }
         }
 
-        /// <summary>
-        /// Executes the limited search.
-        /// </summary>
-        /// <returns>The limited search.</returns>
-        /// <param name="searchBase">Search base.</param>
-        /// <param name="filter">Filter.</param>
-        /// <param name="start">Must be 1 or greater</param>
-        /// <param name="end">End.</param>
-        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, string filter, int start, int end)
+        private int getSearchSize(string searchBase, string filter)
         {
             var results = new List<LdapEntry>();
 
@@ -106,14 +98,14 @@ namespace adrapi.Ldap
             LdapControl[] requestControls = new LdapControl[2];
 
             LdapSortKey[] keys = new LdapSortKey[1];
-            keys[0] = new LdapSortKey("name");
+            keys[0] = new LdapSortKey("cn"); //samaccountname
 
             // Create the sort control 
             requestControls[0] = new LdapSortControl(keys, true);
 
-
-            requestControls[1] = new LdapVirtualListControl(start,
-                                     0, end, config.maxResults);
+            requestControls[1] = new LdapVirtualListControl(1, 0, 1, config.maxResults);
+            
+            //requestControls[1] = new LdapVirtualListControl(sb,0, config.maxResults, null);
 
             // Set the controls to be sent as part of search request
             LdapSearchConstraints cons = conn.SearchConstraints;
@@ -123,7 +115,103 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
-            ILdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+            LdapSearchResults res = (LdapSearchResults) conn.Search(sb, LdapConnection.ScopeSub, filter, null, false,
+                (LdapSearchConstraints) null);
+            while (res.HasMore())
+            {
+                res.Next();
+            }
+
+            // Server should send back a control irrespective of the
+            // status of the search request
+            LdapControl[] controls = res.ResponseControls;
+            if (controls == null)
+            {
+                logger.Debug("No controls returned");
+            }
+            else
+            {
+
+                // We are likely to have multiple controls returned
+                for (int i = 0; i < controls.Length; i++)
+                {
+
+
+                    /* Is this a VLV Response Control */
+                    if (controls[i] is LdapVirtualListResponse)
+                    {
+
+                        logger.Debug("Received VLV Response Control from " + "Server...");
+
+                        /* Get all returned fields */
+                        int firstPosition = ((LdapVirtualListResponse) controls[i]).FirstPosition;
+                        int ContentCount = ((LdapVirtualListResponse) controls[i]).ContentCount;
+                        int resultCode = ((LdapVirtualListResponse) controls[i]).ResultCode;
+                        System.String context = ((LdapVirtualListResponse) controls[i]).Context;
+
+                        /* Print out the returned fields.  Typically you would
+                        * have used these fields to reissue another VLV request
+                        * or to display the list on a GUI
+                        */
+                        logger.Debug("Result Code    => " + resultCode);
+                        logger.Debug("First Position => " + firstPosition);
+                        logger.Debug("Content Count  => " + ContentCount);
+                        if ((System.Object) context != null)
+                            logger.Debug("Context String => " + context);
+                        else
+                            logger.Debug("No Context String in returned" + " control");
+
+                        return ContentCount;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// Executes the limited search.
+        /// </summary>
+        /// <returns>The limited search.</returns>
+        /// <param name="searchBase">Search base.</param>
+        /// <param name="filter">Filter.</param>
+        /// <param name="start">Must be 1 or greater</param>
+        /// <param name="end">End.</param>
+        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, string filter, int start, int end)
+        {
+            
+            int sSize = getSearchSize(searchBase, filter);
+            
+            var results = new List<LdapEntry>();
+
+            var lcm = LdapConnectionManager.Instance;
+            var conn = lcm.GetConnection();
+
+            var sb = searchBase + config.searchBase;
+
+            LdapControl[] requestControls = new LdapControl[2];
+
+            LdapSortKey[] keys = new LdapSortKey[1];
+            keys[0] = new LdapSortKey("cn"); //samaccountname
+
+            // Create the sort control 
+            requestControls[0] = new LdapSortControl(keys, true);
+            
+            logger.Debug("Search Size:" + sSize);
+
+            requestControls[1] = new LdapVirtualListControl(start, 0, end, sSize);
+            
+            //requestControls[1] = new LdapVirtualListControl(filter,0, end, null);
+
+            // Set the controls to be sent as part of search request
+            LdapSearchConstraints cons = conn.SearchConstraints;
+            cons.SetControls(requestControls);
+            conn.Constraints = cons;
+
+
+            // Send the search request - Synchronous Search is being used here 
+            logger.Debug("Calling Asynchronous Search...");
+            LdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
 
             // Loop through the results and print them out
             while (res.HasMore())
@@ -152,6 +240,68 @@ namespace adrapi.Ldap
                 /* Print out the returned Entries distinguished name.  */
                 logger.Debug(nextEntry.Dn);
 
+            }
+            
+            // Server should send back a control irrespective of the
+            // status of the search request
+            LdapControl[] controls = res.ResponseControls;
+            if (controls == null)
+            {
+                logger.Debug("No controls returned");
+            }
+            else
+            {
+
+                // We are likely to have multiple controls returned
+                for (int i = 0; i < controls.Length; i++)
+                {
+
+                    /* Is this the Sort Response Control. */
+                    if (controls[i] is LdapSortResponse)
+                    {
+
+                        logger.Debug("Received Ldap Sort Control from " + "Server");
+
+                        /* We could have an error code and maybe a string
+                        * identifying erring attribute in the response control.
+                        */
+                        System.String bad = ((LdapSortResponse) controls[i]).FailedAttribute;
+                        int result = ((LdapSortResponse) controls[i]).ResultCode;
+
+                        // Print out error code (0 if no error) and any
+                        // returned attribute
+                        logger.Debug("Error code: " + result);
+                        if ((System.Object) bad != null)
+                            logger.Debug("Offending " + "attribute: " + bad);
+                        else
+                            logger.Debug("No offending " + "attribute " + "returned");
+                    }
+
+                    /* Is this a VLV Response Control */
+                    if (controls[i] is LdapVirtualListResponse)
+                    {
+
+                        logger.Debug("Received VLV Response Control from " + "Server...");
+
+                        /* Get all returned fields */
+                        int firstPosition = ((LdapVirtualListResponse) controls[i]).FirstPosition;
+                        int ContentCount = ((LdapVirtualListResponse) controls[i]).ContentCount;
+                        int resultCode = ((LdapVirtualListResponse) controls[i]).ResultCode;
+                        System.String context = ((LdapVirtualListResponse) controls[i]).Context;
+
+                        /* Print out the returned fields.  Typically you would
+                        * have used these fields to reissue another VLV request
+                        * or to display the list on a GUI
+                        */
+                        logger.Debug("Result Code    => " + resultCode);
+                        logger.Debug("First Position => " + firstPosition);
+                        logger.Debug("Content Count  => " + ContentCount);
+                        if ((System.Object) context != null)
+                            logger.Debug("Context String => " + context);
+                        else
+                            logger.Debug("No Context String in returned" + " control");
+                    }
+                }
             }
 
             return results;
