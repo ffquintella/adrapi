@@ -30,7 +30,7 @@ namespace adrapi
         /// Return a string list of the users DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public List<String> GetList()
+        public List<String> GetList(string attribute = "")
         {
             var users = new List<String>();
 
@@ -43,7 +43,10 @@ namespace adrapi
 
             foreach(var entry in resps)
             {
-                users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                if(attribute == "")
+                    users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                else
+                    users.Add(entry.GetAttribute(attribute).StringValue);
                 results++;
             }
 
@@ -61,7 +64,8 @@ namespace adrapi
         /// <returns>The list.</returns>
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
-        public List<String> GetList(int start, int end)
+        /// <param name="attribute">The attribute name to appear on the list</param>
+        public List<String> GetList(int start, int end, string attribute = "")
         {
             var users = new List<String>();
 
@@ -74,7 +78,10 @@ namespace adrapi
 
             foreach (var entry in resps)
             {
-                users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                if(attribute == "")
+                    users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                else
+                    users.Add(entry.GetAttribute(attribute).StringValue);
                 results++;
             }
 
