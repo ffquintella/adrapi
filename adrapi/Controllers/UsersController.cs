@@ -112,8 +112,8 @@ namespace adrapi.Controllers
         //[ProducesResponseType(404)]
 
         // GET api/users/:user/exists
-        [HttpGet("{DN}/exists")]
-        public IActionResult GetExists(string DN)
+        [HttpGet("{user}/exists")]
+        public IActionResult GetExists(string user, [FromQuery]string _attribute = "")
         {
             this.ProcessRequest();
 
@@ -121,8 +121,9 @@ namespace adrapi.Controllers
 
             try
             {
-                logger.LogDebug(ItemExists, "User DN={dn} found");
-                var user = uManager.GetUser(DN);
+                logger.LogDebug(ItemExists, "User DN={user} found with attribute={_attribute}",user,_attribute);
+                if(_attribute != "") uManager.GetUser(user, _attribute);
+                else uManager.GetUser(user);
 
                 return Ok();
 
