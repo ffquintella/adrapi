@@ -349,17 +349,19 @@ namespace adrapi
             user.ID = sid;
 
             user.DN = entry.GetAttribute("distinguishedName").StringValue;
-           
 
-            if (entry.GetAttribute("memberOf") != null)
+
+            var attrMo = entry.GetAttribute("memberOf");
+
+            if ( attrMo != null)
             {
-                var moff = entry.GetAttribute("memberOf").StringValues;
+                var mofs = attrMo.StringValues;
 
-                while (moff.MoveNext())
+                while (mofs.MoveNext())
                 {
                     var group = new Group();
-                    if (moff != null && moff.Current != null)
-                        group.DN = moff.Current;
+                    if (mofs != null && mofs.Current != null)
+                        group.DN = mofs.Current;
                     user.MemberOf.Add(group);
                 }
             }
