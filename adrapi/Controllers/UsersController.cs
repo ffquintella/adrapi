@@ -95,16 +95,19 @@ namespace adrapi.Controllers
 
 
         // GET api/users/:user
-        [HttpGet("{DN}")]
-        public ActionResult<domain.User> Get(string DN)
+        [HttpGet("{user}")]
+        public ActionResult<domain.User> Get(string user, [FromQuery]string _attribute = "")
         {
             this.ProcessRequest();
             var uManager = UserManager.Instance;
 
-            var user = uManager.GetUser(DN);
-            logger.LogDebug(GetItem, "User DN={dn} found", DN);
+            User usr;
+            
+            usr = _attribute != "" ? uManager.GetUser(user, _attribute) : uManager.GetUser(user);
+            
+            logger.LogDebug(GetItem, "User locator={user} found", user);
 
-            return user;
+            return usr;
         }
 
 
