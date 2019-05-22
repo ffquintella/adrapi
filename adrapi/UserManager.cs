@@ -15,6 +15,8 @@ namespace adrapi
     {
         private static readonly string[] userAttrs = new string[] {
             "name",
+            "givenName",
+            "sn",
             "mail",
             "userPrincipalName",
             "sAMAccountName",
@@ -317,7 +319,8 @@ namespace adrapi
             attributeSet.Add(new LdapAttribute("name", user.Name));
             attributeSet.Add(new LdapAttribute("sAMAccountName", user.Account));
             if(user.Login != null) attributeSet.Add(new LdapAttribute("userPrincipalName", user.Login));
-            
+            if(user.Surname != null) attributeSet.Add(new LdapAttribute("sn", user.Surname));
+            if(user.GivenName != null) attributeSet.Add(new LdapAttribute("givenName", user.GivenName));
 
             attributeSet.Add(new LdapAttribute("displayName", user.Name));
             attributeSet.Add(new LdapAttribute("description", user.Description));
@@ -373,6 +376,8 @@ namespace adrapi
 
             user.DN = entry.GetAttribute("distinguishedName").StringValue;
 
+            if(entry.GetAttribute("givenName") != null) user.GivenName = entry.GetAttribute("givenName").StringValue;
+            if(entry.GetAttribute("sn") != null) user.Surname = entry.GetAttribute("sn").StringValue;
             if(entry.GetAttribute("mail") != null) user.Mail = entry.GetAttribute("mail").StringValue;
             if(entry.GetAttribute("mobile") != null) user.Mobile = entry.GetAttribute("mobile").StringValue;
             
