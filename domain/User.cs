@@ -9,6 +9,9 @@ namespace adrapi.domain
         [Required]
         public string Name { get; set; }
         
+        public string GivenName { get; set; }
+        public string Surname { get; set; }
+        
         public string Login { get; set; }
         [Required]
         public string Account { get; set; }
