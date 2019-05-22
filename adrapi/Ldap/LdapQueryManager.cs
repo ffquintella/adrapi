@@ -337,7 +337,8 @@ namespace adrapi.Ldap
         /// <param name="searchBase">Search base.</param>
         /// <param name="filter">Filter.</param>
         /// <param name="page">Page.</param>
-        public List<LdapEntry> ExecutePagedSearch(string searchBase, string filter, int page=0)
+        /// <param name="attrs">Optinal list of attributes to bring from ldap server</param>
+        public List<LdapEntry> ExecutePagedSearch(string searchBase, string filter, int page=0, string[] attrs = null)
         {
             var results = new List<LdapEntry>();
 
@@ -399,7 +400,8 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
-            ILdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+            
+            ILdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, attrs, false, (LdapSearchConstraints)null);
 
             // Loop through the results and print them out
             while (res.HasMore())
@@ -503,13 +505,17 @@ namespace adrapi.Ldap
             return results; 
         }
 
-        public LdapEntry GetRegister(string DN)
+        public LdapEntry GetRegister(string DN, string[] attrs = null)
         {
             var lcm = LdapConnectionManager.Instance;
             var con = lcm.GetConnection(true);
 
-            var res = con.Read(DN);
-
+            LdapEntry res;
+            if (attrs == null)
+                res = con.Read(DN);
+            else
+                res = con.Read(DN, attrs);
+           
             return res;
 
         }

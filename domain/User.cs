@@ -8,9 +8,14 @@ namespace adrapi.domain
     {
         [Required]
         public string Name { get; set; }
-        [Required]
+        
         public string Login { get; set; }
+        [Required]
+        public string Account { get; set; }
         public string Description { get; set; }
+        
+        public string Mail { get; set; }
+        public string Mobile { get; set; }
         public string ID { get; set; }
         public string DN { get; set; }
 

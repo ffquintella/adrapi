@@ -11,8 +11,19 @@ using adrapi.Tools;
 
 namespace adrapi
 {
-    public class UserManager: ObjectManager
+    public class UserManager : ObjectManager
     {
+        private static readonly string[] userAttrs = new string[] {
+            "name",
+            "mail",
+            "userPrincipalName",
+            "sAMAccountName",
+            "description",
+            "objectSid",
+            "distinguishedName",
+            "memberOf",
+            "mobile"
+        };
 
         #region SINGLETON
 
@@ -145,26 +156,27 @@ namespace adrapi
         /// </summary>
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the user</param>
+        /// <<param name="attribute">Optional attribute to use as search base</param>
         public User GetUser (string userID, string attribute = "")
         {
             var sMgmt = LdapQueryManager.Instance;
 
             try
             {
-
+                
                 LdapEntry entry;
                 
                 if (attribute != "")
                 {
                     
-                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))", 0, userAttrs);
 
                     entry = results.First();
 
                 }
                 else
                 {
-                    entry = sMgmt.GetRegister(userID);
+                    entry = sMgmt.GetRegister(userID, userAttrs);
                 }
                 
                 //entry = sMgmt.GetRegister(userID);
@@ -246,12 +258,15 @@ namespace adrapi
                     {
 
                         var b1 = attr.ByteValue;
-                        var b2 = dattrs.GetAttribute(attr.Name).ByteValue;
+                        if (dattrs.GetAttribute(attr.Name) != null)
+                        {
+                            var b2 = dattrs.GetAttribute(attr.Name).ByteValue;
 
-                        var equal = ByteTools.Equality(b1, b2);
-                                     
-                        if (! equal)
-                            modList.Add(new LdapModification(LdapModification.Replace, attr));
+                            var equal = ByteTools.Equality(b1, b2);
+
+                            if (!equal)
+                                modList.Add(new LdapModification(LdapModification.Replace, attr));
+                        }
                     }
 
            
@@ -261,7 +276,8 @@ namespace adrapi
 
                 try
                 {
-                    qMgmt.SaveEntry(user.DN, modList.ToArray());
+                    if(modList.Count > 0)
+                        qMgmt.SaveEntry(user.DN, modList.ToArray());
                     return 0;
 
                 }
@@ -297,15 +313,19 @@ namespace adrapi
             LdapAttributeSet attributeSet = new LdapAttributeSet();
 
             attributeSet.Add(new LdapAttribute("objectclass", new string[] { "top", "person", "organizationalPerson", "user" }));
-            attributeSet.Add(new LdapAttribute("cn", new string[] { user.Login }));
+            attributeSet.Add(new LdapAttribute("cn", new string[] { user.Account }));
             attributeSet.Add(new LdapAttribute("name", user.Name));
-            attributeSet.Add(new LdapAttribute("sAMAccountName", user.Login));
-
+            attributeSet.Add(new LdapAttribute("sAMAccountName", user.Account));
+            if(user.Login != null) attributeSet.Add(new LdapAttribute("userPrincipalName", user.Login));
+            
 
             attributeSet.Add(new LdapAttribute("displayName", user.Name));
             attributeSet.Add(new LdapAttribute("description", user.Description));
 
-
+            if(user.Mail != null) attributeSet.Add(new LdapAttribute("mail", user.Mail));
+            if(user.Mobile != null) attributeSet.Add(new LdapAttribute("mobile", user.Mobile)); 
+                 
+               
             if (user.Password == null )
             {
                 if(user.IsDisabled == null) user.IsDisabled = true;
@@ -340,7 +360,10 @@ namespace adrapi
             var user = new User();
 
             user.Name = entry.GetAttribute("name").StringValue;
-            user.Login = entry.GetAttribute("sAMAccountName").StringValue;
+            
+            user.Account = entry.GetAttribute("sAMAccountName").StringValue;
+            
+            if(entry.GetAttribute("userPrincipalName") != null) user.Login = entry.GetAttribute("userPrincipalName").StringValue;
 
             if(entry.GetAttribute("description") != null) user.Description = entry.GetAttribute("description").StringValue;
 
@@ -350,7 +373,9 @@ namespace adrapi
 
             user.DN = entry.GetAttribute("distinguishedName").StringValue;
 
-
+            if(entry.GetAttribute("mail") != null) user.Mail = entry.GetAttribute("mail").StringValue;
+            if(entry.GetAttribute("mobile") != null) user.Mobile = entry.GetAttribute("mobile").StringValue;
+            
             var attrMo = entry.GetAttribute("memberOf");
 
             if ( attrMo != null)
