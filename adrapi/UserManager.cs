@@ -173,6 +173,13 @@ namespace adrapi
                     
                     var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))", 0, userAttrs);
 
+
+                    if (results.Count == 0)
+                    {
+                        logger.Debug("User not found {0}", userID);
+                        return null;
+                    }
+                    
                     entry = results.First();
 
                 }
