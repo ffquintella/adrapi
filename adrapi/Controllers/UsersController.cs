@@ -104,6 +104,11 @@ namespace adrapi.Controllers
             User usr;
             
             usr = _attribute != "" ? uManager.GetUser(user, _attribute) : uManager.GetUser(user);
+
+            if (usr == null)
+            {
+                return NotFound();
+            }
             
             logger.LogDebug(GetItem, "User locator={user} found", user);
 
