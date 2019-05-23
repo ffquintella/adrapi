@@ -130,8 +130,17 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ItemExists, "User DN={user} found with attribute={_attribute}",user,_attribute);
-                if(_attribute != "") uManager.GetUser(user, _attribute);
-                else uManager.GetUser(user);
+                if (_attribute != "")
+                {
+                    var resp = uManager.GetUser(user, _attribute);
+                    if (resp == null) return NotFound();
+                    
+                }
+                else
+                {
+                    var resp = uManager.GetUser(user);
+                    if (resp == null) return NotFound();
+                }
 
                 return Ok();
 
