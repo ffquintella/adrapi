@@ -333,37 +333,48 @@ namespace adrapi.Controllers
         /// <response code="404">User not found</response>
         /// <response code="500">Internal Server error</response>
         [Authorize(Policy = "Writting")]
-        [HttpDelete("{DN}")]
+        [HttpDelete("{userID}")]
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public ActionResult Delete(string DN)
+        public ActionResult Delete(string userID, [FromQuery] string _attribute = "")
         {
             ProcessRequest();
 
-            logger.LogDebug(PutItem, "Tring to delete user:{0}", DN);
-
-            Regex regex = new Regex(@"\Acn=(?<login>[^,]+?),", RegexOptions.IgnoreCase);
-
-            Match match = regex.Match(DN);
-
-            if (!match.Success)
-            {
-                logger.LogError(PutItem, "DN is not correcly formated  DN={0}", DN);
-                return Conflict();
-            }
+            logger.LogDebug(PutItem, "Tring to delete user:{0}", userID);
 
 
-            var uLogin = match.Groups["login"];
-
+            User duser = null;
             var uManager = UserManager.Instance;
+            
+            if (_attribute != "")
+            {
+                duser = uManager.GetUser(userID, _attribute);
+            }
+            else
+            {
+                Regex regex = new Regex(@"\Acn=(?<login>[^,]+?),", RegexOptions.IgnoreCase);
 
-            var duser = uManager.GetUser(DN);
+                Match match = regex.Match(userID);
+
+                if (!match.Success)
+                {
+                    logger.LogError(PutItem, "DN is not correcly formated  DN={0}", userID);
+                    return Conflict();
+                }
+
+
+                //var uLogin = match.Groups["login"];
+
+                duser = uManager.GetUser(userID);
+            }
+            
+
 
             if (duser == null)
             {
                 // No User
-                logger.LogError(DeleteItem, "Tring to delete unexistent user DN={DN}", DN);
+                logger.LogError(DeleteItem, "Tring to delete unexistent user DN={DN}", userID);
 
                 return NotFound();
 
@@ -371,7 +382,7 @@ namespace adrapi.Controllers
             else
             {
                 // Delete 
-                logger.LogInformation(DeleteItem, "Deleting user DN={DN}", DN);
+                logger.LogInformation(DeleteItem, "Deleting user DN={DN}", userID);
 
                 var result = uManager.DeleteUser(duser);
                 if (result == 0) return Ok();
