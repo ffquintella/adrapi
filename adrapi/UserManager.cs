@@ -330,7 +330,7 @@ namespace adrapi
             if(user.GivenName != null) attributeSet.Add(new LdapAttribute("givenName", user.GivenName));
 
             attributeSet.Add(new LdapAttribute("displayName", user.Name));
-            attributeSet.Add(new LdapAttribute("description", user.Description));
+            if(user.Description != null) attributeSet.Add(new LdapAttribute("description", user.Description));
 
             if(user.Mail != null) attributeSet.Add(new LdapAttribute("mail", user.Mail));
             if(user.Mobile != null) attributeSet.Add(new LdapAttribute("mobile", user.Mobile)); 
