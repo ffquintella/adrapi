@@ -12,6 +12,7 @@ using adrapi.Web;
 using NLog;
 using adrapi.domain;
 using System.Text.RegularExpressions;
+using adrapi.Tools;
 
 namespace adrapi.Controllers
 {
@@ -167,9 +168,10 @@ namespace adrapi.Controllers
         /// </summary>
         /// <returns>The put.</returns>
         /// <param name="group">Group.</param>
+        /// <param name="_listCN">If the members are in CN format</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public ActionResult Put(string DN, [FromBody] domain.Group group)
+        public ActionResult Put(string DN, [FromBody] domain.Group group, [FromQuery] Boolean _listCN = false)
         {
             ProcessRequest();
 
@@ -196,8 +198,39 @@ namespace adrapi.Controllers
                 var gName= match.Groups["gname"];
 
                 var gManager = GroupManager.Instance;
+                var uManager = UserManager.Instance;
 
                 var adgroup = gManager.GetGroup(DN);
+
+                if (_listCN)
+                {
+                    var members = @group.Member.Clone(); 
+                        //group.Member;
+                    
+                    group.Member.Clear();
+
+                    foreach (String member in members)
+                    {
+                        string dname = "";
+
+                        var grp = gManager.GetGroup(member, true, true);
+                        if (grp != null) dname = grp.DN;
+                        else
+                        {
+                            var user = uManager.GetUser(member, "samaccountname");
+                            if (user != null) dname = user.DN;
+                            else
+                            {
+                                logger.LogError(InternalError, "Could not find member {member} for group {DN}", member,
+                                    DN);
+                                return this.StatusCode(422);
+                            }
+                        }
+
+
+                        group.Member.Add(dname);
+                    }
+                }
 
 
                 if (adgroup == null)
@@ -239,6 +272,13 @@ namespace adrapi.Controllers
 
 
 
+        /// <summary>
+        /// Update the member of a single group
+        /// </summary>
+        /// <param name="DN">The DN of the group</param>
+        /// <param name="members">The list of members or in DN or CN format</param>
+        /// <param name="_listCN">If the list is in CN format</param>
+        /// <returns></returns>
         // PUT api/groups/:group/members
         [HttpPut("{DN}/members")]
         public ActionResult PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false)
