@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using adrapi.Ldap;
+using adrapi.Ldap.Security;
 using Novell.Directory.Ldap;
 using adrapi.Tools;
 using NLog;
@@ -173,13 +175,32 @@ namespace adrapi
         /// </summary>
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the group</param>
-        public Group GetGroup(string DN, Boolean _listCN = false)
+        /// <param name="_listCN">If true the members will only contain the CN</param>
+        public Group GetGroup(string DN, Boolean _listCN = false, Boolean _searchByCN = false)
         {
             var sMgmt = LdapQueryManager.Instance;
 
             try
             {
-                var entry = sMgmt.GetRegister(DN);
+
+                LdapEntry entry;
+                if (!_searchByCN)
+                {
+                    entry = sMgmt.GetRegister(DN); 
+                }
+                else
+                {
+                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))", 0, null);
+
+
+                    if (results.Count == 0)
+                    {
+                        logger.Debug("Group not found {0}", DN);
+                        return null;
+                    }
+                    
+                    entry = results.First();   
+                }
                 
                 var group = ConvertfromLdap(entry, _listCN);
                 return group;
@@ -227,6 +248,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The group. Must have DN set</returns>
         /// <param name="group">Group.</param>
+        /// <param name="_listCN">If true the members will only contain the CN</param>
         public int SaveGroup(Group group)
         {
 

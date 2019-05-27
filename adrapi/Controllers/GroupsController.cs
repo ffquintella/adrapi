@@ -241,10 +241,11 @@ namespace adrapi.Controllers
 
         // PUT api/groups/:group/members
         [HttpPut("{DN}/members")]
-        public ActionResult PutMembers(string DN, [FromBody] String[] members)
+        public ActionResult PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false)
         {
             this.ProcessRequest();
             var gManager = GroupManager.Instance;
+            var uManager = UserManager.Instance;
 
             try
             {
@@ -255,7 +256,24 @@ namespace adrapi.Controllers
 
                 foreach(String member in members)
                 {
-                    group.Member.Add(member);
+                    string dname = "";
+                    if (_listCN)
+                    {
+                        var grp = gManager.GetGroup(member, true,true);
+                        if(grp != null) dname = grp.DN;
+                        else
+                        {
+                            var user = uManager.GetUser(member, "samaccountname");
+                            if (user != null) dname = user.DN;
+                            else
+                            {
+                                logger.LogError(InternalError, "Could not find member {member} for group {DN}", member, DN);
+                                return this.StatusCode(422);
+                            }
+                        }
+                    }
+                    
+                    group.Member.Add(dname);
                 }
 
                 try
