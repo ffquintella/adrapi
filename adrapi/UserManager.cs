@@ -276,6 +276,10 @@ namespace adrapi
                             if (!equal)
                                 modList.Add(new LdapModification(LdapModification.Replace, attr));
                         }
+                        else
+                        {
+                            modList.Add(new LdapModification(LdapModification.Replace, attr));
+                        }
                     }
 
            
