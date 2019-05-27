@@ -138,7 +138,7 @@ namespace adrapi.Controllers
 
         // GET api/groups/:group/members
         [HttpGet("{DN}/members")]
-        public ActionResult<List<String>> GetMembers(string DN)
+        public ActionResult<List<String>> GetMembers(string DN, [FromQuery]Boolean _listCN = false)
         {
             this.ProcessRequest();
             var gManager = GroupManager.Instance;
@@ -146,7 +146,7 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ListItems, "Group DN={dn} found");
-                var group = gManager.GetGroup(DN);
+                var group = gManager.GetGroup(DN, _listCN);
 
                 return group.Member;
 

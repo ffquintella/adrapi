@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using adrapi.Ldap;
-using adrapi.domain;
 using Novell.Directory.Ldap;
 using adrapi.Tools;
 using NLog;
+using Group = adrapi.domain.Group;
 
 namespace adrapi
 {
@@ -112,7 +113,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The LDAP.</returns>
         /// <param name="entry">Entry.</param>
-        private Group ConvertfromLdap(LdapEntry entry)
+        private Group ConvertfromLdap(LdapEntry entry, Boolean _listCN = false)
         {
             var group = new Group();
 
@@ -150,7 +151,15 @@ namespace adrapi
                     if (m != null && m.Current != null)
                     {
                         member = m.Current;
+                        if (_listCN)
+                        {
+                            var regex = new Regex("^(?:CN=)(?<cn>[^,]+?)(?:,)");
+                            var result = regex.Match(member);
+                            member = result.Groups["cn"].Value;
+                        }
+
                         group.Member.Add(member);
+                        
                     }
                 }
             }
@@ -164,19 +173,20 @@ namespace adrapi
         /// </summary>
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the group</param>
-        public Group GetGroup(string DN)
+        public Group GetGroup(string DN, Boolean _listCN = false)
         {
             var sMgmt = LdapQueryManager.Instance;
 
             try
             {
                 var entry = sMgmt.GetRegister(DN);
-                var group = ConvertfromLdap(entry);
+                
+                var group = ConvertfromLdap(entry, _listCN);
                 return group;
             }
             catch (LdapException ex)
             {
-                logger.Debug("User not found {0} Ex: {1}", DN, ex.Message);
+                logger.Debug("Group not found {0} Ex: {1}", DN, ex.Message);
                 return null;
             }
 
