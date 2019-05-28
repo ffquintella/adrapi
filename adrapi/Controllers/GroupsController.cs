@@ -124,6 +124,12 @@ namespace adrapi.Controllers
                 logger.LogDebug(ItemExists, "Group DN={dn} found", DN);
                 var group = gManager.GetGroup(DN);
 
+                if (group == null)
+                {
+                    logger.LogDebug(ItemExists, "Group DN={dn} not found.");
+                    return NotFound();
+                }
+                
                 return Ok();
 
             }
