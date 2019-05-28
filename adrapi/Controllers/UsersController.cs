@@ -192,23 +192,34 @@ namespace adrapi.Controllers
         #region Authentication
 
         // GET api/users/:user/authenticate
-        [HttpPost("{DN}/authenticate")]
-        public ActionResult Authenticate(string DN, [FromBody] AuthenticationRequest req)
+        [HttpPost("{userId}/authenticate")]
+        public ActionResult Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
         {
 
             var uManager = UserManager.Instance;
-            var aduser = uManager.GetUser(DN);
+
+            User aduser;
+            
+            if (_useAccount)
+            {
+                aduser = uManager.GetUser(userId, "samaccountname");
+            }
+            else
+            {
+                aduser = uManager.GetUser(userId);  
+            }
+            
 
             if (aduser == null)
             {
-                logger.LogDebug(PutItem, "User DN={dn} found", DN);
+                logger.LogDebug(PutItem, "User ID={userID} not found", userId);
                 return NotFound();
             }
             else
             {
                 string login;
 
-                if (req.Login == null) login = aduser.Login;
+                if (req.Login == null) login = aduser.Account;
                 else login = req.Login;
 
                 var success = uManager.ValidateAuthentication(login, req.Password);
