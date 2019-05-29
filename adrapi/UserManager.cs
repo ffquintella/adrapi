@@ -97,7 +97,17 @@ namespace adrapi
 
             int results = 0;
 
-            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end);
+            string formatedFilter = "";
+
+            if (filter != "")
+            {
+                if (attribute != "")
+                    formatedFilter = attribute + "=" + filter;
+                else
+                    formatedFilter = "cn=" + filter;
+            }
+            
+            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end, formatedFilter);
 
             foreach (var entry in resps)
             {
