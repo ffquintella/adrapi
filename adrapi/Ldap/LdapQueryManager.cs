@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
 using System.Text;
+using adrapi.Ldap.Security;
 
 namespace adrapi.Ldap
 {
@@ -307,22 +308,49 @@ namespace adrapi.Ldap
             return results;
         }
 
-        public List<LdapEntry> ExecutePagedSearch(string searchBase, LdapSearchType type)
+        public List<LdapEntry> ExecutePagedSearch(string searchBase, LdapSearchType type, string filter = "")
         {
             switch (type)
             {
                 case LdapSearchType.User:
                     logger.Debug("Serching all users");
-                    return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))");
+
+                    if (filter == "")
+                    {
+                        return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))");
+                    }
+                    
+                    return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))");
+                    
+                    
                 case LdapSearchType.Group:
                     logger.Debug("Serching all groups");
+
+                    if (filter == "")
+                    {
+                        return ExecutePagedSearch(searchBase, $"(objectClass=group)");
+                    }
+                    
                     return ExecutePagedSearch(searchBase, $"(objectClass=group)");
+                
                 case LdapSearchType.OU:
                     logger.Debug("Serching all OUs");
-                    return ExecutePagedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))");
+                    if (filter == "")
+                    {
+                        return ExecutePagedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))"); 
+                    }
+
+                    return ExecutePagedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))");
+                
                 case LdapSearchType.Machine:
                     logger.Debug("Serching all computers");
-                    return ExecutePagedSearch(searchBase, $"(objectClass=computer)");
+                    if (filter == "")
+                    {
+                        return ExecutePagedSearch(searchBase, $"(objectClass=computer)");
+                    }
+
+                    return ExecutePagedSearch(searchBase, $"(&(objectClass=computer)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))");
+                
                 default:
                     logger.Error("Search type not specified.");
                     throw new domain.Exceptions.WrongParameterException("Search type not specified");

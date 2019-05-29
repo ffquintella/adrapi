@@ -95,5 +95,37 @@ namespace adrapi.Ldap.Security
             }
             return sb.ToString();
         }
+        
+        /// <summary>
+        /// Escape a string for usage in an LDAP DN to prevent LDAP injection attacks.
+        /// </summary>
+        public static string EscapeForSearchFilterAllowWC(string filter)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < filter.Length; i++)
+            {
+                char curChar = filter[i];
+                switch (curChar)
+                {
+                    case '\\':
+                        sb.Append("\\5c");
+                        break;
+                    case '(':
+                        sb.Append("\\28");
+                        break;
+                    case ')':
+                        sb.Append("\\29");
+                        break;
+                    case '\u0000':
+                        sb.Append("\\00");
+                        break;
+                    default:
+                        sb.Append(curChar);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+        
     }
 }

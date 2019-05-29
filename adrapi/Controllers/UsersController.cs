@@ -33,7 +33,7 @@ namespace adrapi.Controllers
         #region GET
         // GET api/users
         [HttpGet]
-        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end, [FromQuery] string _attribute = "")
+        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end, [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
         {
 
             this.ProcessRequest();
@@ -50,16 +50,27 @@ namespace adrapi.Controllers
             
             if (_attribute == "")
             {
-                if (_start == 0 && _end == 0) return uManager.GetList();
-                else return uManager.GetList(_start, _end);
-            }
-            else
-            {
-                if (_start == 0 && _end == 0) return uManager.GetList(_attribute);
-                else return uManager.GetList(_start, _end, _attribute);
+                if (_filter == "")
+                {
+                    if (_start == 0 && _end == 0) return uManager.GetList();
+                    return uManager.GetList(_start, _end);
+                }
+
+                if (_start == 0 && _end == 0) return uManager.GetList("", _filter);
+                return uManager.GetList(_start, _end, "", _filter);
+                
+                
             }
 
-            //return users;
+            if (_filter == "")
+            {
+                if (_start == 0 && _end == 0) return uManager.GetList(_attribute);
+                return uManager.GetList(_start, _end, _attribute);
+            }
+            
+            if (_start == 0 && _end == 0) return uManager.GetList(_attribute, _filter);
+            return uManager.GetList(_start, _end, _attribute, _filter);
+            
 
         }
 
@@ -102,7 +113,7 @@ namespace adrapi.Controllers
             var uManager = UserManager.Instance;
 
             User usr;
-            
+
             usr = _attribute != "" ? uManager.GetUser(user, _attribute) : uManager.GetUser(user);
 
             if (usr == null)

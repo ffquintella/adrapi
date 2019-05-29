@@ -44,7 +44,7 @@ namespace adrapi
         /// Return a string list of the users DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public List<String> GetList(string attribute = "")
+        public List<String> GetList(string attribute = "", string filter = "")
         {
             var users = new List<String>();
 
@@ -52,7 +52,18 @@ namespace adrapi
 
             int results = 0;
 
-            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User);
+            string formatedFilter = "";
+
+            if (filter != "")
+            {
+                if (attribute != "")
+                    formatedFilter = attribute + "=" + filter;
+                else
+                    formatedFilter = "cn=" + filter;
+            }
+
+
+            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User, formatedFilter);
 
             foreach(var entry in resps)
             {
@@ -78,7 +89,7 @@ namespace adrapi
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
         /// <param name="attribute">The attribute name to appear on the list</param>
-        public List<String> GetList(int start, int end, string attribute = "")
+        public List<String> GetList(int start, int end, string attribute = "" , string filter = "")
         {
             var users = new List<String>();
 
