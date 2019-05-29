@@ -65,22 +65,44 @@ namespace adrapi.Ldap
 
         }
 
-        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, LdapSearchType type, int start, int end)
+        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, LdapSearchType type, int start, int end, string filter = "")
         {
             switch (type)
             {
                 case LdapSearchType.User:
                     logger.Debug("Serching all users");
-                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))", start, end);
+                    
+                    if (filter == "")
+                    {
+                        return ExecuteLimitedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))", start, end);
+                    }
+                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
+                                       
                 case LdapSearchType.Group:
                     logger.Debug("Serching all groups");
-                    return ExecuteLimitedSearch(searchBase, $"(objectClass=group)", start, end);
+                    
+                    if (filter == "")
+                    {
+                        return ExecuteLimitedSearch(searchBase, $"(objectClass=group)", start, end);
+                    }
+                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=group)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
+                
                 case LdapSearchType.OU:
                     logger.Debug("Serching all OUs");
-                    return ExecuteLimitedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))", start, end);
+                    
+                    if (filter == "")
+                    {
+                        return ExecuteLimitedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))", start, end);
+                    }
+                    return ExecuteLimitedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
+                
                 case LdapSearchType.Machine:
                     logger.Debug("Serching all computers");
-                    return ExecuteLimitedSearch(searchBase, $"(objectClass=computer)", start, end);
+                    if (filter == "")
+                    {
+                        return ExecuteLimitedSearch(searchBase, $"(objectClass=computer)", start, end);
+                    }
+                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=computer)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
                 default:
                     logger.Error("Search type not specified.");
                     throw new domain.Exceptions.WrongParameterException("Search type not specified");
