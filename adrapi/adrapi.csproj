@@ -68,6 +68,9 @@
     <Content Remove="domain\obj\project.assets.json" />
     <Content Remove="domain\bin\Debug\netstandard2.0\domain.deps.json" />
     <Content Remove="domain\bin\Debug\netstandard2.0\domain.deps.json" />
+    <Content Update="appsettings.Development.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\domain\domain.csproj" />
