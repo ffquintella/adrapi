@@ -15,6 +15,8 @@ namespace adrapi.Security
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
         //private readonly IUserService _userService;
+        
+        private readonly ILogger _logger;
 
         public BasicAuthenticationHandler(
             IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -23,6 +25,9 @@ namespace adrapi.Security
             ISystemClock clock)
             : base(options, logger, encoder, clock)
         {
+
+            _logger = logger.CreateLogger("BasicAuthenticationHandler");
+
             //_userService = userService;
         }
 
@@ -65,6 +70,7 @@ namespace adrapi.Security
                 }
                 else
                 {
+                    _logger.LogDebug("Invalid api-key or IP address ip:" + Request.HttpContext.Connection.RemoteIpAddress.ToString() + " key:" + api_key);
                     // FAILED
                     return AuthenticateResult.Fail("Invalid api-key or IP address");
                 }
