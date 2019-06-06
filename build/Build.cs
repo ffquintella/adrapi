@@ -90,6 +90,7 @@ class Build : NukeBuild
                 .SetProject(Solution)
             );
           
+            DeleteFile(AppDirectory + "/appsettings.Development.json");
             CopyFile(RootDirectory + "/adrapi/nLog.prod.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
 
             string fileName = AppDirectory + "/version.txt";
