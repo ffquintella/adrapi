@@ -45,3 +45,7 @@ artifacts/*
 .tmp
 _build.csproj.DotSettings
 .editorconfig
+/adrapi/appsettings.Homolog-.json
+/adrapi/appsettings.Development.json
+/adrapi/api/devapi.paw
+/adrapi/appsettings.Development_1.json

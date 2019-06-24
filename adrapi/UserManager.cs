@@ -62,8 +62,9 @@ namespace adrapi
                     formatedFilter = "cn=" + filter;
             }
 
-
-            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User, formatedFilter);
+            //var resps = sMgmt.ExecuteLimitedSearch("",  LdapSearchType.User, 0, 999,formatedFilter);
+            
+            var resps = sMgmt.ExecuteSearch("", LdapSearchType.User, formatedFilter);
 
             foreach(var entry in resps)
             {

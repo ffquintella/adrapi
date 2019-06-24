@@ -63,13 +63,17 @@
     <None Remove="logs\logs\2018-12-17\nlog-own-2018-12-17.log" />
     <None Remove="logs\2018-12-17\nlog-all-2018-12-17.log" />
     <None Remove="logs\2018-12-17\nlog-own-2018-12-17.log" />
+    <Content Remove="appsettings.Development_1.json" />
+    <None Include="appsettings.Development_1.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Remove="domain\obj\project.assets.json" />
     <Content Remove="domain\bin\Debug\netstandard2.0\domain.deps.json" />
     <Content Remove="domain\bin\Debug\netstandard2.0\domain.deps.json" />
     <Content Update="appsettings.Development.json">
-      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

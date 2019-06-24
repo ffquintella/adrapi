@@ -21,7 +21,7 @@ namespace adrapi
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.Development.json", optional: false)
                 .AddCommandLine(args)
-                .Build();
+                .Build(); 
             #else
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false)
