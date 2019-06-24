@@ -40,7 +40,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.Group);
+            var resps = sMgmt.ExecuteSearch("", LdapSearchType.Group);
 
             foreach (var entry in resps)
             {
@@ -95,7 +95,7 @@ namespace adrapi
 
             var sMgmt = LdapQueryManager.Instance;
 
-            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.Group);
+            var resps = sMgmt.ExecuteSearch("", LdapSearchType.Group);
             int results = 0;
 
             foreach (var entry in resps)
@@ -190,7 +190,7 @@ namespace adrapi
                 }
                 else
                 {
-                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))", 0, null);
+                    var results = sMgmt.ExecuteSearch("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))");
 
 
                     if (results.Count == 0)

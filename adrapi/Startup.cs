@@ -35,7 +35,13 @@ namespace adrapi
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
 
-            services.AddApiVersioning(o => o.ApiVersionReader = new HeaderApiVersionReader("api-version"));
+            services.AddApiVersioning(o =>
+            {   
+                o.ReportApiVersions = true;
+                o.ApiVersionReader = new HeaderApiVersionReader("api-version");
+                o.AssumeDefaultVersionWhenUnspecified = true;
+                o.DefaultApiVersion = new ApiVersion(2, 0);
+            });
 
             services.AddAuthorization(options =>
             {

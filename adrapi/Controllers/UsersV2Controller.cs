@@ -16,14 +16,14 @@ namespace adrapi.Controllers
 {
     //[Produces("application/json")]
     [Authorize(Policy = "Reading")]
-    [ApiVersion("1.0")]
-    [Route("api/[controller]")]
+    [ApiVersion("2.0")]
+    [Route("api/users")]
     [ApiController]
-    public class UsersController : BaseController
+    public class UsersV2Controller : BaseController
     {
 
 
-        public UsersController(ILogger<UsersController> logger, IConfiguration iConfig)
+        public UsersV2Controller(ILogger<UsersController> logger, IConfiguration iConfig)
         {
 
             base.logger = logger;
@@ -34,7 +34,7 @@ namespace adrapi.Controllers
         #region GET
         // GET api/users
         [HttpGet]
-        public ActionResult<UserListResponse> Get([FromQuery]int _start, [FromQuery]int _end, [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
+        public ActionResult<UserListResponse> Get([FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
         {
 
             this.ProcessRequest();
@@ -44,65 +44,50 @@ namespace adrapi.Controllers
 
             var uManager = UserManager.Instance;
 
-            if (_start == 0 && _end != 0)
-            {
-                return Conflict();
-            }
-            
             if (_attribute == "")
             {
                 if (_filter == "")
                 {
-                    if (_start == 0 && _end == 0) return uManager.GetList();
-                    return uManager.GetList(_start, _end);
+                    return uManager.GetList("", "", _cookie);
                 }
 
-                if (_start == 0 && _end == 0) return uManager.GetList("", _filter);
-                return uManager.GetList(_start, _end, "", _filter);
-                
-                
+                return uManager.GetList("", _filter, _cookie);
+  
             }
 
             if (_filter == "")
             {
-                if (_start == 0 && _end == 0) return uManager.GetList(_attribute);
-                return uManager.GetList(_start, _end, _attribute);
+                return uManager.GetList(_attribute, "", _cookie);
             }
             
-            if (_start == 0 && _end == 0) return uManager.GetList(_attribute, _filter);
-            return uManager.GetList(_start, _end, _attribute, _filter);
-            
+            return uManager.GetList(_attribute, _filter, _cookie);
+           
 
         }
 
         
         // GET api/users 
         [HttpGet]
-        public ActionResult<IEnumerable<domain.User>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
+        public ActionResult<UserListResponse> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
         {
-            if (_full)
+
+            this.ProcessRequest();
+
+            logger.LogInformation(ListItems, "{0} getting all users objects", requesterID);
+
+            if (_start == 0 && _end != 0)
             {
-                this.ProcessRequest();
-
-                logger.LogInformation(ListItems, "{0} getting all users objects", requesterID);
-
-                if (_start == 0 && _end != 0)
-                {
-                    return Conflict();
-                }
-
-                var uManager = UserManager.Instance;
-                List<domain.User> users;
-
-                if (_start == 0 && _end == 0) users = uManager.GetUsers().Users;
-                else users = uManager.GetUsers(_start, _end).Users;
-
-                return users;
+                return Conflict();
             }
-            else
-            {
-                return new List<domain.User>();
-            }
+
+            var uManager = UserManager.Instance;
+            UserListResponse response; 
+
+            if (_start == 0 && _end == 0) response = uManager.GetUsers();
+            else response = uManager.GetUsers(_start, _end);
+
+            return response;
+
         }
 
         // GET api/users/:user
@@ -158,6 +143,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
+                logger.LogError(ex.Message);
                 logger.LogDebug(ItemExists, "User DN={dn} not found.");
                 return NotFound();
             }
