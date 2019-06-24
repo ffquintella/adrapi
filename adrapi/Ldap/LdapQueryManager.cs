@@ -29,25 +29,50 @@ namespace adrapi.Ldap
         #endregion
 
         #region READ
-        public LdapMessageQueue SendSearch(string searchBase, LdapSearchType type)
+
+        private static string GetTypeFilter(LdapSearchType type, string filter = "")
         {
             switch (type) {
                 case LdapSearchType.User:
-                    logger.Debug("Serching all users");
-                    return SendSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))");
+                    if (filter == "")
+                    {
+                        return $"(&(objectClass=user)(objectCategory=person))";
+                    }
+
+                    return $"(&(objectClass=user)(objectCategory=person)(" +
+                           LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) + "))";
                 case LdapSearchType.Group:
-                    logger.Debug("Serching all groups");
-                    return SendSearch(searchBase, $"(objectClass=group)");
+                    if (filter == "")
+                    {
+                        return $"((objectClass=group)"; 
+                    }
+
+                    return $"(&(objectClass=group)(" + LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) +
+                           "))";
                 case LdapSearchType.OU:
-                    logger.Debug("Serching all OUs");
-                    return SendSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))");
+                    if (filter == "")
+                    {
+                        return $"(&(ou=*)(objectClass=organizationalunit))"; 
+                    }
+
+                    return $"(&(ou=*)(objectClass=organizationalunit)(" +
+                           LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) + "))";
                 case LdapSearchType.Machine:
-                    logger.Debug("Serching all computers");
-                    return SendSearch(searchBase, $"(objectClass=computer)");
+                    if (filter == "")
+                    {
+                        return $"(objectClass=computer)";
+                    }
+
+                    return $"(&(objectClass=computer)(" + LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) +
+                           "))";
                 default:
-                    logger.Error("Search type not specified.");
                     throw new domain.Exceptions.WrongParameterException("Search type not specified");
             }
+        }
+        
+        public LdapMessageQueue SendSearch(string searchBase, LdapSearchType type, string filter = "")
+        {
+            return SendSearch(searchBase, GetTypeFilter(type, filter));
         }
 
         public LdapMessageQueue SendSearch(string searchBase, string filter)
@@ -65,48 +90,65 @@ namespace adrapi.Ldap
 
         }
 
+        public List<LdapEntry> ExecuteSearch(string searchBase, LdapSearchType type, string filter = "")
+        {
+            var results = new List<LdapEntry>();
+            
+            var lcm = LdapConnectionManager.Instance;
+            var conn = lcm.GetConnection();
+            var sb = searchBase + config.searchBase;
+            
+            LdapControl[] requestControls = new LdapControl[1];
+
+            LdapSortKey[] keys = new LdapSortKey[1];
+            keys[0] = new LdapSortKey("cn"); //samaccountname
+            // Create the sort control 
+            requestControls[0] = new LdapSortControl(keys, true);
+            
+            // Set the controls to be sent as part of search request
+            LdapSearchConstraints cons = conn.SearchConstraints;
+            cons.SetControls(requestControls);
+            conn.Constraints = cons;
+            
+            LdapSearchResults resps = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, GetTypeFilter(type, filter), null, false, (LdapSearchConstraints)null);
+
+            //var resps = SendSearch(searchBase, type, filter);
+            
+            while (resps.HasMore())
+            {
+
+                /* Get next returned entry.  Note that we should expect a Ldap-
+                *Exception object as well just in case something goes wrong
+                */
+                LdapEntry nextEntry = null;
+                try
+                {
+                    nextEntry = resps.Next();
+                    results.Add(nextEntry);
+                }
+                catch (Exception e)
+                {
+                    if (e is LdapReferralException)
+                        continue;
+                    else
+                    {
+                        logger.Error("Search stopped with exception " + e.ToString());
+                        break;
+                    }
+                }
+
+                /* Print out the returned Entries distinguished name.  */
+                logger.Debug(nextEntry.Dn);
+
+            }
+
+            return results;
+        }
+        
+
         public List<LdapEntry> ExecuteLimitedSearch(string searchBase, LdapSearchType type, int start, int end, string filter = "")
         {
-            switch (type)
-            {
-                case LdapSearchType.User:
-                    logger.Debug("Serching all users");
-                    
-                    if (filter == "")
-                    {
-                        return ExecuteLimitedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))", start, end);
-                    }
-                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
-                                       
-                case LdapSearchType.Group:
-                    logger.Debug("Serching all groups");
-                    
-                    if (filter == "")
-                    {
-                        return ExecuteLimitedSearch(searchBase, $"(objectClass=group)", start, end);
-                    }
-                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=group)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
-                
-                case LdapSearchType.OU:
-                    logger.Debug("Serching all OUs");
-                    
-                    if (filter == "")
-                    {
-                        return ExecuteLimitedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit))", start, end);
-                    }
-                    return ExecuteLimitedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
-                
-                case LdapSearchType.Machine:
-                    logger.Debug("Serching all computers");
-                    if (filter == "")
-                    {
-                        return ExecuteLimitedSearch(searchBase, $"(objectClass=computer)", start, end);
-                    }
-                    return ExecuteLimitedSearch(searchBase, $"(&(objectClass=computer)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))", start, end);
-                default:
-                    logger.Error("Search type not specified.");
-                    throw new domain.Exceptions.WrongParameterException("Search type not specified");
-            }
+            return ExecuteLimitedSearch(searchBase, GetTypeFilter(type, filter), start, end);
         }
 
         private int getSearchSize(string searchBase, string filter)
@@ -339,6 +381,7 @@ namespace adrapi.Ldap
 
                     if (filter == "")
                     {
+                        //return ExecutePagedSearch(searchBase, $"(objectClass=user)");
                         return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))");
                     }
                     
@@ -408,7 +451,7 @@ namespace adrapi.Ldap
             * Novell eDirectory support of this functionaliry.
             */
             LdapSortKey[] keys = new LdapSortKey[1];
-            keys[0] = new LdapSortKey("name");
+            keys[0] = new LdapSortKey("cn");
 
             // Create the sort control 
             requestControls[0] = new LdapSortControl(keys, true);
@@ -418,30 +461,13 @@ namespace adrapi.Ldap
             * after count of entries to be returned 
             */
             int beforeCount = 0;
-            int afterCount = config.maxResults -1;
+            int afterCount = 0;
+            //int afterCount = config.maxResults -1;
 
-
-            /* The VLV control request can specify the index
-            * using one of the two methods described below:
-            * 
-            * TYPED INDEX: Here we request all objects that have cn greater
-            * than or equal to the letter "a" 
-            */
-            //requestControls[1] = new LdapVirtualListControl("a", beforeCount, afterCount);
-
-            /* The following code needs to be enabled to specify the index 
-            * directly */
-
-            /*int offset = 0; //- offset of the index
-            int contentCount = 3; // - our estimate of the search result size
-
-            requestControls[1] = new LdapVirtualListControl(offset, 
-                                     beforeCount, afterCount, contentCount);
-                                     */
-
-            requestControls[1] = new LdapVirtualListControl((page * config.maxResults) + 1,
-                                     beforeCount, afterCount, config.maxResults);
-
+            System.String cookie = "";
+            
+            requestControls[1] = new LdapPagedResultsControl(config.maxResults, cookie);
+            
             // Set the controls to be sent as part of search request
             LdapSearchConstraints cons = conn.SearchConstraints;
             cons.SetControls(requestControls);
