@@ -6,6 +6,7 @@ using System.Linq;
 using Novell.Directory.Ldap;
 using System.Text;
 using adrapi.Ldap.Security;
+using adrapi.Models;
 using NLog;
 using adrapi.Tools;
 
@@ -44,8 +45,11 @@ namespace adrapi
         /// Return a string list of the users DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public List<String> GetList(string attribute = "", string filter = "")
+        public UserListResponse GetList(string attribute = "", string filter = "", string cookie = "")
         {
+            
+            var response = new UserListResponse();
+            
             var users = new List<String>();
 
             var sMgmt = LdapQueryManager.Instance;
@@ -62,9 +66,14 @@ namespace adrapi
                     formatedFilter = "cn=" + filter;
             }
 
-            //var resps = sMgmt.ExecuteLimitedSearch("",  LdapSearchType.User, 0, 999,formatedFilter);
+            List<LdapEntry> resps;
             
-            var resps = sMgmt.ExecuteSearch("", LdapSearchType.User, formatedFilter);
+
+            var presp = sMgmt.ExecutePagedSearch("", LdapSearchType.User, formatedFilter, cookie);
+
+            response.Cookie = presp.Cookie;
+            resps = presp.Entries;
+            
 
             foreach(var entry in resps)
             {
@@ -75,13 +84,16 @@ namespace adrapi
                 results++;
             }
 
+            response.UserNames = users;
+            response.SearchType = "User";
+            response.SearchMethod = LdapSearchMethod.Paged;
+            
+            
             logger.Debug("User search executed results:{result}", results);
 
 
-            return users;
+            return response;
         }
-
-        //TODO: Verify the lower limit witch is not working
 
         /// <summary>
         /// Gets the list. Limited to a start and end number based on the total colection sorted by the name
@@ -90,8 +102,10 @@ namespace adrapi
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
         /// <param name="attribute">The attribute name to appear on the list</param>
-        public List<String> GetList(int start, int end, string attribute = "" , string filter = "")
+        public UserListResponse GetList(int start, int end, string attribute = "" , string filter = "")
         {
+            var response = new UserListResponse();
+            
             var users = new List<String>();
 
             var sMgmt = LdapQueryManager.Instance;
@@ -109,51 +123,69 @@ namespace adrapi
             }
             
             var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end, formatedFilter);
+         
 
             foreach (var entry in resps)
             {
-                if(attribute == "")
-                    users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                string u = "";
+                if (attribute == "")
+                    u = entry.GetAttribute("distinguishedName").StringValue;
                 else
-                    users.Add(entry.GetAttribute(attribute).StringValue);
+                    u = entry.GetAttribute(attribute).StringValue;
+                users.Add(u);
+
                 results++;
             }
 
+            response.SearchType = "User";
+            response.SearchMethod = LdapSearchMethod.Limited;
+            response.UserNames = users;
             logger.Debug("User search executed results:{result}", results);
 
 
-            return users;
+            return response;
         }
 
         /// <summary>
         /// Gets the list of all users.
         /// </summary>
         /// <returns>The users.</returns>
-        public List<User> GetUsers()
+        public UserListResponse GetUsers()
         {
+            
+            var response = new UserListResponse();
 
             var users = new List<User>();
 
             var sMgmt = LdapQueryManager.Instance;
 
-            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.User);
+            var resps = sMgmt.ExecuteSearch("", LdapSearchType.User);
             int results = 0;
 
+            response.UserNames = new List<string>();
+            
             foreach (var entry in resps)
             {
-                users.Add(ConvertfromLdap(entry));
+                var u = ConvertfromLdap(entry);
+                response.UserNames.Add(u.Name);
+                users.Add(u);
                 results++;
             }
 
             logger.Debug("User search executed results:{result}", results);
 
+            response.Users = users;
+            
+            response.SearchType = "User";
+            response.SearchMethod = LdapSearchMethod.Simple;
 
-            return users;
+            return response;
         }
 
 
-        public List<User> GetUsers(int start, int end)
+        public UserListResponse GetUsers(int start, int end)
         {
+            var response = new UserListResponse();
             var users = new List<User>();
 
             var sMgmt = LdapQueryManager.Instance;
@@ -171,8 +203,12 @@ namespace adrapi
 
             logger.Debug("User search executed results:{result}", results);
 
+            response.Users = users;
+            
+            response.SearchType = "User";
+            response.SearchMethod = LdapSearchMethod.Paged;
 
-            return users;
+            return response;
         }
 
         /// <summary>
@@ -193,16 +229,16 @@ namespace adrapi
                 if (attribute != "")
                 {
                     
-                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))", 0, userAttrs);
+                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
 
 
-                    if (results.Count == 0)
+                    if (results.Entries.Count == 0)
                     {
                         logger.Debug("User not found {0}", userID);
                         return null;
                     }
                     
-                    entry = results.First();
+                    entry = results.Entries.First();
 
                 }
                 else

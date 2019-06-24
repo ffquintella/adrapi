@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Text;
 using Novell.Directory.Ldap;
 using Novell.Directory.Ldap.Controls;
 using System.Collections.Generic;
@@ -92,6 +93,11 @@ namespace adrapi.Ldap
 
         public List<LdapEntry> ExecuteSearch(string searchBase, LdapSearchType type, string filter = "")
         {
+            return ExecuteSearch(searchBase, GetTypeFilter(type, filter));
+        }
+
+        public List<LdapEntry> ExecuteSearch(string searchBase, string filter = "")
+        {
             var results = new List<LdapEntry>();
             
             var lcm = LdapConnectionManager.Instance;
@@ -110,7 +116,7 @@ namespace adrapi.Ldap
             cons.SetControls(requestControls);
             conn.Constraints = cons;
             
-            LdapSearchResults resps = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, GetTypeFilter(type, filter), null, false, (LdapSearchConstraints)null);
+            LdapSearchResults resps = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
 
             //var resps = SendSearch(searchBase, type, filter);
             
@@ -372,54 +378,11 @@ namespace adrapi.Ldap
             return results;
         }
 
-        public List<LdapEntry> ExecutePagedSearch(string searchBase, LdapSearchType type, string filter = "")
+        public LdapPagedResponse ExecutePagedSearch(string searchBase, LdapSearchType type, string filter = "", string cookie = "")
         {
-            switch (type)
-            {
-                case LdapSearchType.User:
-                    logger.Debug("Serching all users");
-
-                    if (filter == "")
-                    {
-                        //return ExecutePagedSearch(searchBase, $"(objectClass=user)");
-                        return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person))");
-                    }
-                    
-                    return ExecutePagedSearch(searchBase, $"(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))");
-                    
-                    
-                case LdapSearchType.Group:
-                    logger.Debug("Serching all groups");
-
-                    if (filter == "")
-                    {
-                        return ExecutePagedSearch(searchBase, $"(objectClass=group)");
-                    }
-                    
-                    return ExecutePagedSearch(searchBase, $"(objectClass=group)");
-                
-                case LdapSearchType.OU:
-                    logger.Debug("Serching all OUs");
-                    if (filter == "")
-                    {
-                        return ExecutePagedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))"); 
-                    }
-
-                    return ExecutePagedSearch(searchBase, $"(&(ou=*)(objectClass=organizationalunit)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))");
-                
-                case LdapSearchType.Machine:
-                    logger.Debug("Serching all computers");
-                    if (filter == "")
-                    {
-                        return ExecutePagedSearch(searchBase, $"(objectClass=computer)");
-                    }
-
-                    return ExecutePagedSearch(searchBase, $"(&(objectClass=computer)("+LdapInjectionControll.EscapeForSearchFilterAllowWC(filter)+"))");
-                
-                default:
-                    logger.Error("Search type not specified.");
-                    throw new domain.Exceptions.WrongParameterException("Search type not specified");
-            }
+            
+            return ExecutePagedSearch(searchBase, GetTypeFilter(type,filter), cookie);
+            
         }
 
 
@@ -429,9 +392,8 @@ namespace adrapi.Ldap
         /// <returns>The paged search.</returns>
         /// <param name="searchBase">Search base.</param>
         /// <param name="filter">Filter.</param>
-        /// <param name="page">Page.</param>
-        /// <param name="attrs">Optinal list of attributes to bring from ldap server</param>
-        public List<LdapEntry> ExecutePagedSearch(string searchBase, string filter, int page=0, string[] attrs = null)
+        /// <param name="cookie">Cookie to restore last search.</param>
+        public LdapPagedResponse ExecutePagedSearch(string searchBase, string filter, string cookie = "")
         {
             var results = new List<LdapEntry>();
 
@@ -464,7 +426,14 @@ namespace adrapi.Ldap
             int afterCount = 0;
             //int afterCount = config.maxResults -1;
 
-            System.String cookie = "";
+            //System.String cookie = "";
+
+            if (cookie != "")
+            {
+                byte[] data = System.Convert.FromBase64String(cookie);
+                cookie = System.Text.ASCIIEncoding.ASCII.GetString(data);
+            }
+            
             
             requestControls[1] = new LdapPagedResultsControl(config.maxResults, cookie);
             
@@ -476,6 +445,8 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
+
+            string[] attrs = null;
             
             ILdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, attrs, false, (LdapSearchConstraints)null);
 
@@ -510,6 +481,8 @@ namespace adrapi.Ldap
 
             }
 
+            var response = new LdapPagedResponse {Entries = results};
+
             // Server should send back a control irrespective of the 
             // status of the search request
             LdapControl[] controls = ((LdapSearchResults)res).ResponseControls;
@@ -525,60 +498,36 @@ namespace adrapi.Ldap
                 {
 
                     /* Is this the Sort Response Control. */
-                    if (controls[i] is LdapSortResponse)
+                    if (controls[i] is LdapPagedResultsResponse)
                     {
                         
-                        logger.Debug("Received Ldap Sort Control from " + "Server");
+                        logger.Debug("Received Ldap Paged Control from Server");
+                        
+                        LdapPagedResultsResponse cresp = new LdapPagedResultsResponse(controls[i].Id, controls[i].Critical, controls[i].GetValue());
 
-                        /* We could have an error code and maybe a string 
-                        * identifying erring attribute in the response control.
+                        cookie = cresp.Cookie;
+
+                        byte[] hexCookie = System.Text.Encoding.ASCII.GetBytes(cookie);
+                        response.Cookie = Convert.ToBase64String(hexCookie);
+
+                        /*
+                        // Cookie is an opaque octet string. The chacters it contains might not be printable.
+                        byte[] hexCookie = System.Text.Encoding.ASCII.GetBytes(cookie);
+                        StringBuilder hex = new StringBuilder(hexCookie.Length);
+                        foreach (byte b in hexCookie)
+                            hex.AppendFormat("{0:x}", b);
+
+                        System.Console.Out.WriteLine("Cookie: {0}", hex.ToString());
+                        System.Console.Out.WriteLine("Size: {0}", cresp.Size);
                         */
-                        System.String bad = ((LdapSortResponse)controls[i]).FailedAttribute;
-                        int result = ((LdapSortResponse)controls[i]).ResultCode;
-
-                        // Print out error code (0 if no error) and any 
-                        // returned attribute
-                        logger.Debug("Error code: " + result);
-                        if ((System.Object)bad != null)
-                            logger.Debug("Offending " + "attribute: " + bad);
-                        else
-                            logger.Debug("No offending " + "attribute " + "returned");
                     }
 
-                    /* Is this a VLV Response Control */
-                    if (controls[i] is LdapVirtualListResponse)
-                    {
-
-                        logger.Debug("Received VLV Response Control from " + "Server...");
-
-                        /* Get all returned fields */
-                        int firstPosition = ((LdapVirtualListResponse)controls[i]).FirstPosition;
-                        int ContentCount = ((LdapVirtualListResponse)controls[i]).ContentCount;
-                        int resultCode = ((LdapVirtualListResponse)controls[i]).ResultCode;
-                        System.String context = ((LdapVirtualListResponse)controls[i]).Context;
-
-
-                        //var vals = ((LdapVirtualListResponse)controls[i]).GetValue();
-
-                        /* Print out the returned fields.  Typically you would 
-                        * have used these fields to reissue another VLV request
-                        * or to display the list on a GUI 
-                        */
-                        logger.Debug("Result Code    => " + resultCode);
-                        logger.Debug("First Position => " + firstPosition);
-                        logger.Debug("Content Count  => " + ContentCount);
-                        if ((System.Object)context != null)
-                            logger.Debug("Context String => " + context);
-                        else
-                            logger.Debug("No Context String in returned" + " control");
-
-                        if (ContentCount > config.maxResults * (page + 1)) results.AddRange(ExecutePagedSearch(searchBase, filter, page + 1));
-                    }
+       
                 }
             }
 
 
-            return results; 
+            return response; 
         }
 
         public LdapEntry GetRegister(string DN, string[] attrs = null)

@@ -36,7 +36,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecutePagedSearch("", LdapSearchType.OU);
+            var resps = sMgmt.ExecuteSearch("", LdapSearchType.OU);
 
             foreach (var entry in resps)
             {
