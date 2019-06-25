@@ -92,7 +92,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ItemExists, "OU DN={dn} not found.");
+                logger.LogDebug(ItemExists, "OU DN={dn} not found. err:" + ex.Message );
                 return NotFound();
             }
 

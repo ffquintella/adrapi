@@ -59,7 +59,7 @@ namespace Novell.Directory.Ldap.Controls
 		private int m_size;
 		private String m_cookie;
 
-		[CLSCompliantAttribute(false)]
+		//[CLSCompliantAttribute(false)]
 		public LdapPagedResultsResponse(String oid, bool critical, byte[] values):base(oid, critical, values)
 		{
 

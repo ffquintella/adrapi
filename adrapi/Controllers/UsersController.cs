@@ -158,7 +158,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ItemExists, "User DN={dn} not found.");
+                logger.LogDebug(ItemExists, "User DN={dn} not found. err:" + ex.Message);
                 return NotFound();
             }
 
@@ -193,7 +193,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ItemExists, "User DN={dn} not found.");
+                logger.LogDebug(ItemExists, "User DN={dn} not found. err:" + ex.Message);
                 return NotFound();
             }
 
@@ -340,8 +340,7 @@ namespace adrapi.Controllers
             {
                 return BadRequest();
             }
-
-            return Conflict();
+            
         }
 
         #endregion
