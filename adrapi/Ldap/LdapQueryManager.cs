@@ -186,7 +186,7 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
-            LdapSearchResults res = (LdapSearchResults) conn.Search(sb, LdapConnection.ScopeSub, filter, null, false,
+            LdapSearchResults res = (LdapSearchResults) conn.Search(sb, LdapConnection.ScopeOne, filter, null, false,
                 (LdapSearchConstraints) null);
             while (res.HasMore())
             {
@@ -252,6 +252,8 @@ namespace adrapi.Ldap
         {
             
             int sSize = getSearchSize(searchBase, filter);
+
+            //int sSize = 1000;
             
             var results = new List<LdapEntry>();
 
