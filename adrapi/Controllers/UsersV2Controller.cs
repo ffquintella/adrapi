@@ -34,7 +34,7 @@ namespace adrapi.Controllers
         #region GET
         // GET api/users
         [HttpGet]
-        public ActionResult<UserListResponse> Get([FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
+        public ActionResult<UserListResponse> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
         {
 
             this.ProcessRequest();
@@ -44,7 +44,7 @@ namespace adrapi.Controllers
 
             var uManager = UserManager.Instance;
 
-            if (_attribute == "")
+            /*if (_attribute == "")
             {
                 if (_filter == "")
                 {
@@ -58,10 +58,12 @@ namespace adrapi.Controllers
             if (_filter == "")
             {
                 return uManager.GetList(_attribute, "", _cookie);
-            }
+            }*/
             
-            return uManager.GetList(_attribute, _filter, _cookie);
-           
+            if(_start == -1 && _end == -1)
+                return uManager.GetList(_attribute, _filter, _cookie);
+            else
+                return uManager.GetList(_start,_end, _attribute, _filter);
 
         }
 
