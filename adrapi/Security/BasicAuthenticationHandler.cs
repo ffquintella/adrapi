@@ -31,11 +31,11 @@ namespace adrapi.Security
             //_userService = userService;
         }
 
-        protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
+        protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
 
             if (!Request.Headers.ContainsKey("api-key"))
-                return AuthenticateResult.Fail("Missing api-key Header");
+                return Task.FromResult(AuthenticateResult.Fail("Missing api-key Header"));
 
             string api_key = Request.Headers["api-key"];
 
@@ -66,19 +66,20 @@ namespace adrapi.Security
                     var principal = new ClaimsPrincipal(identity);
                     var ticket = new AuthenticationTicket(principal, Scheme.Name);
 
-                    return AuthenticateResult.Success(ticket);
+                    
+                    return Task.FromResult(AuthenticateResult.Success(ticket));
                 }
                 else
                 {
                     _logger.LogDebug("Invalid api-key or IP address ip:" + Request.HttpContext.Connection.RemoteIpAddress.ToString() + " key:" + api_key);
                     // FAILED
-                    return AuthenticateResult.Fail("Invalid api-key or IP address");
+                    return Task.FromResult(AuthenticateResult.Fail("Invalid api-key or IP address"));
                 }
             }
             else
             {
                 // FAILED
-                return AuthenticateResult.Fail("Invalid api-key");
+                return Task.FromResult(AuthenticateResult.Fail("Invalid api-key"));
             }
 
         }
