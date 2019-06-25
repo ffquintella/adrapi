@@ -422,8 +422,8 @@ namespace adrapi.Ldap
             * These two fields in the VLV Control identify the before and 
             * after count of entries to be returned 
             */
-            int beforeCount = 0;
-            int afterCount = 0;
+            //int beforeCount = 0;
+            //int afterCount = 0;
             //int afterCount = config.maxResults -1;
 
             //System.String cookie = "";
