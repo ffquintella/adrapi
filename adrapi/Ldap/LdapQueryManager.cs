@@ -431,7 +431,8 @@ namespace adrapi.Ldap
             if (cookie != "")
             {
                 byte[] data = System.Convert.FromBase64String(cookie);
-                cookie = System.Text.ASCIIEncoding.ASCII.GetString(data);
+                cookie = System.Text.Encoding.UTF8.GetString(data);
+                //cookie = System.Text.ASCIIEncoding.ASCII.GetString(data);
             }
             
             
@@ -506,8 +507,10 @@ namespace adrapi.Ldap
                         LdapPagedResultsResponse cresp = new LdapPagedResultsResponse(controls[i].Id, controls[i].Critical, controls[i].GetValue());
 
                         cookie = cresp.Cookie;
+                        
+                        
 
-                        byte[] hexCookie = System.Text.Encoding.ASCII.GetBytes(cookie);
+                        byte[] hexCookie = System.Text.Encoding.UTF8.GetBytes(cookie);
                         response.Cookie = Convert.ToBase64String(hexCookie);
 
                         /*
