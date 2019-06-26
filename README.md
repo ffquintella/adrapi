@@ -21,8 +21,9 @@ To be able to consume the api you will need an apikey (see bellow) and define an
 The api is versioned through passing a header called api-version with a number. The header is mandatory and failing to set it will result on a error message.
 
 The valid values are:
- - 1.0 -> first api version (12-2018)
- 
+ - 2.0 -> support pagin and more modern contracts. (06-2019)
+ - 1.0 -> first api version (12-2018) **DEPRECTATED**
+
 #### API Key
 
  There must be a header called api-key witch is created with *key-ID:secretKey* 
@@ -50,7 +51,9 @@ Basically what you need to configure there is:
 
 Here there is a short description of the api. But you can also get the documentation running the program and accessing /swagger on it.
 
-### Users
+### V1.0
+
+#### Users
 
 - GET - /api/users - List all users 
     - _full (bool) - Returns a full list
@@ -80,11 +83,11 @@ Here there is a short description of the api. But you can also get the documenta
 
 
 
-#### Observations
+##### Observations
 
 * (1) It's only possible to create users with passwords with an active directory configured to use SSL
 
-### Groups
+#### Groups
 
 - GET - /api/groups - List all groups
     - _full (bool) - Returns a full list
@@ -103,7 +106,7 @@ Here there is a short description of the api. But you can also get the documenta
     - Body json:
         - Array(String): member - List of DNs
         
-### OUs
+#### OUs
 
 - GET - /api/ous - List all ous
 - PUT - /api/ous - Creates a new OU
