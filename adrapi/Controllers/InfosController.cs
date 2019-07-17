@@ -11,7 +11,8 @@ namespace adrapi.Controllers
 {
     //[Authorize]
     [Authorize(Policy = "Reading")]
-    [ApiVersion("1.0")]
+    [ApiVersion( "2.0" )]
+    [ApiVersion( "1.0", Deprecated = true )]
     [Route("api/[controller]")]
     [ApiController]
     public class InfosController : ControllerBase

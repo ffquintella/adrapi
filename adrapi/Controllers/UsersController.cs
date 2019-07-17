@@ -16,7 +16,7 @@ namespace adrapi.Controllers
 {
     //[Produces("application/json")]
     [Authorize(Policy = "Reading")]
-    [ApiVersion("1.0")]
+    [ApiVersion("1.0",  Deprecated = true)]
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : BaseController

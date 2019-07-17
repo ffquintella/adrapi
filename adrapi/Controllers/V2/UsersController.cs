@@ -12,18 +12,18 @@ using adrapi.domain;
 using System.Text.RegularExpressions;
 using adrapi.Models;
 
-namespace adrapi.Controllers
+namespace adrapi.Controllers.V2
 {
     //[Produces("application/json")]
     [Authorize(Policy = "Reading")]
     [ApiVersion("2.0")]
     [Route("api/users")]
     [ApiController]
-    public class UsersV2Controller : BaseController
+    public class UsersController : BaseController
     {
 
 
-        public UsersV2Controller(ILogger<UsersController> logger, IConfiguration iConfig)
+        public UsersController(ILogger<Controllers.UsersController> logger, IConfiguration iConfig)
         {
 
             base.logger = logger;
