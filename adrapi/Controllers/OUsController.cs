@@ -17,7 +17,8 @@ namespace adrapi.Controllers
 {
 
     [Authorize(Policy = "Reading")]
-    [ApiVersion("1.0")]
+    [ApiVersion( "2.0" )]
+    [ApiVersion("1.0",  Deprecated = true)]
     [Route("api/[controller]")]
     [ApiController]
     public class OUsController : BaseController
