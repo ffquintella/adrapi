@@ -33,7 +33,9 @@ namespace adrapi
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            //services.AddMvc();
+
+            services.AddMvc(options => options.EnableEndpointRouting = false);
 
             services.AddApiVersioning(o =>
             {   
@@ -61,12 +63,7 @@ namespace adrapi
             services.AddAuthentication("BasicAuthentication")
                 .AddScheme<AuthenticationSchemeOptions, Security.BasicAuthenticationHandler>("BasicAuthentication", null);
 
-            /*services.AddApiVersioning(o => {
-                o.ReportApiVersions = true;
-                o.AssumeDefaultVersionWhenUnspecified = true;
-                o.DefaultApiVersion = new ApiVersion(1, 0);
-                o.ApiVersionReader = new HeaderApiVersionReader("api-version");
-            });*/
+
 
             services.AddSwaggerGen(c =>
             {
