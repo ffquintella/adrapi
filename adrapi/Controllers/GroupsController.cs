@@ -127,7 +127,7 @@ namespace adrapi.Controllers
 
                 if (group == null)
                 {
-                    logger.LogDebug(ItemExists, "Group DN={dn} not found.");
+                    logger.LogDebug(ItemExists, "Group DN={dn} not found.", DN);
                     return NotFound();
                 }
                 
@@ -137,7 +137,7 @@ namespace adrapi.Controllers
             catch (Exception ex)
             {
                 
-                logger.LogDebug(ItemExists, "Group DN={dn} not found. err:" + ex.Message);
+                logger.LogDebug(ItemExists, "Group DN={dn} not found. err:" + ex.Message, DN);
                 return NotFound();
             }
 
@@ -154,7 +154,7 @@ namespace adrapi.Controllers
 
             try
             {
-                logger.LogDebug(ListItems, "Group DN={dn} found");
+                logger.LogDebug(ListItems, "Group DN={dn} found", DN);
                 var group = gManager.GetGroup(DN, _listCN);
 
                 return group.Member;
@@ -162,7 +162,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ListItems, "Group DN={dn} not found. err:" + ex.Message);
+                logger.LogDebug(ListItems, "Group DN={dn} not found. err:" + ex.Message, DN);
                 return NotFound();
             }
 
@@ -297,7 +297,7 @@ namespace adrapi.Controllers
 
             try
             {
-                logger.LogDebug(ListItems, "Group DN={dn} found");
+                logger.LogDebug(ListItems, "Group DN={dn} found", DN);
                 var group = gManager.GetGroup(DN);
 
                 group.Member.Clear();
@@ -331,7 +331,7 @@ namespace adrapi.Controllers
                     return Ok();
                 }catch(Exception ex)
                 {
-                    logger.LogError(InternalError, "Error saving DN={dn} EX:", DN, ex.Message);
+                    logger.LogError(InternalError, "Error saving DN={dn} EX: {message}", DN, ex.Message);
                     return this.StatusCode(500);
                 }
 
@@ -340,7 +340,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ListItems, "Group DN={dn} not found. err:{1} ", DN, ex.Message);
+                logger.LogDebug(ListItems, "Group DN={dn} not found. err:{message} ", DN, ex.Message);
                 return NotFound();
             }
 

@@ -85,7 +85,7 @@ namespace adrapi.Controllers
 
             try
             {
-                logger.LogDebug(ItemExists, "OU DN={dn} found");
+                logger.LogDebug(ItemExists, "OU DN={dn} found", DN);
                 var ou = oManager.GetOU(DN);
 
                 return Ok();
@@ -93,7 +93,7 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ItemExists, "OU DN={dn} not found. err:" + ex.Message );
+                logger.LogDebug(ItemExists, "OU DN={dn} not found. err:" + ex.Message, DN );
                 return NotFound();
             }
 

@@ -146,7 +146,7 @@ namespace adrapi.Controllers.V2
             catch (Exception ex)
             {
                 logger.LogError(ex.Message);
-                logger.LogDebug(ItemExists, "User DN={dn} not found.");
+                logger.LogDebug(ItemExists, "User DN={user} not found.", user);
                 return NotFound();
             }
 
@@ -162,7 +162,7 @@ namespace adrapi.Controllers.V2
 
             try
             {
-                logger.LogDebug(ItemExists, "User DN={dn} found");
+                logger.LogDebug(ItemExists, "User DN={dn} found", DN);
                 var user = uManager.GetUser(DN);
 
 
