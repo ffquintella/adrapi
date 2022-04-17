@@ -17,7 +17,7 @@ namespace adrapi
     {
         public static void Main(string[] args)
         {
-            /*#if DEBUG
+            #if DEBUG
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.Development.json", optional: false)
                 .AddCommandLine(args)
@@ -28,13 +28,13 @@ namespace adrapi
                 .AddCommandLine(args)
                 .Build();
             #endif
-            */
+            
 
 
-            var configuration = new ConfigurationBuilder()
+            /*var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false)
                 .AddCommandLine(args)
-                .Build();
+                .Build();*/
 
 
             /*var hostUrl = configuration["hosturl"];
