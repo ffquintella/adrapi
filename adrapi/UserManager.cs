@@ -78,7 +78,8 @@ namespace adrapi
             foreach(var entry in resps)
             {
                 if(attribute == "")
-                    users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                    //users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                    users.Add(entry.GetAttribute("samaccountname").StringValue);
                 else
                     users.Add(entry.GetAttribute(attribute).StringValue);
                 results++;
