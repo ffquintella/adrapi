@@ -38,7 +38,7 @@ namespace adrapi.Ldap
                     if (filter == "")
                     {
                         //return $"(&(objectClass=user)(objectCategory=person))";
-                        return $"((objectCategory=person))";
+                        return $"(objectCategory=person)";
                     }
 
                     //return $"(&(objectClass=user)(objectCategory=person)(" +
@@ -48,7 +48,7 @@ namespace adrapi.Ldap
                 case LdapSearchType.Group:
                     if (filter == "")
                     {
-                        return $"((objectClass=group)"; 
+                        return $"(objectClass=group)"; 
                     }
 
                     return $"(&(objectClass=group)(" + LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) +
