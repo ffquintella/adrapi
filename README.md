@@ -32,6 +32,8 @@ The valid values are:
 
 You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
 
+It´s also needed to configure the servers located under ldap section in appsettings.json
+
 ### Security
 
 Since our api has no database we use the security.json to determine witch apiKeys can connect to our system
