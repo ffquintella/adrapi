@@ -50,7 +50,8 @@ namespace adrapi
             
             var response = new UserListResponse();
             
-            var users = new List<String>();
+            var userNames = new List<string>();
+            var users = new List<User>();
 
             var sMgmt = LdapQueryManager.Instance;
 
@@ -77,17 +78,34 @@ namespace adrapi
 
             foreach(var entry in resps)
             {
-                if(attribute == "")
+                if (attribute == "")
+                {
                     //users.Add(entry.GetAttribute("distinguishedName").StringValue);
-                    users.Add(entry.GetAttribute("samaccountname").StringValue);
+                    userNames.Add(entry.GetAttribute("samaccountname").StringValue);
+                    var user = new User();
+                    user.Account = entry.GetAttribute("samaccountname").StringValue;
+                    user.ID = entry.GetAttribute("uid").StringValue;
+                    user.GivenName = entry.GetAttribute("cn").StringValue;
+                    
+                    var groupsStr = entry.GetAttribute("memberOf").StringValue;
+                    foreach (var grp in groupsStr.Split(','))
+                    {
+                        var group = new Group();
+                        group.Name = grp;
+                        user.MemberOf.Add(group);
+                    }
+                    users.Add(user);
+
+                }
                 else
-                    users.Add(entry.GetAttribute(attribute).StringValue);
+                    userNames.Add(entry.GetAttribute(attribute).StringValue);
                 results++;
             }
 
-            response.UserNames = users;
+            response.UserNames = userNames;
             response.SearchType = "User";
             response.SearchMethod = LdapSearchMethod.Paged;
+            response.Users = users;
             
             
             logger.Debug("User search executed results:{result}", results);
