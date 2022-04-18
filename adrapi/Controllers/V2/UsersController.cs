@@ -14,7 +14,7 @@ using adrapi.Models;
 
 namespace adrapi.Controllers.V2
 {
-    //[Produces("application/json")]
+    [Produces("application/json")]
     [Authorize(Policy = "Reading")]
     [ApiVersion("2.0")]
     [Route("api/users")]
@@ -59,9 +59,13 @@ namespace adrapi.Controllers.V2
             {
                 return uManager.GetList(_attribute, "", _cookie);
             }*/
-            
-            if(_start == -1 && _end == -1)
-                return uManager.GetList(_attribute, _filter, _cookie);
+
+            if (_start == -1 && _end == -1)
+            {
+                var response = uManager.GetList(_attribute, _filter, _cookie);
+
+                return response;
+            }
             else
                 return uManager.GetList(_start,_end, _attribute, _filter);
 
