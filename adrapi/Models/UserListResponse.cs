@@ -5,13 +5,17 @@ namespace adrapi.Models
 {
     public class UserListResponse
     {
-        public string Cookie;
+        public string Cookie
+        {
+            get;
+            set;
+        }
 
-        public List<string> UserNames;
+        public List<string> UserNames { get; set; }
 
-        public List<User> Users;
+        public List<User> Users { get; set; }
 
-        public string SearchType;
-        public string SearchMethod;
+        public string SearchType { get; set; }
+        public string SearchMethod { get; set; }
     }
 }
