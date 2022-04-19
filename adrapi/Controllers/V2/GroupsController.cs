@@ -14,11 +14,11 @@ using adrapi.domain;
 using System.Text.RegularExpressions;
 using adrapi.Tools;
 
-namespace adrapi.Controllers
+namespace adrapi.Controllers.V2
 {
-    //[Produces("application/json")]
+    [Produces("application/json")]
     [Authorize(Policy = "Reading")]
-    [ApiVersion("1.0",  Deprecated = true)]
+    [ApiVersion( "2.0" )]
     [Route("api/[controller]")]
     [ApiController]
     public class GroupsController: BaseController
@@ -51,8 +51,8 @@ namespace adrapi.Controllers
             }
 
             if (_start == 0 && _end == 0) 
-            return gManager.GetList();
-            else return gManager.GetList(_start, _end);
+            return gManager.GetCnList();
+            else return gManager.GetCnList(_start, _end);
 
 
         }
@@ -86,19 +86,18 @@ namespace adrapi.Controllers
                 return new List<domain.Group>();
             }
         }
-
-        //TODO: BUG There is a bug related to doing a limited search then doing another one here... FIX IT! :-)
+        
         // GET api/groups/:group
-        [HttpGet("{DN}")]
-        public ActionResult<domain.Group> Get(string DN)
+        [HttpGet("{CN}")]
+        public ActionResult<domain.Group> Get(string CN)
         {
             this.ProcessRequest();
 
             var gManager = GroupManager.Instance;
             try
             {
-                var group = gManager.GetGroup(DN);
-                logger.LogDebug(GetItem, "Getting OU={0}", group.Name);
+                var group = gManager.GetGroup(CN, true, true);
+                logger.LogDebug(GetItem, "Getting Group={0}", group.Name);
                 return group;
             }
             catch(Exception ex)

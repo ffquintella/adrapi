@@ -27,6 +27,34 @@ namespace adrapi
 
         #endregion
 
+
+        /// <summary>
+        /// Return a string list of the groups CNs
+        /// </summary>
+        /// <returns>The list.</returns>
+        public List<String> GetCnList()
+        {
+            var groups = new List<String>();
+
+            var sMgmt = LdapQueryManager.Instance;
+
+            int results = 0;
+
+
+            var resps = sMgmt.ExecuteSearch("", LdapSearchType.Group);
+
+            foreach (var entry in resps)
+            {
+                groups.Add(entry.GetAttribute("cn").StringValue);
+                results++;
+            }
+
+            logger.Debug("Group search executed results:{result}", results);
+
+
+            return groups;
+        }
+        
         /// <summary>
         /// Return a string list of the groups DNs
         /// </summary>
@@ -53,7 +81,36 @@ namespace adrapi
 
             return groups;
         }
+        
+        /// <summary>
+        /// Gets the list, based on a start and end
+        /// </summary>
+        /// <returns>The list.</returns>
+        /// <param name="start">Start.</param>
+        /// <param name="end">End.</param>
+        public List<String> GetCnList(int start, int end)
+        {
+            var groups = new List<String>();
 
+            var sMgmt = LdapQueryManager.Instance;
+
+            int results = 0;
+
+
+            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.Group, start, end);
+
+            foreach (var entry in resps)
+            {
+                groups.Add(entry.GetAttribute("cn").StringValue);
+                results++;
+            }
+
+            logger.Debug("Group search executed results:{result}", results);
+
+
+            return groups;
+        }
+        
         //TODO: Verify the lower limit witch is not working
         /// <summary>
         /// Gets the list, based on a start and end
