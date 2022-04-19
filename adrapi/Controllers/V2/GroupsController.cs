@@ -144,23 +144,23 @@ namespace adrapi.Controllers.V2
 
 
         // GET api/groups/:group/members
-        [HttpGet("{DN}/members")]
-        public ActionResult<List<String>> GetMembers(string DN, [FromQuery]Boolean _listCN = false)
+        [HttpGet("{CN}/members")]
+        public ActionResult<List<String>> GetMembers(string CN, [FromQuery]Boolean _listCN = true)
         {
             this.ProcessRequest();
             var gManager = GroupManager.Instance;
 
             try
             {
-                logger.LogDebug(ListItems, "Group DN={dn} found", DN);
-                var group = gManager.GetGroup(DN, _listCN);
+                logger.LogDebug(ListItems, "Group DN={dn} found", CN);
+                var group = gManager.GetGroup(CN, _listCN, true);
 
                 return group.Member;
 
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ListItems, "Group DN={dn} not found. err:" + ex.Message, DN);
+                logger.LogDebug(ListItems, "Group DN={dn} not found. err:" + ex.Message, CN);
                 return NotFound();
             }
 
