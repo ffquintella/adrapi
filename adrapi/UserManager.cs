@@ -84,16 +84,21 @@ namespace adrapi
                     userNames.Add(entry.GetAttribute("samaccountname").StringValue);
                     var user = new User();
                     user.Account = entry.GetAttribute("samaccountname").StringValue;
-                    user.ID = entry.GetAttribute("uid").StringValue;
+                    user.ID = entry.GetAttribute("objectSid").StringValue;
                     user.GivenName = entry.GetAttribute("cn").StringValue;
-                    
-                    var groupsStr = entry.GetAttribute("memberOf").StringValue;
-                    foreach (var grp in groupsStr.Split(','))
+
+
+                    if (entry.GetAttributeSet().ContainsKey("memberOf"))
                     {
-                        var group = new Group();
-                        group.Name = grp;
-                        user.MemberOf.Add(group);
+                        var groupsStr = entry.GetAttribute("memberOf").StringValueArray;
+                        foreach (var grp in groupsStr)
+                        {
+                            var group = new Group();
+                            group.Name = grp;
+                            user.MemberOf.Add(group);
+                        }
                     }
+
                     users.Add(user);
 
                 }
