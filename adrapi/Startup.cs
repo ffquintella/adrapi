@@ -15,6 +15,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Hosting;
 using Swashbuckle.AspNetCore.Swagger;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.Extensions.Configuration;
 
 
 namespace adrapi
@@ -45,6 +47,15 @@ namespace adrapi
                 o.AssumeDefaultVersionWhenUnspecified = true;
                 o.DefaultApiVersion = new ApiVersion(2, 0);
             });
+            
+            services.AddVersionedApiExplorer(options =>
+            {
+                // Agrupar por número de versão
+                options.GroupNameFormat = "'v'VVV";
+
+                // Necessário para o correto funcionamento das rotas
+                options.SubstituteApiVersionInUrl = true;
+            } );
 
             services.AddAuthorization(options =>
             {
@@ -69,13 +80,14 @@ namespace adrapi
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "ADRAPI", Version = "v1" });
+                c.SwaggerDoc("v2", new OpenApiInfo { Title = "ADRAPI", Version = "v2" });
                 c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
             });
          
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
         {
             if (env.IsDevelopment())
             {
@@ -96,7 +108,12 @@ namespace adrapi
 
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "ADRAPI V1");
+                //c.SwaggerEndpoint("/swagger/v1/swagger.json", "ADRAPI V1");
+                foreach (var description in provider.ApiVersionDescriptions)
+                {
+                    c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json",
+                        description.GroupName.ToUpperInvariant());
+                }
             });
 
             app.UseMvc();
