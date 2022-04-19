@@ -267,7 +267,17 @@ namespace adrapi
                 }
                 else
                 {
-                    entry = sMgmt.GetRegister(userID, userAttrs);
+                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)(sAMAccountName="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+
+                    if (results.Entries.Count == 0)
+                    {
+                        logger.Debug("User not found {0}", userID);
+                        return null;
+                    }
+                    
+                    entry = results.Entries.First();
+                    
+                    //entry = sMgmt.GetRegister(userID, userAttrs);
                 }
                 
                 //entry = sMgmt.GetRegister(userID);
@@ -459,9 +469,9 @@ namespace adrapi
             
             user.Account = entry.GetAttribute("sAMAccountName").StringValue;
             
-            if(entry.GetAttribute("userPrincipalName") != null) user.Login = entry.GetAttribute("userPrincipalName").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("userPrincipalName")) user.Login = entry.GetAttribute("userPrincipalName").StringValue;
 
-            if(entry.GetAttribute("description") != null) user.Description = entry.GetAttribute("description").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("description")) user.Description = entry.GetAttribute("description").StringValue;
 
             var sid = ConvertByteToStringSid((byte[])(Array)entry.GetAttribute("objectSid").ByteValue);
 
@@ -469,25 +479,29 @@ namespace adrapi
 
             user.DN = entry.GetAttribute("distinguishedName").StringValue;
 
-            if(entry.GetAttribute("givenName") != null) user.GivenName = entry.GetAttribute("givenName").StringValue;
-            if(entry.GetAttribute("sn") != null) user.Surname = entry.GetAttribute("sn").StringValue;
-            if(entry.GetAttribute("mail") != null) user.Mail = entry.GetAttribute("mail").StringValue;
-            if(entry.GetAttribute("mobile") != null) user.Mobile = entry.GetAttribute("mobile").StringValue;
-            
-            var attrMo = entry.GetAttribute("memberOf");
+            if(entry.GetAttributeSet().ContainsKey("givenName")) user.GivenName = entry.GetAttribute("givenName").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("sn")) user.Surname = entry.GetAttribute("sn").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("mail")) user.Mail = entry.GetAttribute("mail").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("mobile")) user.Mobile = entry.GetAttribute("mobile").StringValue;
 
-            if ( attrMo != null)
+            if (entry.GetAttributeSet().ContainsKey("memberOf"))
             {
-                var mofs = attrMo.StringValues;
+                var attrMo = entry.GetAttribute("memberOf");
 
-                while (mofs.MoveNext())
+                if ( attrMo != null)
                 {
-                    var group = new Group();
-                    if (mofs != null && mofs.Current != null)
-                        group.DN = mofs.Current;
-                    user.MemberOf.Add(group);
-                }
+                    var mofs = attrMo.StringValues;
+
+                    while (mofs.MoveNext())
+                    {
+                        var group = new Group();
+                        if (mofs != null && mofs.Current != null)
+                            group.DN = mofs.Current;
+                        user.MemberOf.Add(group);
+                    }
+                }  
             }
+
 
 
             return user;
