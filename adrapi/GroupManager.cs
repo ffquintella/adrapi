@@ -177,8 +177,9 @@ namespace adrapi
             var group = new Group();
 
             group.Name = entry.GetAttribute("name").StringValue;
+            group.ID = entry.GetAttribute("objectSid").StringValue;
           
-            if (entry.GetAttribute("description") != null) group.Description = entry.GetAttribute("description").StringValue;
+            if (entry.GetAttributeSet().ContainsKey("description")) group.Description = entry.GetAttribute("description").StringValue;
 
             //var sid = ConvertByteToStringSid((byte[])(Array)entry.GetAttribute("objectSid").ByteValue);
 
@@ -187,7 +188,7 @@ namespace adrapi
             group.DN = entry.GetAttribute("distinguishedName").StringValue;
 
 
-            if (entry.GetAttribute("memberOf") != null)
+            if (entry.GetAttributeSet().ContainsKey("memberOf"))
             {
                 var moff = entry.GetAttribute("memberOf").StringValues;
 
@@ -200,7 +201,7 @@ namespace adrapi
                 }
             }
 
-            if (entry.GetAttribute("member") != null)
+            if (entry.GetAttributeSet().ContainsKey("member"))
             {
                 var m = entry.GetAttribute("member").StringValues;
 
