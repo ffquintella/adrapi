@@ -100,11 +100,14 @@ namespace adrapi
 
             app.UseHttpsRedirection();
 
+            app.UseFileServer();
             app.UseAuthentication();
 
             //app.UseMiddleware<Security.KeyAuthenticationMiddleware>();
 
             app.UseSwagger();
+            
+            
 
             app.UseSwaggerUI(c =>
             {
