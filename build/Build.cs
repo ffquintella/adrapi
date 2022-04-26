@@ -151,9 +151,14 @@ class Build : NukeBuild
         {
             Log.Write( LogEventLevel.Information, "Creating Docker Image...");
 
+            string lversion = "latest";
+
+            if (Configuration == "Debug") lversion = version;
+            
+            
             DockerTasks.DockerBuild(s => s
                 .AddLabel("adrapi")
-                .SetTag("ffquintella/adrapi:" + version)
+                .SetTag("ffquintella/adrapi:" + lversion)
                 .SetFile(DockerFile)
                 .SetForceRm(true)
                 .SetPath(RootDirectory)
