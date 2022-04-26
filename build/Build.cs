@@ -43,7 +43,14 @@ class Build : NukeBuild
     AbsolutePath PackDirectory => RootDirectory / "artifacts/nupkg";
     AbsolutePath AppDirectory => RootDirectory / "artifacts/app";
 
-    AbsolutePath DockerFile => RootDirectory / "Dockerfile";
+    AbsolutePath DockerFile
+    {
+        get
+        {
+            if(Configuration == "Debug") return RootDirectory / "DockerfileDev";
+            else return RootDirectory / "Dockerfile";
+        }
+    }
 
     string ChangeLogFile => RootDirectory / "CHANGELOG.md";
 
@@ -152,13 +159,7 @@ class Build : NukeBuild
                 .SetPath(RootDirectory)
             );
 
-            /*DockerBuild(s => s
-                .AddLabel("adrapi")
-                .SetTag("ffquintella/adrapi:" + GitVersion.GetNormalizedFileVersion())
-                .SetFile(DockerFile)
-                .SetForceRm(true)
-                .SetPath(RootDirectory)
-                );*/
+
 
         });
 
