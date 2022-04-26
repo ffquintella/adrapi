@@ -153,7 +153,7 @@ class Build : NukeBuild
 
             string lversion = "latest";
 
-            if (Configuration == "Debug") lversion = version;
+            if (Configuration != "Debug") lversion = version;
             
             
             DockerTasks.DockerBuild(s => s
