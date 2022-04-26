@@ -5,13 +5,13 @@ using Nuke.Common.Git;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
-using Nuke.Common.Tools.GitVersion;
 using static Nuke.Common.EnvironmentInfo;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
 using System.IO;
+using Microsoft.Build.Tasks;
 using Nuke.Common.IO;
 using Nuke.Common.Tools.Docker;
 using Serilog;
@@ -32,8 +32,11 @@ class Build : NukeBuild
     string Configuration { get; } = IsLocalBuild ? "Debug" : "Release";
 
     [Solution] readonly Solution Solution;
-    [GitRepository] readonly GitRepository GitRepository;
-    [GitVersion] readonly GitVersion GitVersion;
+
+    static Int16 majorVersion = 1;
+    static Int16 minorVersion = 2;
+    string version = string.Format("{0}.{1}", majorVersion.ToString(), minorVersion.ToString());
+
 
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
@@ -72,11 +75,17 @@ class Build : NukeBuild
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
-                .SetAssemblyVersion(GitVersion.AssemblySemVer)
-                .SetFileVersion(GitVersion.AssemblySemFileVer)
-                .SetInformationalVersion(GitVersion.InformationalVersion)
+                .SetAssemblyVersion(version)
+                //.SetFileVersion(GitVersion.AssemblySemFileVer)
                 .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
+            
+            /*MSBuild(o => o
+                .SetTargetPath(Solution)
+                .SetTargets("Clean", "Build")
+                .SetConfiguration(Configuration)
+                .EnableNodeReuse());
+                */
         });
 
     private Target Local_Publish => _ => _
@@ -88,7 +97,7 @@ class Build : NukeBuild
             DotNetPublish(s => s
                 .SetConfiguration(Configuration)
                 .SetAuthors(Authors)
-                .SetVersion(GitVersion.AssemblySemFileVer)
+                .SetVersion(version)
                 .SetTitle("ADRAPI")
                 .SetOutput(AppDirectory)
                 //.SetWorkingDirectory(RootDirectory)
@@ -101,7 +110,7 @@ class Build : NukeBuild
             string fileName = AppDirectory + "/version.txt";
             using (StreamWriter sw = new StreamWriter(fileName, false))
             {
-                sw.WriteLine(GitVersion.AssemblySemFileVer);
+                sw.WriteLine(version);
             }
             
         });
@@ -131,7 +140,7 @@ class Build : NukeBuild
 
             DockerTasks.DockerBuild(s => s
                 .AddLabel("adrapi")
-                .SetTag("ffquintella/adrapi:" + GitVersion.AssemblySemFileVer)
+                .SetTag("ffquintella/adrapi:" + version)
                 .SetFile(DockerFile)
                 .SetForceRm(true)
                 .SetPath(RootDirectory)
