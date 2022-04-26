@@ -13,6 +13,10 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
 using System.IO;
 using Nuke.Common.IO;
+using Nuke.Common.Tools.Docker;
+using Serilog;
+using Serilog.Events;
+using LogLevel = Nuke.Common.LogLevel;
 
 
 class Build : NukeBuild
@@ -54,7 +58,7 @@ class Build : NukeBuild
         .DependsOn(Clean)
         .Executes(() =>
         {
-            Logger.Log(LogLevel.Normal, "Restoring packages!");
+            Log.Write(LogEventLevel.Information, "Restoring packages!");
             DotNetRestore(s => s
                 .SetProjectFile(Solution));
         });
@@ -79,7 +83,7 @@ class Build : NukeBuild
         .DependsOn(Compile)
         .Executes(() =>
         {
-            Logger.Log(LogLevel.Normal, "Publishing to artifacts...");
+            Log.Write(LogEventLevel.Information, "Publishing to artifacts...");
             EnsureExistingDirectory(AppDirectory);
             DotNetPublish(s => s
                 .SetConfiguration(Configuration)
@@ -107,7 +111,7 @@ class Build : NukeBuild
         .Executes(() =>
         {
 
-            Logger.Log( LogLevel.Normal,"Creating Nupackages...");
+            Log.Write( LogEventLevel.Information,"Creating Nupackages...");
             var changeLog = GetCompleteChangeLog(ChangeLogFile)
                 .EscapeStringPropertyForMsBuild();
 
@@ -123,7 +127,15 @@ class Build : NukeBuild
         .DependsOn(Local_Publish)
         .Executes(() =>
         {
-            Logger.Log( LogLevel.Normal, "Creating Docker Image...");
+            Log.Write( LogEventLevel.Information, "Creating Docker Image...");
+
+            DockerTasks.DockerBuild(s => s
+                .AddLabel("adrapi")
+                .SetTag("ffquintella/adrapi:" + GitVersion.AssemblySemFileVer)
+                .SetFile(DockerFile)
+                .SetForceRm(true)
+                .SetPath(RootDirectory)
+            );
 
             /*DockerBuild(s => s
                 .AddLabel("adrapi")
