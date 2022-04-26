@@ -53,6 +53,12 @@ class Build : NukeBuild
     Target Clean => _ => _
         .Executes(() =>
         {
+            //DeleteDirectory(ArtifactsDirectory);
+            DeleteDirectory(RootDirectory + "/adrapi/obj");
+            DeleteDirectory(RootDirectory + "/adrapi/bin");
+            DeleteDirectory(RootDirectory + "/domain/obj");
+            DeleteDirectory(RootDirectory + "/domain/bin");
+            
             //DeleteDirectories(GlobDirectories(TestsDirectory, "**/bin", "**/obj"));
             EnsureCleanDirectory(ArtifactsDirectory);
         });
