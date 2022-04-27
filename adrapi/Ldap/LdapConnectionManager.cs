@@ -5,6 +5,8 @@ using adrapi.domain.Exceptions;
 using NLog;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
+using RemoteCertificateValidationCallback = System.Net.Security.RemoteCertificateValidationCallback;
+
 
 namespace adrapi.Ldap
 {
@@ -50,19 +52,23 @@ namespace adrapi.Ldap
 
                 for (short openConn = 0; openConn < config.poolSize; openConn++)
                 {
-                    var cn = new LdapConnection();
-                    var cnClean = new LdapConnection();
-
+                    LdapConnectionOptions options;
                     if (config.ssl)
                     {
-                        cn.SecureSocketLayer = true;
-
-                        cn.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
-
-                        cnClean.SecureSocketLayer = true;
-
-                        cnClean.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
+                         options = new LdapConnectionOptions()
+                            .ConfigureRemoteCertificateValidationCallback(
+                                new RemoteCertificateValidationCallback((a, b, c, d) => true))
+                            .UseSsl();
                     }
+                    else
+                    {
+                        options = new LdapConnectionOptions();
+                    }
+
+                    //LdapConnection connection = new LdapConnection(options);
+
+                    var cn = new LdapConnection(options);
+                    var cnClean = new LdapConnection(options);
 
 
                     var server = GetOptimalSever(config.servers);
@@ -160,15 +166,21 @@ namespace adrapi.Ldap
 
             logger.Debug("Authenticating user: {login} on server: {server}", login, server);
 
-            var cn = new LdapConnection();
 
+            LdapConnectionOptions options;
             if (ldapConf.ssl)
             {
-                cn.SecureSocketLayer = true;
-
-                cn.UserDefinedServerCertValidationDelegate += Ldap.Security.LdapSSLHelper.HandleRemoteCertificateValidationCallback;
-
+                options = new LdapConnectionOptions()
+                    .ConfigureRemoteCertificateValidationCallback(
+                        new RemoteCertificateValidationCallback((a, b, c, d) => true))
+                    .UseSsl();
             }
+            else
+            {
+                options = new LdapConnectionOptions();
+            }
+
+            var cn = new LdapConnection(options);
 
             cn.Connect(server.FQDN, server.Port);
 
