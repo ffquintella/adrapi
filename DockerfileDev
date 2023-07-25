@@ -1,4 +1,4 @@
-FROM ffquintella/docker-aspnetcore:rt-6.0.1
+FROM ffquintella/docker-aspnetcore:sdk-6.0.1
 
 MAINTAINER Felipe Quintella <felipe@email>
 
@@ -31,7 +31,7 @@ RUN chmod +x /opt/scripts/start-service.sh ; ln -s /opt/scripts/start-service.sh
 RUN mkdir /app
 COPY artifacts/app /app
 
-#RUN dotnet dev-certs https -q
+RUN dotnet dev-certs https -q
 
 # Aspnet webserver
 EXPOSE 5000/tcp
