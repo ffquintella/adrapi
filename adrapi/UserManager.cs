@@ -50,7 +50,8 @@ namespace adrapi
             
             var response = new UserListResponse();
             
-            var users = new List<String>();
+            var userNames = new List<string>();
+            var users = new List<User>();
 
             var sMgmt = LdapQueryManager.Instance;
 
@@ -77,16 +78,39 @@ namespace adrapi
 
             foreach(var entry in resps)
             {
-                if(attribute == "")
-                    users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                if (attribute == "")
+                {
+                    //users.Add(entry.GetAttribute("distinguishedName").StringValue);
+                    userNames.Add(entry.GetAttribute("samaccountname").StringValue);
+                    var user = new User();
+                    user.Account = entry.GetAttribute("samaccountname").StringValue;
+                    user.ID = entry.GetAttribute("objectSid").StringValue;
+                    user.GivenName = entry.GetAttribute("cn").StringValue;
+
+
+                    if (entry.GetAttributeSet().ContainsKey("memberOf"))
+                    {
+                        var groupsStr = entry.GetAttribute("memberOf").StringValueArray;
+                        foreach (var grp in groupsStr)
+                        {
+                            var group = new Group();
+                            group.Name = grp;
+                            user.MemberOf.Add(group);
+                        }
+                    }
+
+                    users.Add(user);
+
+                }
                 else
-                    users.Add(entry.GetAttribute(attribute).StringValue);
+                    userNames.Add(entry.GetAttribute(attribute).StringValue);
                 results++;
             }
 
-            response.UserNames = users;
+            response.UserNames = userNames;
             response.SearchType = "User";
             response.SearchMethod = LdapSearchMethod.Paged;
+            response.Users = users;
             
             
             logger.Debug("User search executed results:{result}", results);
@@ -243,7 +267,17 @@ namespace adrapi
                 }
                 else
                 {
-                    entry = sMgmt.GetRegister(userID, userAttrs);
+                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)(sAMAccountName="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+
+                    if (results.Entries.Count == 0)
+                    {
+                        logger.Debug("User not found {0}", userID);
+                        return null;
+                    }
+                    
+                    entry = results.Entries.First();
+                    
+                    //entry = sMgmt.GetRegister(userID, userAttrs);
                 }
                 
                 //entry = sMgmt.GetRegister(userID);
@@ -435,9 +469,9 @@ namespace adrapi
             
             user.Account = entry.GetAttribute("sAMAccountName").StringValue;
             
-            if(entry.GetAttribute("userPrincipalName") != null) user.Login = entry.GetAttribute("userPrincipalName").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("userPrincipalName")) user.Login = entry.GetAttribute("userPrincipalName").StringValue;
 
-            if(entry.GetAttribute("description") != null) user.Description = entry.GetAttribute("description").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("description")) user.Description = entry.GetAttribute("description").StringValue;
 
             var sid = ConvertByteToStringSid((byte[])(Array)entry.GetAttribute("objectSid").ByteValue);
 
@@ -445,25 +479,29 @@ namespace adrapi
 
             user.DN = entry.GetAttribute("distinguishedName").StringValue;
 
-            if(entry.GetAttribute("givenName") != null) user.GivenName = entry.GetAttribute("givenName").StringValue;
-            if(entry.GetAttribute("sn") != null) user.Surname = entry.GetAttribute("sn").StringValue;
-            if(entry.GetAttribute("mail") != null) user.Mail = entry.GetAttribute("mail").StringValue;
-            if(entry.GetAttribute("mobile") != null) user.Mobile = entry.GetAttribute("mobile").StringValue;
-            
-            var attrMo = entry.GetAttribute("memberOf");
+            if(entry.GetAttributeSet().ContainsKey("givenName")) user.GivenName = entry.GetAttribute("givenName").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("sn")) user.Surname = entry.GetAttribute("sn").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("mail")) user.Mail = entry.GetAttribute("mail").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("mobile")) user.Mobile = entry.GetAttribute("mobile").StringValue;
 
-            if ( attrMo != null)
+            if (entry.GetAttributeSet().ContainsKey("memberOf"))
             {
-                var mofs = attrMo.StringValues;
+                var attrMo = entry.GetAttribute("memberOf");
 
-                while (mofs.MoveNext())
+                if ( attrMo != null)
                 {
-                    var group = new Group();
-                    if (mofs != null && mofs.Current != null)
-                        group.DN = mofs.Current;
-                    user.MemberOf.Add(group);
-                }
+                    var mofs = attrMo.StringValues;
+
+                    while (mofs.MoveNext())
+                    {
+                        var group = new Group();
+                        if (mofs != null && mofs.Current != null)
+                            group.DN = mofs.Current;
+                        user.MemberOf.Add(group);
+                    }
+                }  
             }
+
 
 
             return user;

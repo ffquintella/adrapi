@@ -50,3 +50,5 @@ _build.csproj.DotSettings
 /adrapi/api/devapi.paw
 /adrapi/appsettings.Development_1.json
 /testconsole/appsettings.Development.json
+
+.nuke/temp/

@@ -2,7 +2,7 @@
 Active Directory Rest API
 
 ## ABOUT
-This is a simple rest api to query and change active directory. It is build with .net core 2.1 and can be run with docker. 
+This is a simple rest api to query and change active directory. It is build with .net 6 and can be run with docker. 
 
 ## Requirements 
 
@@ -21,7 +21,7 @@ To be able to consume the api you will need an apikey (see bellow) and define an
 The api is versioned through passing a header called api-version with a number. The header is mandatory and failing to set it will result on a error message.
 
 The valid values are:
- - 2.0 -> support pagin and more modern contracts. (06-2019)
+ - 2.0 -> support pagination and more modern contracts. (06-2019)
  - 1.0 -> first api version (12-2018) **DEPRECTATED**
 
 #### API Key
@@ -31,6 +31,8 @@ The valid values are:
 ## Configuration
 
 You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
+
+It´s also needed to configure the servers located under ldap section in appsettings.json
 
 ### Security
 

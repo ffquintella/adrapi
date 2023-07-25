@@ -37,15 +37,18 @@ namespace adrapi.Ldap
                 case LdapSearchType.User:
                     if (filter == "")
                     {
-                        return $"(&(objectClass=user)(objectCategory=person))";
+                        //return $"(&(objectClass=user)(objectCategory=person))";
+                        return $"(objectClass=user)";
                     }
 
-                    return $"(&(objectClass=user)(objectCategory=person)(" +
+                    //return $"(&(objectClass=user)(objectCategory=person)(" +
+                    //       LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) + "))";
+                    return $"(&(objectClass=user)(" +
                            LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) + "))";
                 case LdapSearchType.Group:
                     if (filter == "")
                     {
-                        return $"((objectClass=group)"; 
+                        return $"(objectClass=group)"; 
                     }
 
                     return $"(&(objectClass=group)(" + LdapInjectionControll.EscapeForSearchFilterAllowWC(filter) +

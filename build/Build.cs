@@ -5,16 +5,18 @@ using Nuke.Common.Git;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
-using Nuke.Common.Tools.GitVersion;
-using Nuke.Docker;
 using static Nuke.Common.EnvironmentInfo;
 using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
-using static Nuke.Docker.DockerBuildSettings;
-using static Nuke.Docker.DockerTasks;
 using System.IO;
+using Microsoft.Build.Tasks;
+using Nuke.Common.IO;
+using Nuke.Common.Tools.Docker;
+using Serilog;
+using Serilog.Events;
+using LogLevel = Nuke.Common.LogLevel;
 
 
 class Build : NukeBuild
@@ -22,20 +24,33 @@ class Build : NukeBuild
     
     public static int Main () => Execute<Build>(x => x.Compile);
 
-    [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
+    //[Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     //readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
-    readonly Configuration Configuration = Configuration.Release;
+    //readonly Configuration Configuration = Configuration.Release;
+
+    [Parameter]
+    string Configuration { get; } = IsLocalBuild ? "Debug" : "Release";
 
     [Solution] readonly Solution Solution;
-    [GitRepository] readonly GitRepository GitRepository;
-    [GitVersion] readonly GitVersion GitVersion;
+
+    static Int16 majorVersion = 1;
+    static Int16 minorVersion = 2;
+    string version = string.Format("{0}.{1}", majorVersion.ToString(), minorVersion.ToString());
+
 
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     AbsolutePath PackDirectory => RootDirectory / "artifacts/nupkg";
     AbsolutePath AppDirectory => RootDirectory / "artifacts/app";
 
-    AbsolutePath DockerFile => RootDirectory / "Dockerfile";
+    AbsolutePath DockerFile
+    {
+        get
+        {
+            if(Configuration == "Debug") return RootDirectory / "DockerfileDev";
+            else return RootDirectory / "Dockerfile";
+        }
+    }
 
     string ChangeLogFile => RootDirectory / "CHANGELOG.md";
 
@@ -45,7 +60,13 @@ class Build : NukeBuild
     Target Clean => _ => _
         .Executes(() =>
         {
-            DeleteDirectories(GlobDirectories(TestsDirectory, "**/bin", "**/obj"));
+            //DeleteDirectory(ArtifactsDirectory);
+            DeleteDirectory(RootDirectory + "/adrapi/obj");
+            DeleteDirectory(RootDirectory + "/adrapi/bin");
+            DeleteDirectory(RootDirectory + "/domain/obj");
+            DeleteDirectory(RootDirectory + "/domain/bin");
+            
+            //DeleteDirectories(GlobDirectories(TestsDirectory, "**/bin", "**/obj"));
             EnsureCleanDirectory(ArtifactsDirectory);
         });
 
@@ -53,7 +74,7 @@ class Build : NukeBuild
         .DependsOn(Clean)
         .Executes(() =>
         {
-            Logger.Log("Restoring packages!");
+            Log.Write(LogEventLevel.Information, "Restoring packages!");
             DotNetRestore(s => s
                 .SetProjectFile(Solution));
         });
@@ -67,36 +88,42 @@ class Build : NukeBuild
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
-                .SetAssemblyVersion(GitVersion.GetNormalizedAssemblyVersion())
-                .SetFileVersion(GitVersion.GetNormalizedFileVersion())
-                .SetInformationalVersion(GitVersion.InformationalVersion)
+                .SetAssemblyVersion(version)
+                //.SetFileVersion(GitVersion.AssemblySemFileVer)
                 .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
+            
+            /*MSBuild(o => o
+                .SetTargetPath(Solution)
+                .SetTargets("Clean", "Build")
+                .SetConfiguration(Configuration)
+                .EnableNodeReuse());
+                */
         });
 
     private Target Local_Publish => _ => _
         .DependsOn(Compile)
         .Executes(() =>
         {
-            Logger.Log("Publishing to artifacts...");
+            Log.Write(LogEventLevel.Information, "Publishing to artifacts...");
             EnsureExistingDirectory(AppDirectory);
             DotNetPublish(s => s
                 .SetConfiguration(Configuration)
                 .SetAuthors(Authors)
-                .SetVersion(GitVersion.GetNormalizedFileVersion())
+                .SetVersion(version)
                 .SetTitle("ADRAPI")
                 .SetOutput(AppDirectory)
-                .SetWorkingDirectory(RootDirectory)
+                //.SetWorkingDirectory(RootDirectory)
                 .SetProject(Solution)
             );
           
-            DeleteFile(AppDirectory + "/appsettings.Development.json");
+            if (Configuration != "Debug") DeleteFile(AppDirectory + "/appsettings.Development.json");
             CopyFile(RootDirectory + "/adrapi/nLog.prod.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
 
             string fileName = AppDirectory + "/version.txt";
             using (StreamWriter sw = new StreamWriter(fileName, false))
             {
-                sw.WriteLine(GitVersion.GetNormalizedFileVersion());
+                sw.WriteLine(version);
             }
             
         });
@@ -106,7 +133,7 @@ class Build : NukeBuild
         .Executes(() =>
         {
 
-            Logger.Log("Creating Nupackages...");
+            Log.Write( LogEventLevel.Information,"Creating Nupackages...");
             var changeLog = GetCompleteChangeLog(ChangeLogFile)
                 .EscapeStringPropertyForMsBuild();
 
@@ -122,15 +149,22 @@ class Build : NukeBuild
         .DependsOn(Local_Publish)
         .Executes(() =>
         {
-            Logger.Log("Creating Docker Image...");
+            Log.Write( LogEventLevel.Information, "Creating Docker Image...");
 
-            DockerBuild(s => s
+            string lversion = "latest";
+
+            if (Configuration != "Debug") lversion = version;
+            
+            
+            DockerTasks.DockerBuild(s => s
                 .AddLabel("adrapi")
-                .SetTag("ffquintella/adrapi:" + GitVersion.GetNormalizedFileVersion())
+                .SetTag("ffquintella/adrapi:" + lversion)
                 .SetFile(DockerFile)
                 .SetForceRm(true)
                 .SetPath(RootDirectory)
-                );
+            );
+
+
 
         });
 
@@ -138,9 +172,9 @@ class Build : NukeBuild
         .DependsOn(Create_Docker_Image)
         .Executes(() =>
         {
-            DockerPush(s => s
+            /*DockerPush(s => s
                 .SetWorkingDirectory(RootDirectory)
                 .SetName("ffquintella/adrapi:" + GitVersion.GetNormalizedFileVersion())
-            );
+            );*/
         });
 }

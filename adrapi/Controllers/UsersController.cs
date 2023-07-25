@@ -174,7 +174,7 @@ namespace adrapi.Controllers
 
             try
             {
-                logger.LogDebug(ItemExists, "User DN={dn} found");
+                logger.LogDebug(ItemExists, "User DN={dn} found", DN);
                 var user = uManager.GetUser(DN);
 
 

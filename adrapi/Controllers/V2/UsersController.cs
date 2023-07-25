@@ -14,7 +14,7 @@ using adrapi.Models;
 
 namespace adrapi.Controllers.V2
 {
-    //[Produces("application/json")]
+    [Produces("application/json")]
     [Authorize(Policy = "Reading")]
     [ApiVersion("2.0")]
     [Route("api/users")]
@@ -59,9 +59,13 @@ namespace adrapi.Controllers.V2
             {
                 return uManager.GetList(_attribute, "", _cookie);
             }*/
-            
-            if(_start == -1 && _end == -1)
-                return uManager.GetList(_attribute, _filter, _cookie);
+
+            if (_start == -1 && _end == -1)
+            {
+                var response = uManager.GetList(_attribute, _filter, _cookie);
+
+                return response;
+            }
             else
                 return uManager.GetList(_start,_end, _attribute, _filter);
 
@@ -146,7 +150,7 @@ namespace adrapi.Controllers.V2
             catch (Exception ex)
             {
                 logger.LogError(ex.Message);
-                logger.LogDebug(ItemExists, "User DN={dn} not found.");
+                logger.LogDebug(ItemExists, "User DN={user} not found.", user);
                 return NotFound();
             }
 
@@ -162,7 +166,7 @@ namespace adrapi.Controllers.V2
 
             try
             {
-                logger.LogDebug(ItemExists, "User DN={dn} found");
+                logger.LogDebug(ItemExists, "User DN={dn} found", DN);
                 var user = uManager.GetUser(DN);
 
 

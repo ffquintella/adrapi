@@ -21,7 +21,7 @@ namespace adrapi
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.Development.json", optional: false)
                 .AddCommandLine(args)
-                .Build(); 
+                .Build();
             #else
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false)
@@ -30,10 +30,17 @@ namespace adrapi
             #endif
             
 
+
+            /*var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false)
+                .AddCommandLine(args)
+                .Build();*/
+
+
             /*var hostUrl = configuration["hosturl"];
             if (string.IsNullOrEmpty(hostUrl))
                 hostUrl = "http://0.0.0.0:5000";*/
-        
+
             // NLog: setup the logger first to catch all errors
             var logger = NLog.Web.NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
             try

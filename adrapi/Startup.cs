@@ -12,8 +12,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Hosting;
 using Swashbuckle.AspNetCore.Swagger;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 
 namespace adrapi
@@ -33,7 +35,9 @@ namespace adrapi
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            //services.AddMvc();
+
+            services.AddMvc(options => options.EnableEndpointRouting = false);
 
             services.AddApiVersioning(o =>
             {   
@@ -42,6 +46,15 @@ namespace adrapi
                 o.AssumeDefaultVersionWhenUnspecified = true;
                 o.DefaultApiVersion = new ApiVersion(2, 0);
             });
+            
+            services.AddVersionedApiExplorer(options =>
+            {
+                // Agrupar por número de versão
+                options.GroupNameFormat = "'v'VVV";
+
+                // Necessário para o correto funcionamento das rotas
+                options.SubstituteApiVersionInUrl = true;
+            } );
 
             services.AddAuthorization(options =>
             {
@@ -61,23 +74,19 @@ namespace adrapi
             services.AddAuthentication("BasicAuthentication")
                 .AddScheme<AuthenticationSchemeOptions, Security.BasicAuthenticationHandler>("BasicAuthentication", null);
 
-            /*services.AddApiVersioning(o => {
-                o.ReportApiVersions = true;
-                o.AssumeDefaultVersionWhenUnspecified = true;
-                o.DefaultApiVersion = new ApiVersion(1, 0);
-                o.ApiVersionReader = new HeaderApiVersionReader("api-version");
-            });*/
+
 
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "ADRAPI", Version = "v1" });
+                c.SwaggerDoc("v2", new OpenApiInfo { Title = "ADRAPI", Version = "v2" });
                 c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
             });
          
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
         {
             if (env.IsDevelopment())
             {
@@ -90,15 +99,23 @@ namespace adrapi
 
             app.UseHttpsRedirection();
 
+            app.UseFileServer();
             app.UseAuthentication();
 
             //app.UseMiddleware<Security.KeyAuthenticationMiddleware>();
 
             app.UseSwagger();
+            
+            
 
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "ADRAPI V1");
+                //c.SwaggerEndpoint("/swagger/v1/swagger.json", "ADRAPI V1");
+                foreach (var description in provider.ApiVersionDescriptions)
+                {
+                    c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json",
+                        description.GroupName.ToUpperInvariant());
+                }
             });
 
             app.UseMvc();
