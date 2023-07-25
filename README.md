@@ -32,7 +32,7 @@ The valid values are:
 
 You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
 
-It´s also needed to configure the servers located under ldap section in appsettings.json
+ItÂ´s also needed to configure the servers located under ldap section in appsettings.json
 
 ### Security
 
