@@ -21,17 +21,13 @@ services:
     user: '${UID:-0}:${GID:-0}'
     logging:
       driver: 'local'
-    network_mode: host
-    expose:
-      - "${APPLICATION_PORT_EXTERNAL_001:-5000}/tcp"
-      - "${APPLICATION_PORT_EXTERNAL_002:-5001}/tcp"
+    networks:
+      EXTERNAL:
+    ports:
+      - "${APPLICATION_BIND_ADDRESS:-0.0.0.0}:${APPLICATION_PORT_EXTERNAL_001:-5000}:5000/tcp"
+      - "${APPLICATION_BIND_ADDRESS:-0.0.0.0}:${APPLICATION_PORT_EXTERNAL_002:-5001}:5001/tcp"
     dns:
       - '${DNSSERVER:-127.0.0.53}'
-    #networks:
-    #  EXTERNAL:
-    #ports:
-      #- "${APPLICATION_BIND_ADDRESS:-0.0.0.0}:${APPLICATION_PORT_EXTERNAL_001:-5000}:5000/tcp"
-      #- "${APPLICATION_BIND_ADDRESS:-0.0.0.0}:${APPLICATION_PORT_EXTERNAL_002:-5001}:5001/tcp"
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
