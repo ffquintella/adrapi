@@ -1,0 +1,56 @@
+#https://github.com/ffquintella/adrapi
+#https://hub.docker.com/r/ffquintella/adrapi
+
+name: '${STACK_NAME:-stk-adrapi-001}'
+        
+networks:
+  EXTERNAL:
+    name: ADRAPI-EXTERNAL
+    driver: bridge
+    internal: false
+    attachable: true
+
+services:
+  Application:
+    image: '${APPLICATION_IMAGENAME:-ffquintella/adrapi}:${APPLICATION_IMAGEVERSION:-1.2}'    
+    container_name: ADRAPI-APP-001
+    hostname: ADRAPI-APP-001
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 90s
+    user: '${UID:-0}:${GID:-0}'
+    logging:
+      driver: 'local'
+    network_mode: host
+    expose:
+      - "${APPLICATION_PORT_EXTERNAL_001:-5000}/tcp"
+      - "${APPLICATION_PORT_EXTERNAL_002:-5001}/tcp"
+    dns:
+      - '${DNSSERVER:-127.0.0.53}'
+    #networks:
+    #  EXTERNAL:
+    #ports:
+      #- "${APPLICATION_BIND_ADDRESS:-0.0.0.0}:${APPLICATION_PORT_EXTERNAL_001:-5000}:5000/tcp"
+      #- "${APPLICATION_BIND_ADDRESS:-0.0.0.0}:${APPLICATION_PORT_EXTERNAL_002:-5001}:5001/tcp"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - "/${STACK_BINDMOUNTROOT}/${STACK_NAME}/Application/Logs:/var/log/adrapi:rw"
+      - type: bind
+        source: "/${STACK_BINDMOUNTROOT}/${STACK_NAME}/Application/Settings/appsettings.json"
+        target: "/app/appsettings.json"
+        read_only: true
+      - type: bind
+        source: "/${STACK_BINDMOUNTROOT}/${STACK_NAME}/Application/Settings/nlog.config"
+        target: "/app/nlog.config"
+        read_only: true
+      - type: bind
+        source: "/${STACK_BINDMOUNTROOT}/${STACK_NAME}/Application/Settings/security.json"
+        target: "/app/security.json"
+        read_only: true
+      - type: bind
+        source: "/${STACK_BINDMOUNTROOT}/${STACK_NAME}/Application/Certificates/ADDSCertificate.p12"
+        target: "/app/ADDSCertificate.p12"
+        read_only: true
+    labels:
+      com.centurylinklabs.watchtower.enable: ${APPLICATION_ENABLEAUTOMATICUPDATES:-true}
