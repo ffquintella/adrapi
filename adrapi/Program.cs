@@ -35,14 +35,16 @@ namespace adrapi
                 .AddJsonFile("appsettings.json", optional: false)
                 .AddCommandLine(args)
                 .Build();*/
-
-
+            
             /*var hostUrl = configuration["hosturl"];
             if (string.IsNullOrEmpty(hostUrl))
                 hostUrl = "http://0.0.0.0:5000";*/
 
             // NLog: setup the logger first to catch all errors
-            var logger = NLog.Web.NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
+            //var logger = NLog.Web.NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
+
+            var logger = NLog.LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
+            
             try
             {
                 logger.Debug("init main");
@@ -74,8 +76,8 @@ namespace adrapi
             return WebHost.CreateDefaultBuilder(args)
                 .UseKestrel(options =>
                     {
-                        options.Listen(IPAddress.Parse(allowedHosts), 5000);
-                        options.Listen(IPAddress.Parse(allowedHosts), 5001, listenOptions =>
+                        options.Listen(IPAddress.Parse(allowedHosts), 6000);
+                        options.Listen(IPAddress.Parse(allowedHosts), 6001, listenOptions =>
                             {
                                 listenOptions.UseHttps(certificateFile, certificatePassword);
                             } );

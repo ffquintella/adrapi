@@ -12,6 +12,7 @@ using adrapi.Web;
 using NLog;
 using adrapi.domain;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using adrapi.Tools;
 
 namespace adrapi.Controllers
@@ -36,7 +37,7 @@ namespace adrapi.Controllers
         #region GET
         // GET api/groups
         [HttpGet]
-        public ActionResult<IEnumerable<String>> Get([FromQuery]int _start, [FromQuery]int _end)
+        public async Task<ActionResult<IEnumerable<String>>> Get([FromQuery]int _start, [FromQuery]int _end)
         {
 
             this.ProcessRequest();
@@ -51,15 +52,15 @@ namespace adrapi.Controllers
             }
 
             if (_start == 0 && _end == 0) 
-            return gManager.GetList();
-            else return gManager.GetList(_start, _end);
+            return await gManager.GetListAsync();
+            else return await gManager.GetListAsync(_start, _end);
 
 
         }
 
         // GET api/groups 
         [HttpGet]
-        public ActionResult<IEnumerable<domain.Group>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
+        public async Task<ActionResult<IEnumerable<domain.Group>>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
         {
             if (_full)
             {
@@ -76,7 +77,7 @@ namespace adrapi.Controllers
                 List<domain.Group> groups;
 
                 //if (_start == 0 && _end == 0) 
-                groups = gManager.GetGroups();
+                groups = await gManager.GetGroupsAsync();
                 //else groups = gManager.GetGroups(_start, _end);
 
                 return groups;
@@ -90,14 +91,14 @@ namespace adrapi.Controllers
         //TODO: BUG There is a bug related to doing a limited search then doing another one here... FIX IT! :-)
         // GET api/groups/:group
         [HttpGet("{DN}")]
-        public ActionResult<domain.Group> Get(string DN)
+        public async Task<ActionResult<domain.Group>> Get(string DN)
         {
             this.ProcessRequest();
 
             var gManager = GroupManager.Instance;
             try
             {
-                var group = gManager.GetGroup(DN);
+                var group = await gManager.GetGroupAsync(DN);
                 logger.LogDebug(GetItem, "Getting OU={0}", group.Name);
                 return group;
             }
@@ -113,7 +114,7 @@ namespace adrapi.Controllers
 
         // GET api/groups/:group/exists
         [HttpGet("{DN}/exists")]
-        public IActionResult GetExists(string DN)
+        public async Task<IActionResult> GetExists(string DN)
         {
             this.ProcessRequest();
 
@@ -122,7 +123,7 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ItemExists, "Group DN={dn} found", DN);
-                var group = gManager.GetGroup(DN);
+                var group = await gManager.GetGroupAsync(DN);
 
                 if (group == null)
                 {
@@ -146,7 +147,7 @@ namespace adrapi.Controllers
 
         // GET api/groups/:group/members
         [HttpGet("{DN}/members")]
-        public ActionResult<List<String>> GetMembers(string DN, [FromQuery]Boolean _listCN = false)
+        public async Task<ActionResult<List<String>>> GetMembers(string DN, [FromQuery]Boolean _listCN = false)
         {
             this.ProcessRequest();
             var gManager = GroupManager.Instance;
@@ -154,7 +155,7 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ListItems, "Group DN={dn} found", DN);
-                var group = gManager.GetGroup(DN, _listCN);
+                var group = await gManager.GetGroupAsync(DN, _listCN);
 
                 return group.Member;
 
@@ -178,7 +179,7 @@ namespace adrapi.Controllers
         /// <param name="_listCN">If the members are in CN format</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public ActionResult Put(string DN, [FromBody] domain.Group group, [FromQuery] Boolean _listCN = false)
+        public async Task<ActionResult> Put(string DN, [FromBody] domain.Group group, [FromQuery] Boolean _listCN = false)
         {
             ProcessRequest();
 
@@ -207,7 +208,7 @@ namespace adrapi.Controllers
                 var gManager = GroupManager.Instance;
                 var uManager = UserManager.Instance;
 
-                var adgroup = gManager.GetGroup(DN);
+                var adgroup = await gManager.GetGroupAsync(DN);
 
                 if (_listCN)
                 {
@@ -220,11 +221,11 @@ namespace adrapi.Controllers
                     {
                         string dname = "";
 
-                        var grp = gManager.GetGroup(member, true, true);
+                        var grp = await gManager.GetGroupAsync(member, true, true);
                         if (grp != null) dname = grp.DN;
                         else
                         {
-                            var user = uManager.GetUser(member, "samaccountname");
+                            var user = await uManager.GetUserAsync(member, "samaccountname");
                             if (user != null) dname = user.DN;
                             else
                             {
@@ -247,7 +248,7 @@ namespace adrapi.Controllers
 
                     group.DN = DN;
 
-                    var result = gManager.CreateGroup(group);
+                    var result = await gManager.CreateGroupAsync(group);
 
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
@@ -260,7 +261,7 @@ namespace adrapi.Controllers
 
                     group.DN = DN;
 
-                    var result = gManager.SaveGroup(group);
+                    var result = await gManager.SaveGroupAsync(group);
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
@@ -288,7 +289,7 @@ namespace adrapi.Controllers
         /// <returns></returns>
         // PUT api/groups/:group/members
         [HttpPut("{DN}/members")]
-        public ActionResult PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false)
+        public async Task<ActionResult> PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false)
         {
             this.ProcessRequest();
             var gManager = GroupManager.Instance;
@@ -297,7 +298,7 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ListItems, "Group DN={dn} found", DN);
-                var group = gManager.GetGroup(DN);
+                var group = await gManager.GetGroupAsync(DN);
 
                 group.Member.Clear();
 
@@ -306,11 +307,11 @@ namespace adrapi.Controllers
                     string dname = "";
                     if (_listCN)
                     {
-                        var grp = gManager.GetGroup(member, true,true);
+                        var grp = await gManager.GetGroupAsync(member, true,true);
                         if(grp != null) dname = grp.DN;
                         else
                         {
-                            var user = uManager.GetUser(member, "samaccountname");
+                            var user = await uManager.GetUserAsync(member, "samaccountname");
                             if (user != null) dname = user.DN;
                             else
                             {
@@ -326,7 +327,7 @@ namespace adrapi.Controllers
                 try
                 {
                     logger.LogInformation(PutItem, "Saving group members for group:{DN}", DN);
-                    gManager.SaveGroup(group);
+                    await gManager.SaveGroupAsync(group);
                     return Ok();
                 }catch(Exception ex)
                 {
@@ -360,7 +361,7 @@ namespace adrapi.Controllers
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public ActionResult Delete(string DN)
+        public async Task<ActionResult> Delete(string DN)
         {
             ProcessRequest();
 
@@ -378,7 +379,7 @@ namespace adrapi.Controllers
 
             var gManager = GroupManager.Instance;
 
-            var dgroup = gManager.GetGroup(DN);
+            var dgroup = await gManager.GetGroupAsync(DN);
 
             if (dgroup == null)
             {
@@ -393,7 +394,7 @@ namespace adrapi.Controllers
                 // Delete 
                 logger.LogInformation(DeleteItem, "Deleting group DN={DN}", DN);
 
-                var result = gManager.DeleteGroup(dgroup);
+                var result = await gManager.DeleteGroup(dgroup);
                 if (result == 0) return Ok();
                 else return this.StatusCode(500);
 

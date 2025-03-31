@@ -9,7 +9,7 @@ namespace tests
         [Fact]
         public void ApiKeyManagerRead()
         {
-            var key = ApiKeyManager.FindBySecretKey("abc1234");
+            var key = ApiKeyManager.FindBySecretKey("abc1234", true);
 
             Assert.NotNull(key);
 

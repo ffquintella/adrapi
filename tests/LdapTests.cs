@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Xunit;
 using adrapi.Ldap;
 using adrapi.domain.Exceptions;
@@ -9,7 +10,7 @@ namespace tests
     public class LdapTests
     {
         [Fact]
-        public void ConnectionManagerTest()
+        public async Task ConnectionManagerTest()
         {
 
             string[] servers = new string[] { "teste:389", "teste2:389" };
@@ -22,13 +23,10 @@ namespace tests
 
             var lcm = LdapConnectionManager.Instance;
 
-            Exception ex = Assert.Throws<NullException>(() => lcm.GetConnection(null));
+            Exception ex = await Assert.ThrowsAsync<NullException>(async () => await lcm.GetConnectionAsync(null));
 
-            Exception ex2 = Assert.ThrowsAny<Exception>(() => lcm.GetConnection(lconfig));
-
-                
-
-
+            Exception ex2 = await Assert.ThrowsAnyAsync<Exception>(async () => await lcm.GetConnectionAsync(lconfig));
+            
 
         }
     }

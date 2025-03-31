@@ -12,10 +12,11 @@ namespace adrapi.Security
 
 		private static Logger logger = LogManager.GetCurrentClassLogger();
 
-		public static ApiKey FindBySecretKey(string secretKey)
+		public static ApiKey FindBySecretKey(string secretKey, bool isTest = false)
 		{
-
-			string json = File.ReadAllText("security.json");
+			string json = "";
+			if (isTest) json = File.ReadAllText("security-tests.json");
+			else json = File.ReadAllText("security.json");
 
 			logger.Debug("Json File:" + json);
 
@@ -29,10 +30,12 @@ namespace adrapi.Security
 			return null;
 		}
 
-		public static ApiKey Find(string keyID)
+		public static ApiKey Find(string keyID, bool isTest = false)
 		{
 
-			string json = File.ReadAllText("security.json");
+			string json = "";
+			if (isTest) json = File.ReadAllText("security-tests.json");
+			else json = File.ReadAllText("security.json");
 
 			logger.Debug("Json File:" + json);
 

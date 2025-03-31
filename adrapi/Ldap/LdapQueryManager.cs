@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using adrapi.Ldap.Security;
 
 namespace adrapi.Ldap
@@ -74,37 +75,36 @@ namespace adrapi.Ldap
             }
         }
         
-        public LdapMessageQueue SendSearch(string searchBase, LdapSearchType type, string filter = "")
+        public async Task<LdapMessageQueue> SendSearchAsync(string searchBase, LdapSearchType type, string filter = "")
         {
-            return SendSearch(searchBase, GetTypeFilter(type, filter));
+            return await SendSearchAsync(searchBase, GetTypeFilter(type, filter));
         }
 
-        public LdapMessageQueue SendSearch(string searchBase, string filter)
+        public async Task<LdapMessageQueue> SendSearchAsync(string searchBase, string filter)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = lcm.GetConnection();
+            using var con = await lcm.GetConnectionAsync();
 
             var sb = searchBase + config.searchBase;
 
             var req = new LdapSearchRequest(sb, LdapConnection.ScopeSub, filter, null, LdapSearchConstraints.DerefNever, config.maxResults, 0, false, null);
             
-            var queue = con.SendRequest(req, null);
+            var queue = await con.SendRequestAsync(req, null);
                         
             return queue;
-
         }
 
-        public List<LdapEntry> ExecuteSearch(string searchBase, LdapSearchType type, string filter = "")
+        public async Task<List<LdapEntry>> ExecuteSearchAsync(string searchBase, LdapSearchType type, string filter = "")
         {
-            return ExecuteSearch(searchBase, GetTypeFilter(type, filter));
+            return await ExecuteSearchAsync(searchBase, GetTypeFilter(type, filter));
         }
 
-        public List<LdapEntry> ExecuteSearch(string searchBase, string filter = "")
+        public async Task<List<LdapEntry>> ExecuteSearchAsync(string searchBase, string filter = "")
         {
             var results = new List<LdapEntry>();
             
             var lcm = LdapConnectionManager.Instance;
-            var conn = lcm.GetConnection();
+            using var conn = await lcm.GetConnectionAsync();
             var sb = searchBase + config.searchBase;
             
             LdapControl[] requestControls = new LdapControl[1];
@@ -119,20 +119,22 @@ namespace adrapi.Ldap
             cons.SetControls(requestControls);
             conn.Constraints = cons;
             
-            LdapSearchResults resps = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+            var resps = (LdapSearchResults) await conn.SearchAsync(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
 
             //var resps = SendSearch(searchBase, type, filter);
+
+            var respEnumerator = resps.GetAsyncEnumerator();
             
-            while (resps.HasMore())
+            while ( await respEnumerator.MoveNextAsync())
             {
 
                 /* Get next returned entry.  Note that we should expect a Ldap-
                 *Exception object as well just in case something goes wrong
                 */
-                LdapEntry nextEntry = null;
+                LdapEntry nextEntry = respEnumerator.Current;
                 try
                 {
-                    nextEntry = resps.Next();
+                    
                     results.Add(nextEntry);
                 }
                 catch (Exception e)
@@ -155,17 +157,17 @@ namespace adrapi.Ldap
         }
         
 
-        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, LdapSearchType type, int start, int end, string filter = "")
+        public async Task<List<LdapEntry>> ExecuteLimitedSearchAsync(string searchBase, LdapSearchType type, int start, int end, string filter = "")
         {
-            return ExecuteLimitedSearch(searchBase, GetTypeFilter(type, filter), start, end);
+            return await ExecuteLimitedSearchAsync(searchBase, GetTypeFilter(type, filter), start, end);
         }
 
-        private int getSearchSize(string searchBase, string filter)
+        private async Task<int> GetSearchSizeAsync(string searchBase, string filter)
         {
             var results = new List<LdapEntry>();
 
             var lcm = LdapConnectionManager.Instance;
-            var conn = lcm.GetConnection();
+            using var conn = await lcm.GetConnectionAsync();
 
             var sb = searchBase + config.searchBase;
 
@@ -189,11 +191,12 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
-            LdapSearchResults res = (LdapSearchResults) conn.Search(sb, LdapConnection.ScopeOne, filter, null, false,
+            LdapSearchResults res = (LdapSearchResults) await conn.SearchAsync(sb, LdapConnection.ScopeOne, filter, null, false,
                 (LdapSearchConstraints) null);
-            while (res.HasMore())
+            
+            while (await res.HasMoreAsync())
             {
-                res.Next();
+                await res.NextAsync();
             }
 
             // Server should send back a control irrespective of the
@@ -251,17 +254,17 @@ namespace adrapi.Ldap
         /// <param name="filter">Filter.</param>
         /// <param name="start">Must be 1 or greater</param>
         /// <param name="end">End.</param>
-        public List<LdapEntry> ExecuteLimitedSearch(string searchBase, string filter, int start, int end)
+        public async Task<List<LdapEntry>> ExecuteLimitedSearchAsync(string searchBase, string filter, int start, int end)
         {
             
-            int sSize = getSearchSize(searchBase, filter);
+            int sSize = await GetSearchSizeAsync(searchBase, filter);
 
             //int sSize = 1000;
             
             var results = new List<LdapEntry>();
 
             var lcm = LdapConnectionManager.Instance;
-            var conn = lcm.GetConnection();
+            using var conn = await lcm.GetConnectionAsync();
 
             var sb = searchBase + config.searchBase;
 
@@ -287,10 +290,10 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
-            LdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+            LdapSearchResults res = (LdapSearchResults) await conn.SearchAsync(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
 
             // Loop through the results and print them out
-            while (res.HasMore())
+            while (await res.HasMoreAsync())
             {
 
                 /* Get next returned entry.  Note that we should expect a Ldap-
@@ -299,7 +302,7 @@ namespace adrapi.Ldap
                 LdapEntry nextEntry = null;
                 try
                 {
-                    nextEntry = res.Next();
+                    nextEntry = await res.NextAsync();
                     results.Add(nextEntry);
                 }
                 catch (Exception e)
@@ -383,10 +386,10 @@ namespace adrapi.Ldap
             return results;
         }
 
-        public LdapPagedResponse ExecutePagedSearch(string searchBase, LdapSearchType type, string filter = "", string cookie = "")
+        public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, LdapSearchType type, string filter = "", string cookie = "")
         {
             
-            return ExecutePagedSearch(searchBase, GetTypeFilter(type,filter), cookie);
+            return await ExecutePagedSearchAsync(searchBase, GetTypeFilter(type,filter), cookie);
             
         }
 
@@ -398,12 +401,12 @@ namespace adrapi.Ldap
         /// <param name="searchBase">Search base.</param>
         /// <param name="filter">Filter.</param>
         /// <param name="cookie">Cookie to restore last search.</param>
-        public LdapPagedResponse ExecutePagedSearch(string searchBase, string filter, string cookie = "")
+        public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, string filter, string cookie = "")
         {
             var results = new List<LdapEntry>();
 
             var lcm = LdapConnectionManager.Instance;
-            var conn = lcm.GetConnection();
+            using var conn = await lcm.GetConnectionAsync();
 
             var sb = searchBase + config.searchBase;
 
@@ -454,10 +457,10 @@ namespace adrapi.Ldap
 
             string[] attrs = null;
             
-            ILdapSearchResults res = (LdapSearchResults)conn.Search(sb, LdapConnection.ScopeSub, filter, attrs, false, (LdapSearchConstraints)null);
+            ILdapSearchResults res = (LdapSearchResults)await conn.SearchAsync(sb, LdapConnection.ScopeSub, filter, attrs, false, (LdapSearchConstraints)null);
 
             // Loop through the results and print them out
-            while (res.HasMore())
+            while (await res.HasMoreAsync())
             {
 
                 /* Get next returned entry.  Note that we should expect a Ldap-
@@ -466,7 +469,7 @@ namespace adrapi.Ldap
                 LdapEntry nextEntry = null;
                 try
                 {
-                    nextEntry = res.Next();
+                    nextEntry = await res.NextAsync();
                     results.Add(nextEntry);
                 }
                 catch (Exception e)
@@ -538,16 +541,16 @@ namespace adrapi.Ldap
             return response; 
         }
 
-        public LdapEntry GetRegister(string DN, string[] attrs = null)
+        public async Task<LdapEntry> GetRegister(string DN, string[] attrs = null)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = lcm.GetConnection(true);
+            var con = await lcm.GetConnectionAsync(true);
 
             LdapEntry res;
             if (attrs == null)
-                res = con.Read(DN);
+                res = await con.ReadAsync(DN);
             else
-                res = con.Read(DN, attrs);
+                res = await con.ReadAsync(DN, attrs);
            
             return res;
 
@@ -557,37 +560,33 @@ namespace adrapi.Ldap
 
         #region WRITE
 
-        public void AddEntry(LdapEntry entry)
+        public async Task AddEntryAsync(LdapEntry entry)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = lcm.GetConnection(true);
+            using var con = await lcm.GetConnectionAsync(true);
 
             //Add the entry to the directory
-            con.Add(entry);
+            await con.AddAsync(entry);
             
-
-            return;
         }
 
-        public void DeleteEntry(String dn)
+        public async Task DeleteEntry(String dn)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = lcm.GetConnection(true);
+            var con = await lcm.GetConnectionAsync(true);
 
-            con.Delete(dn);
+            await con.DeleteAsync(dn);
 
-            return;
         }
 
-        public void SaveEntry(String dn, LdapModification[] modList)
+        public async Task SaveEntry(String dn, LdapModification[] modList)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = lcm.GetConnection(true);
+            var con = await lcm.GetConnectionAsync(true);
 
             //Add the entry to the directory
-            con.Modify(dn, modList);
+            await con.ModifyAsync(dn, modList);
 
-            return;
         }
 
         #endregion
