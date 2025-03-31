@@ -1,0 +1,14 @@
+﻿[
+  {
+    "secretKey": "d6a0f2b1-dc8e-4216-91bd-ba941d99848f",
+    "keyID": "ReadOnly",
+    "authorizedIP": "0.0.0.0",
+    "claims": [ "isMonitor" ]
+  },
+  {
+    "secretKey": "86d3c3f3-c0c9-4abc-a8f0-4f2f9ed39b59",
+    "keyID": "ReadWrite",
+    "authorizedIP": "0.0.0.0",
+    "claims": [ "isAdministrator" ]
+  }
+]
