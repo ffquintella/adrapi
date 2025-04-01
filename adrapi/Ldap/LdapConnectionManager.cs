@@ -66,8 +66,6 @@ namespace adrapi.Ldap
                         options = new LdapConnectionOptions();
                     }
 
-                    //LdapConnection connection = new LdapConnection(options);
-
                     using var cn = new LdapConnection(options);
                     using var cnClean = new LdapConnection(options);
 
@@ -90,18 +88,18 @@ namespace adrapi.Ldap
 
                         throw new domain.Exceptions.InvalidCredentialsException(ex.Message);
                     }
-
-                    //TODO: Verify connection and treat errors
+                    
 
                     ConnectionPool.Add(cn);
                     CleanConnectionPool.Add(cnClean);
+                    
+                    if(ConnectionPool.Count == 0) throw new Exception("No connection pool available");
 
                 }
 
             }
 
             // GET a Random open Connection
-            //TODO: Optimize code
             var rnd = new Random();
 
             int sorted;
@@ -143,16 +141,6 @@ namespace adrapi.Ldap
             {
                 logger.Debug("Connected to server: {server} on port: {port}", con.Host, con.Port);
             }
-
-            /*
-            LdapControl[] requestControls = new LdapControl[0];
-
-            LdapConstraints lc = new LdapConstraints();
-            lc.SetControls(requestControls);
-
-            con.Constraints = lc;
-            */
-
 
             return con;
         }
