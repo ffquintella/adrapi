@@ -5,6 +5,7 @@ using adrapi.Ldap;
 using System.Linq;
 using Novell.Directory.Ldap;
 using System.Text;
+using System.Threading.Tasks;
 using adrapi.Ldap.Security;
 using adrapi.Models;
 using NLog;
@@ -45,7 +46,7 @@ namespace adrapi
         /// Return a string list of the users DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public UserListResponse GetList(string attribute = "", string filter = "", string cookie = "")
+        public async Task<UserListResponse> GetListAsync(string attribute = "", string filter = "", string cookie = "")
         {
             
             var response = new UserListResponse();
@@ -70,7 +71,7 @@ namespace adrapi
             List<LdapEntry> resps;
             
 
-            var presp = sMgmt.ExecutePagedSearch("", LdapSearchType.User, formatedFilter, cookie);
+            var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie);
 
             response.Cookie = presp.Cookie;
             resps = presp.Entries;
@@ -81,20 +82,20 @@ namespace adrapi
                 if (attribute == "")
                 {
                     //users.Add(entry.GetAttribute("distinguishedName").StringValue);
-                    userNames.Add(entry.GetAttribute("samaccountname").StringValue);
+                    userNames.Add(entry.GetStringValueOrDefault("samaccountname"));
                     var user = new User();
-                    user.Account = entry.GetAttribute("samaccountname").StringValue;
-                    user.ID = entry.GetAttribute("objectSid").StringValue;
-                    user.GivenName = entry.GetAttribute("cn").StringValue;
+                    user.Account = entry.GetStringValueOrDefault("samaccountname");
+                    user.ID = entry.GetStringValueOrDefault("objectSid");
+                    user.GivenName = entry.GetStringValueOrDefault("cn");
 
 
                     if (entry.GetAttributeSet().ContainsKey("memberOf"))
                     {
-                        var groupsStr = entry.GetAttribute("memberOf").StringValueArray;
+                        var groupsStr = entry.GetAttributeSet("memberOf");// .GetAttribute("memberOf").StringValueArray;
                         foreach (var grp in groupsStr)
                         {
                             var group = new Group();
-                            group.Name = grp;
+                            group.Name = grp.StringValue;
                             user.MemberOf.Add(group);
                         }
                     }
@@ -103,7 +104,7 @@ namespace adrapi
 
                 }
                 else
-                    userNames.Add(entry.GetAttribute(attribute).StringValue);
+                    userNames.Add(entry.GetStringValueOrDefault(attribute));
                 results++;
             }
 
@@ -126,7 +127,7 @@ namespace adrapi
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
         /// <param name="attribute">The attribute name to appear on the list</param>
-        public UserListResponse GetList(int start, int end, string attribute = "" , string filter = "")
+        public async Task<UserListResponse> GetListAsync(int start, int end, string attribute = "" , string filter = "")
         {
             var response = new UserListResponse();
             
@@ -146,16 +147,16 @@ namespace adrapi
                     formatedFilter = "cn=" + filter;
             }
             
-            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end, formatedFilter);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.User, start, end, formatedFilter);
          
 
             foreach (var entry in resps)
             {
                 string u = "";
                 if (attribute == "")
-                    u = entry.GetAttribute("distinguishedName").StringValue;
+                    u = entry.GetStringValueOrDefault("distinguishedName");
                 else
-                    u = entry.GetAttribute(attribute).StringValue;
+                    u = entry.GetStringValueOrDefault(attribute);
                 users.Add(u);
 
                 results++;
@@ -174,7 +175,7 @@ namespace adrapi
         /// Gets the list of all users.
         /// </summary>
         /// <returns>The users.</returns>
-        public UserListResponse GetUsers()
+        public async Task<UserListResponse> GetUsersAsync()
         {
             
             var response = new UserListResponse();
@@ -183,7 +184,7 @@ namespace adrapi
 
             var sMgmt = LdapQueryManager.Instance;
 
-            var resps = sMgmt.ExecuteSearch("", LdapSearchType.User);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.User);
             int results = 0;
 
             response.UserNames = new List<string>();
@@ -207,7 +208,7 @@ namespace adrapi
         }
 
 
-        public UserListResponse GetUsers(int start, int end)
+        public async Task<UserListResponse> GetUsers(int start, int end)
         {
             var response = new UserListResponse();
             var users = new List<User>();
@@ -217,7 +218,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.User, start, end);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.User, start, end);
 
             foreach (var entry in resps)
             {
@@ -241,7 +242,7 @@ namespace adrapi
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the user</param>
         /// <<param name="attribute">Optional attribute to use as search base</param>
-        public User GetUser (string userID, string attribute = "")
+        public async Task<User> GetUserAsync (string userID, string attribute = "")
         {
             var sMgmt = LdapQueryManager.Instance;
 
@@ -253,7 +254,7 @@ namespace adrapi
                 if (attribute != "")
                 {
                     
-                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+                    var results = await sMgmt.ExecutePagedSearchAsync("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
 
 
                     if (results.Entries.Count == 0)
@@ -267,7 +268,7 @@ namespace adrapi
                 }
                 else
                 {
-                    var results = sMgmt.ExecutePagedSearch("", "(&(objectClass=user)(objectCategory=person)(sAMAccountName="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+                    var results = await sMgmt.ExecutePagedSearchAsync("", "(&(objectClass=user)(objectCategory=person)(sAMAccountName="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
 
                     if (results.Entries.Count == 0)
                     {
@@ -297,7 +298,7 @@ namespace adrapi
         /// <returns> -1 Error </returns>
         /// <returns> 0 OK </returns>
         /// <param name="user">User.</param>
-        public int CreateUser(User user)
+        public async Task<int> CreateUserAsync(User user)
         {
 
             //Creates the List attributes of the entry and add them to attributeset
@@ -314,7 +315,7 @@ namespace adrapi
 
             try
             {
-                qMgmt.AddEntry(newEntry);
+                await qMgmt.AddEntryAsync(newEntry);
                 return 0;
 
             }catch(Exception ex)
@@ -331,7 +332,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The user. Must have DN set</returns>
         /// <param name="user">User.</param>
-        public int SaveUser(User user)
+        public async Task<int> SaveUserAsync(User user)
         {
 
             var qMgmt = LdapQueryManager.Instance;
@@ -343,7 +344,7 @@ namespace adrapi
             //Get user from the Directory
             try
             {
-                var duser = GetUser(user.DN);
+                var duser = await GetUserAsync(user.DN);
 
                 var dattrs = GetAttributeSet(duser);
 
@@ -382,7 +383,7 @@ namespace adrapi
                 try
                 {
                     if(modList.Count > 0)
-                        qMgmt.SaveEntry(user.DN, modList.ToArray());
+                        await qMgmt.SaveEntry(user.DN, modList.ToArray());
                     return 0;
 
                 }
@@ -403,12 +404,12 @@ namespace adrapi
 
         }
 
-        public bool ValidateAuthentication(string login, string password)
+        public async Task<bool> ValidateAuthenticationAsync(string login, string password)
         {
 
             LdapConnectionManager lcm = LdapConnectionManager.Instance;
 
-            return lcm.ValidateAuthentication(login, password);
+            return await lcm.ValidateAuthenticationAsync(login, password);
 
         }
 
@@ -465,41 +466,39 @@ namespace adrapi
         {
             var user = new User();
 
-            user.Name = entry.GetAttribute("name").StringValue;
+            user.Name = entry.GetStringValueOrDefault("name");
             
-            user.Account = entry.GetAttribute("sAMAccountName").StringValue;
+            user.Account = entry.GetStringValueOrDefault("sAMAccountName");
             
-            if(entry.GetAttributeSet().ContainsKey("userPrincipalName")) user.Login = entry.GetAttribute("userPrincipalName").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("userPrincipalName")) user.Login = entry.GetStringValueOrDefault("userPrincipalName");
 
-            if(entry.GetAttributeSet().ContainsKey("description")) user.Description = entry.GetAttribute("description").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("description")) user.Description = entry.GetStringValueOrDefault("description");
 
-            var sid = ConvertByteToStringSid((byte[])(Array)entry.GetAttribute("objectSid").ByteValue);
+            var sid = ConvertByteToStringSid((byte[])(Array)entry.GetBytesValueOrDefault("objectSid"));
 
             user.ID = sid;
 
-            user.DN = entry.GetAttribute("distinguishedName").StringValue;
+            user.DN = entry.GetStringValueOrDefault("distinguishedName");
 
-            if(entry.GetAttributeSet().ContainsKey("givenName")) user.GivenName = entry.GetAttribute("givenName").StringValue;
-            if(entry.GetAttributeSet().ContainsKey("sn")) user.Surname = entry.GetAttribute("sn").StringValue;
-            if(entry.GetAttributeSet().ContainsKey("mail")) user.Mail = entry.GetAttribute("mail").StringValue;
-            if(entry.GetAttributeSet().ContainsKey("mobile")) user.Mobile = entry.GetAttribute("mobile").StringValue;
+            if(entry.GetAttributeSet().ContainsKey("givenName")) user.GivenName = entry.GetStringValueOrDefault("givenName");
+            if(entry.GetAttributeSet().ContainsKey("sn")) user.Surname = entry.GetStringValueOrDefault("sn");
+            if(entry.GetAttributeSet().ContainsKey("mail")) user.Mail = entry.GetStringValueOrDefault("mail");
+            if(entry.GetAttributeSet().ContainsKey("mobile")) user.Mobile = entry.GetStringValueOrDefault("mobile");
 
             if (entry.GetAttributeSet().ContainsKey("memberOf"))
             {
-                var attrMo = entry.GetAttribute("memberOf");
+                var attrMo = entry.GetAttributeSet("memberOf");// .GetAttribute("memberOf");
 
-                if ( attrMo != null)
-                {
-                    var mofs = attrMo.StringValues;
+                var mofs = attrMo.Values;
+                
+                //var mofs = attrMo.StringValues;
 
-                    while (mofs.MoveNext())
-                    {
-                        var group = new Group();
-                        if (mofs != null && mofs.Current != null)
-                            group.DN = mofs.Current;
-                        user.MemberOf.Add(group);
-                    }
-                }  
+                foreach(var mof in mofs) {
+                    var group = new Group();
+                    group.DN = mof.StringValue;
+                    user.MemberOf.Add(group);
+                }
+                
             }
 
 
@@ -512,7 +511,7 @@ namespace adrapi
         /// </summary>
         /// <returns>0 for success -1 for error.</returns>
         /// <param name="user">User.</param>
-        public int DeleteUser(User user)
+        public async Task<int> DeleteUser(User user)
         {
         
 
@@ -520,7 +519,7 @@ namespace adrapi
 
             try
             {
-                qMgmt.DeleteEntry(user.DN);
+                await qMgmt.DeleteEntry(user.DN);
                 return 0;
 
             }

@@ -10,6 +10,7 @@ using adrapi.Ldap;
 using adrapi.Web;
 using adrapi.domain;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using adrapi.Models;
 
 namespace adrapi.Controllers.V2
@@ -34,7 +35,7 @@ namespace adrapi.Controllers.V2
         #region GET
         // GET api/users
         [HttpGet]
-        public ActionResult<UserListResponse> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
+        public async Task<ActionResult<UserListResponse>> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
         {
 
             this.ProcessRequest();
@@ -62,19 +63,19 @@ namespace adrapi.Controllers.V2
 
             if (_start == -1 && _end == -1)
             {
-                var response = uManager.GetList(_attribute, _filter, _cookie);
+                var response = await uManager.GetListAsync(_attribute, _filter, _cookie);
 
                 return response;
             }
             else
-                return uManager.GetList(_start,_end, _attribute, _filter);
+                return await uManager.GetListAsync(_start,_end, _attribute, _filter);
 
         }
 
         
         // GET api/users 
         [HttpGet]
-        public ActionResult<UserListResponse> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
+        public async Task<ActionResult<UserListResponse>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
         {
 
             this.ProcessRequest();
@@ -89,8 +90,8 @@ namespace adrapi.Controllers.V2
             var uManager = UserManager.Instance;
             UserListResponse response; 
 
-            if (_start == 0 && _end == 0) response = uManager.GetUsers();
-            else response = uManager.GetUsers(_start, _end);
+            if (_start == 0 && _end == 0) response = await uManager.GetUsersAsync();
+            else response = await uManager.GetUsersAsync();
 
             return response;
 
@@ -98,14 +99,14 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user
         [HttpGet("{user}")]
-        public ActionResult<domain.User> Get(string user, [FromQuery]string _attribute = "")
+        public async Task<ActionResult<domain.User>> Get(string user, [FromQuery]string _attribute = "")
         {
             this.ProcessRequest();
             var uManager = UserManager.Instance;
 
             User usr;
 
-            usr = _attribute != "" ? uManager.GetUser(user, _attribute) : uManager.GetUser(user);
+            usr = _attribute != "" ? await uManager.GetUserAsync(user, _attribute) : await uManager.GetUserAsync(user);
 
             if (usr == null)
             {
@@ -123,7 +124,7 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user/exists
         [HttpGet("{user}/exists")]
-        public IActionResult GetExists(string user, [FromQuery]string _attribute = "")
+        public async Task<IActionResult> GetExists(string user, [FromQuery]string _attribute = "")
         {
             this.ProcessRequest();
 
@@ -134,13 +135,13 @@ namespace adrapi.Controllers.V2
                 logger.LogDebug(ItemExists, "User DN={user} found with attribute={_attribute}",user,_attribute);
                 if (_attribute != "")
                 {
-                    var resp = uManager.GetUser(user, _attribute);
+                    var resp = await uManager.GetUserAsync(user, _attribute);
                     if (resp == null) return NotFound();
                     
                 }
                 else
                 {
-                    var resp = uManager.GetUser(user);
+                    var resp = await uManager.GetUserAsync(user);
                     if (resp == null) return NotFound();
                 }
 
@@ -158,7 +159,7 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user/member-of/:group
         [HttpGet("{DN}/member-of/{group}")]
-        public IActionResult IsMemberOf(string DN, string group)
+        public async Task<IActionResult> IsMemberOf(string DN, string group)
         {
             this.ProcessRequest();
 
@@ -167,7 +168,7 @@ namespace adrapi.Controllers.V2
             try
             {
                 logger.LogDebug(ItemExists, "User DN={dn} found", DN);
-                var user = uManager.GetUser(DN);
+                var user = await uManager.GetUserAsync(DN);
 
 
                 foreach (domain.Group grp in user.MemberOf)
@@ -196,7 +197,7 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user/authenticate
         [HttpPost("{userId}/authenticate")]
-        public ActionResult Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
+        public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
         {
 
             var uManager = UserManager.Instance;
@@ -205,11 +206,11 @@ namespace adrapi.Controllers.V2
             
             if (_useAccount)
             {
-                aduser = uManager.GetUser(userId, "samaccountname");
+                aduser = await uManager.GetUserAsync(userId, "samaccountname");
             }
             else
             {
-                aduser = uManager.GetUser(userId);  
+                aduser = await uManager.GetUserAsync(userId);  
             }
             
 
@@ -225,7 +226,7 @@ namespace adrapi.Controllers.V2
                 if (req.Login == null) login = aduser.Account;
                 else login = req.Login;
 
-                var success = uManager.ValidateAuthentication(login, req.Password);
+                var success = await uManager.ValidateAuthenticationAsync(login, req.Password);
 
                 if (success) return Ok();
                 return StatusCode(401);
@@ -235,7 +236,7 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/authenticate
         [HttpPost("authenticate")]
-        public ActionResult AuthenticateDirect([FromBody] AuthenticationRequest req)
+        public async Task<ActionResult> AuthenticateDirect([FromBody] AuthenticationRequest req)
         {
 
             var uManager = UserManager.Instance;
@@ -249,7 +250,7 @@ namespace adrapi.Controllers.V2
             }
             else login = req.Login;
 
-            var success = uManager.ValidateAuthentication(login, req.Password);
+            var success = await uManager.ValidateAuthenticationAsync(login, req.Password);
 
             if (success) return Ok();
             return StatusCode(401);
@@ -267,7 +268,7 @@ namespace adrapi.Controllers.V2
         /// <param name="user">User.</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public ActionResult Put(string DN, [FromBody] User user)
+        public async Task<ActionResult> Put(string DN, [FromBody] User user)
         {
             ProcessRequest();
 
@@ -297,7 +298,7 @@ namespace adrapi.Controllers.V2
 
                 var uManager = UserManager.Instance;
 
-                var aduser = uManager.GetUser(DN);
+                var aduser = await uManager.GetUserAsync(DN);
 
 
                 if (aduser == null)
@@ -307,7 +308,7 @@ namespace adrapi.Controllers.V2
 
                     user.DN = DN;
 
-                    var result = uManager.CreateUser(user);
+                    var result = await uManager.CreateUserAsync(user);
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
@@ -319,7 +320,7 @@ namespace adrapi.Controllers.V2
 
                     user.DN = DN;
 
-                    var result = uManager.SaveUser(user);
+                    var result = await uManager.SaveUserAsync(user);
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
@@ -350,7 +351,7 @@ namespace adrapi.Controllers.V2
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public ActionResult Delete(string userID, [FromQuery] string _attribute = "")
+        public async Task<ActionResult> Delete(string userID, [FromQuery] string _attribute = "")
         {
             ProcessRequest();
 
@@ -362,7 +363,7 @@ namespace adrapi.Controllers.V2
             
             if (_attribute != "")
             {
-                duser = uManager.GetUser(userID, _attribute);
+                duser = await uManager.GetUserAsync(userID, _attribute);
             }
             else
             {
@@ -379,7 +380,7 @@ namespace adrapi.Controllers.V2
 
                 //var uLogin = match.Groups["login"];
 
-                duser = uManager.GetUser(userID);
+                duser = await uManager.GetUserAsync(userID);
             }
             
 
@@ -397,7 +398,7 @@ namespace adrapi.Controllers.V2
                 // Delete 
                 logger.LogInformation(DeleteItem, "Deleting user DN={DN}", userID);
 
-                var result = uManager.DeleteUser(duser);
+                var result = await uManager.DeleteUser(duser);
                 if (result == 0) return Ok();
                 else return this.StatusCode(500);
 

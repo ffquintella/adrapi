@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using adrapi.Ldap;
 using adrapi.Ldap.Security;
 using Novell.Directory.Ldap;
@@ -32,7 +33,7 @@ namespace adrapi
         /// Return a string list of the groups CNs
         /// </summary>
         /// <returns>The list.</returns>
-        public List<String> GetCnList()
+        public async Task<List<String>> GetCnListAsync()
         {
             var groups = new List<String>();
 
@@ -41,11 +42,11 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecuteSearch("", LdapSearchType.Group);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group);
 
             foreach (var entry in resps)
             {
-                groups.Add(entry.GetAttribute("cn").StringValue);
+                groups.Add(entry.GetStringValueOrDefault("cn"));
                 results++;
             }
 
@@ -59,7 +60,7 @@ namespace adrapi
         /// Return a string list of the groups DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public List<String> GetList()
+        public async Task<List<String>> GetListAsync()
         {
             var groups = new List<String>();
 
@@ -68,11 +69,11 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecuteSearch("", LdapSearchType.Group);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group);
 
             foreach (var entry in resps)
             {
-                groups.Add(entry.GetAttribute("distinguishedName").StringValue);
+                groups.Add(entry.GetStringValueOrDefault("distinguishedName"));
                 results++;
             }
 
@@ -88,7 +89,7 @@ namespace adrapi
         /// <returns>The list.</returns>
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
-        public List<String> GetCnList(int start, int end)
+        public async Task<List<String>> GetCnListAsync(int start, int end)
         {
             var groups = new List<String>();
 
@@ -97,11 +98,11 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.Group, start, end);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.Group, start, end);
 
             foreach (var entry in resps)
             {
-                groups.Add(entry.GetAttribute("cn").StringValue);
+                groups.Add(entry.GetStringValueOrDefault("cn"));
                 results++;
             }
 
@@ -118,7 +119,7 @@ namespace adrapi
         /// <returns>The list.</returns>
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
-        public List<String> GetList(int start, int end)
+        public async Task<List<String>> GetListAsync(int start, int end)
         {
             var groups = new List<String>();
 
@@ -127,11 +128,11 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecuteLimitedSearch("", LdapSearchType.Group, start, end);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.Group, start, end);
 
             foreach (var entry in resps)
             {
-                groups.Add(entry.GetAttribute("distinguishedName").StringValue);
+                groups.Add(entry.GetStringValueOrDefault("distinguishedName"));
                 results++;
             }
 
@@ -145,14 +146,14 @@ namespace adrapi
         /// Gets the list of all groups.
         /// </summary>
         /// <returns>The users.</returns>
-        public List<Group> GetGroups()
+        public async Task<List<Group>> GetGroupsAsync()
         {
 
             var groups = new List<Group>();
 
             var sMgmt = LdapQueryManager.Instance;
 
-            var resps = sMgmt.ExecuteSearch("", LdapSearchType.Group);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group);
             int results = 0;
 
             foreach (var entry in resps)
@@ -176,52 +177,47 @@ namespace adrapi
         {
             var group = new Group();
 
-            group.Name = entry.GetAttribute("name").StringValue;
-            group.ID = entry.GetAttribute("objectSid").StringValue;
+            group.Name = entry.GetStringValueOrDefault("name");
+            group.ID = entry.GetStringValueOrDefault("objectSid");
           
-            if (entry.GetAttributeSet().ContainsKey("description")) group.Description = entry.GetAttribute("description").StringValue;
+            if (entry.GetAttributeSet().ContainsKey("description")) group.Description = entry.GetStringValueOrDefault("description");
 
             //var sid = ConvertByteToStringSid((byte[])(Array)entry.GetAttribute("objectSid").ByteValue);
 
             //group.ID = sid;
 
-            group.DN = entry.GetAttribute("distinguishedName").StringValue;
+            group.DN = entry.GetStringValueOrDefault("distinguishedName");
 
 
             if (entry.GetAttributeSet().ContainsKey("memberOf"))
             {
-                var moff = entry.GetAttribute("memberOf").StringValues;
+                var moff = entry.GetAttributeSet("memberOf");// ("memberOf").StringValues;
 
-                while (moff.MoveNext())
+                foreach (var m in moff)
                 {
-                    String gmoff = "";
-                    if (moff != null && moff.Current != null)
-                        gmoff = moff.Current;
+                    var gmoff = "";
+                    gmoff = m.StringValue;
                     group.MemberOf.Add(gmoff);
                 }
             }
 
             if (entry.GetAttributeSet().ContainsKey("member"))
             {
-                var m = entry.GetAttribute("member").StringValues;
+                var set = entry.GetAttributeSet("member");
 
-                while (m.MoveNext())
+                foreach (var m in set)
                 {
-                    String member = "";
-                    if (m != null && m.Current != null)
+                    var gm = "";
+                    gm = m.StringValue;
+                    if (_listCN)
                     {
-                        member = m.Current;
-                        if (_listCN)
-                        {
-                            var regex = new Regex("^(?:CN=)(?<cn>[^,]+?)(?:,)");
-                            var result = regex.Match(member);
-                            member = result.Groups["cn"].Value;
-                        }
-
-                        group.Member.Add(member);
-                        
+                        var regex = new Regex("^(?:CN=)(?<cn>[^,]+?)(?:,)");
+                        var result = regex.Match(gm);
+                        gm = result.Groups["cn"].Value;
                     }
+                    group.Member.Add(gm);
                 }
+                
             }
 
 
@@ -234,7 +230,7 @@ namespace adrapi
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the group</param>
         /// <param name="_listCN">If true the members will only contain the CN</param>
-        public Group GetGroup(string DN, Boolean _listCN = false, Boolean _searchByCN = false)
+        public async Task<Group> GetGroupAsync(string DN, Boolean _listCN = false, Boolean _searchByCN = false)
         {
             var sMgmt = LdapQueryManager.Instance;
 
@@ -244,11 +240,11 @@ namespace adrapi
                 LdapEntry entry;
                 if (!_searchByCN)
                 {
-                    entry = sMgmt.GetRegister(DN); 
+                    entry = await sMgmt.GetRegister(DN); 
                 }
                 else
                 {
-                    var results = sMgmt.ExecuteSearch("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))");
+                    var results = await sMgmt.ExecuteSearchAsync("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))");
 
 
                     if (results.Count == 0)
@@ -271,7 +267,7 @@ namespace adrapi
 
         }
 
-        public int CreateGroup(Group group)
+        public async Task<int> CreateGroupAsync(Group group)
         {
 
             //Creates the List attributes of the entry and add them to attributeset
@@ -288,7 +284,7 @@ namespace adrapi
 
             try
             {
-                qMgmt.AddEntry(newEntry);
+                await qMgmt.AddEntryAsync(newEntry);
                 return 0;
 
             }
@@ -307,7 +303,7 @@ namespace adrapi
         /// <returns>The group. Must have DN set</returns>
         /// <param name="group">Group.</param>
         /// <param name="_listCN">If true the members will only contain the CN</param>
-        public int SaveGroup(Group group)
+        public async Task<int> SaveGroupAsync(Group group)
         {
 
             var qMgmt = LdapQueryManager.Instance;
@@ -319,7 +315,7 @@ namespace adrapi
             //Get user from the Directory
             try
             {
-                var dgroup = GetGroup(group.DN);
+                var dgroup = await GetGroupAsync(group.DN);
 
                 var dattrs = GetAttributeSet(dgroup);
 
@@ -375,7 +371,7 @@ namespace adrapi
 
                 try
                 {
-                    qMgmt.SaveEntry(group.DN, modList.ToArray());
+                    await qMgmt.SaveEntry(group.DN, modList.ToArray());
                     return 0;
 
                 }
@@ -420,7 +416,7 @@ namespace adrapi
         }
 
 
-        public int DeleteGroup(Group group)
+        public async Task<int> DeleteGroup(Group group)
         {
 
 
@@ -428,7 +424,7 @@ namespace adrapi
 
             try
             {
-                qMgmt.DeleteEntry(group.DN);
+                await qMgmt.DeleteEntry(group.DN);
                 return 0;
 
             }
