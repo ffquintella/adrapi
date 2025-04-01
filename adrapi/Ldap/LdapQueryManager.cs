@@ -124,17 +124,36 @@ namespace adrapi.Ldap
             //var resps = SendSearch(searchBase, type, filter);
 
             var respEnumerator = resps.GetAsyncEnumerator();
+
+            bool cont = true;
             
-            while ( await respEnumerator.MoveNextAsync())
+            while (cont)
             {
 
+                try
+                {
+                    cont = await respEnumerator.MoveNextAsync();
+                    if(!cont)
+                        break;
+                }
+                catch (LdapReferralException e)
+                {
+                    // we can ignore this exception since we do not support referrals
+                    continue;
+                }
+                catch (LdapException e)
+                {
+                    logger.Error("Search stopped with exception " + e.ToString());
+                    return results;
+                }
+                
                 /* Get next returned entry.  Note that we should expect a Ldap-
                 *Exception object as well just in case something goes wrong
                 */
+                
                 LdapEntry nextEntry = respEnumerator.Current;
                 try
                 {
-                    
                     results.Add(nextEntry);
                 }
                 catch (Exception e)
