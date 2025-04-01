@@ -32,6 +32,7 @@
 using System;
 using Novell.Directory.Ldap;
 using Novell.Directory.Ldap.Asn1;
+using Novell.Directory.Ldap.Utilclass;
 
 namespace Novell.Directory.Ldap.Controls
 {
@@ -114,7 +115,13 @@ namespace Novell.Directory.Ldap.Controls
 				// in response to a Paged Results Request - same OID
 				try
 				{
-					Register(responseOID, Type.GetType("Novell.Directory.Ldap.Controls.LdapPagedResultsResponse"));
+					//Register(responseOID, Type.GetType("Novell.Directory.Ldap.Controls.LdapPagedResultsResponse"));
+
+					//var controlFactory = new RespControlVector.LdapControlFactory(requestOID, true, new byte[] {});
+					
+					RespControlVector.LdapControlFactory controlFactory = (string oid, bool critical, byte[] value) => new LdapPagedResultsResponse(oid, critical, value);
+					
+					Register(responseOID, controlFactory);
 				}
 				catch (Exception e)
 				{

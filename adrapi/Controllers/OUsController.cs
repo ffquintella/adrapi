@@ -35,7 +35,7 @@ namespace adrapi.Controllers
         #region GET
         // GET: api/ous
         [HttpGet]
-        public ActionResult<IEnumerable<String>> Get()
+        public async Task<ActionResult<IEnumerable<String>>> Get()
         {
 
             this.ProcessRequest();
@@ -46,7 +46,7 @@ namespace adrapi.Controllers
 
 
             //if (_start == 0 && _end == 0)
-                return oManager.GetList();
+            return await oManager.GetListAsync();
             //else return gManager.GetList(_start, _end);
 
 
@@ -54,14 +54,14 @@ namespace adrapi.Controllers
 
         // GET: api/ous/:ou
         [HttpGet("{DN}")]
-        public ActionResult<domain.OU> Get(string DN)
+        public async Task<ActionResult<OU>> Get(string DN)
         {
             this.ProcessRequest();
 
             var oManager = OUManager.Instance;
             try
             {
-                var ou = oManager.GetOU(DN);
+                var ou = await oManager.GetOUAsync(DN);
                 logger.LogDebug(GetItem, "Getting OU={0}", ou.Name);
                 return ou;
             }
@@ -77,7 +77,7 @@ namespace adrapi.Controllers
 
         // GET api/ous/:ou/exists
         [HttpGet("{DN}/exists")]
-        public IActionResult GetExists(string DN)
+        public async Task<IActionResult> GetExists(string DN)
         {
             this.ProcessRequest();
 
@@ -86,7 +86,7 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ItemExists, "OU DN={dn} found", DN);
-                var ou = oManager.GetOU(DN);
+                var ou = await oManager.GetOUAsync(DN);
 
                 return Ok();
 
@@ -110,7 +110,7 @@ namespace adrapi.Controllers
         /// <param name="OU">ou.</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public ActionResult Put(string DN, [FromBody] OU ou)
+        public async Task<ActionResult> Put(string DN, [FromBody] OU ou)
         {
             ProcessRequest();
 
@@ -138,7 +138,7 @@ namespace adrapi.Controllers
 
                 var oManager = OUManager.Instance;
 
-                var adou = oManager.GetOU(DN);
+                var adou = await oManager.GetOUAsync(DN);
 
 
                 if (adou == null)
@@ -148,7 +148,7 @@ namespace adrapi.Controllers
 
                     ou.DN = DN;
 
-                    var result = oManager.CreateOU(ou);
+                    var result = await oManager.CreateOUAsync(ou);
 
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
@@ -161,7 +161,7 @@ namespace adrapi.Controllers
 
                     ou.DN = DN;
 
-                    var result = oManager.SaveOU(ou);
+                    var result = await oManager.SaveOUAsync(ou);
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
@@ -194,7 +194,7 @@ namespace adrapi.Controllers
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public ActionResult Delete(string DN)
+        public async Task<ActionResult> Delete(string DN)
         {
             ProcessRequest();
 
@@ -214,7 +214,7 @@ namespace adrapi.Controllers
 
             var oManager = OUManager.Instance;
 
-            var dou = oManager.GetOU(DN);
+            var dou = await oManager.GetOUAsync(DN);
 
             if (dou == null)
             {
@@ -229,7 +229,7 @@ namespace adrapi.Controllers
                 // Delete 
                 logger.LogInformation(DeleteItem, "Deleting ou DN={DN}", DN);
 
-                var result = oManager.DeleteOU(dou);
+                var result = await oManager.DeleteOUAsync(dou);
                 if (result == 0) return Ok();
                 else return this.StatusCode(500);
 

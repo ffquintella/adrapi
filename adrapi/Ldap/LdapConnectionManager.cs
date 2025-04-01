@@ -5,6 +5,7 @@ using adrapi.domain.Exceptions;
 using NLog;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
+using System.Threading.Tasks;
 using RemoteCertificateValidationCallback = System.Net.Security.RemoteCertificateValidationCallback;
 
 
@@ -17,9 +18,9 @@ namespace adrapi.Ldap
 
         #region SINGLETON
 
-        private static readonly Lazy<LdapConnectionManager> lazy = new Lazy<LdapConnectionManager>(() => new LdapConnectionManager());
+        private static readonly Lazy<LdapConnectionManager> Lazy = new Lazy<LdapConnectionManager>(() => new LdapConnectionManager());
 
-        public static LdapConnectionManager Instance { get { return lazy.Value; } }
+        public static LdapConnectionManager Instance { get { return Lazy.Value; } }
 
         private LdapConnectionManager()
         {
@@ -31,14 +32,14 @@ namespace adrapi.Ldap
         private List<LdapConnection> ConnectionPool;
         private List<LdapConnection> CleanConnectionPool;
 
-        public LdapConnection GetConnection(bool clean = false)
+        public async Task<LdapConnection> GetConnectionAsync(bool clean = false)
         {
             var ldapConf = new Ldap.LdapConfig();
-            return this.GetConnection(ldapConf, clean);
+            return await this.GetConnectionAsync(ldapConf, clean);
         }
 
 
-        public LdapConnection GetConnection(LdapConfig config, bool clean = false)
+        public async Task<LdapConnection> GetConnectionAsync(LdapConfig config, bool clean = false)
         {
 
             int LdapVersion = LdapConnection.LdapV3;
@@ -65,22 +66,21 @@ namespace adrapi.Ldap
                         options = new LdapConnectionOptions();
                     }
 
-                    //LdapConnection connection = new LdapConnection(options);
-
-                    var cn = new LdapConnection(options);
-                    var cnClean = new LdapConnection(options);
+                    using var cn = new LdapConnection(options);
+                    using var cnClean = new LdapConnection(options);
 
 
                     var server = GetOptimalSever(config.servers);
                     var server2 = GetOptimalSever(config.servers);
 
-                    cn.Connect(server.FQDN, server.Port);
-                    cnClean.Connect(server2.FQDN, server2.Port);
+                    
+                    await cn.ConnectAsync(server.FQDN, server.Port);
+                    await cnClean.ConnectAsync(server2.FQDN, server2.Port);
 
                     try
                     {
-                        cn.Bind(LdapVersion, config.bindDn, config.bindCredentials);
-                        cnClean.Bind(LdapVersion, config.bindDn, config.bindCredentials);
+                        await cn.BindAsync(LdapVersion, config.bindDn, config.bindCredentials);
+                        await cnClean.BindAsync(LdapVersion, config.bindDn, config.bindCredentials);
                     }
                     catch(Exception ex)
                     {
@@ -88,18 +88,18 @@ namespace adrapi.Ldap
 
                         throw new domain.Exceptions.InvalidCredentialsException(ex.Message);
                     }
-
-                    //TODO: Verify connection and treat errors
+                    
 
                     ConnectionPool.Add(cn);
                     CleanConnectionPool.Add(cnClean);
+                    
+                    if(ConnectionPool.Count == 0) throw new Exception("No connection pool available");
 
                 }
 
             }
 
             // GET a Random open Connection
-            //TODO: Optimize code
             var rnd = new Random();
 
             int sorted;
@@ -120,10 +120,10 @@ namespace adrapi.Ldap
             if (!con.Connected)
             {
                 var srv = GetOptimalSever(config.servers);
-                con.Connect(srv.FQDN, srv.Port);
+                await con.ConnectAsync(srv.FQDN, srv.Port);
                 try
                 {
-                    con.Bind(LdapVersion, config.bindDn, config.bindCredentials);
+                    await con.BindAsync(LdapVersion, config.bindDn, config.bindCredentials);
                 }
                 catch (Exception ex)
                 {
@@ -142,21 +142,11 @@ namespace adrapi.Ldap
                 logger.Debug("Connected to server: {server} on port: {port}", con.Host, con.Port);
             }
 
-            /*
-            LdapControl[] requestControls = new LdapControl[0];
-
-            LdapConstraints lc = new LdapConstraints();
-            lc.SetControls(requestControls);
-
-            con.Constraints = lc;
-            */
-
-
             return con;
         }
 
 
-        public bool ValidateAuthentication(string login, string password)
+        public async Task<bool> ValidateAuthenticationAsync(string login, string password)
         {
             int LdapVersion = LdapConnection.LdapV3;
 
@@ -180,9 +170,9 @@ namespace adrapi.Ldap
                 options = new LdapConnectionOptions();
             }
 
-            var cn = new LdapConnection(options);
+            using var cn = new LdapConnection(options);
 
-            cn.Connect(server.FQDN, server.Port);
+            await cn.ConnectAsync(server.FQDN, server.Port);
 
             ldapConf.bindDn = login;
             ldapConf.bindCredentials = password;
@@ -190,7 +180,7 @@ namespace adrapi.Ldap
 
             try
             {
-                cn.Bind(LdapVersion, ldapConf.bindDn, ldapConf.bindCredentials);
+                await cn.BindAsync(LdapVersion, ldapConf.bindDn, ldapConf.bindCredentials);
                 cn.Disconnect();
                 return true;
             }

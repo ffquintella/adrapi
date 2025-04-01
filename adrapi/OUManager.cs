@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using adrapi.Ldap;
 using adrapi.domain;
 using Novell.Directory.Ldap;
@@ -27,7 +28,7 @@ namespace adrapi
         /// Return a string list of the OUs DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public List<String> GetList()
+        public async Task<List<String>> GetListAsync()
         {
             var ous = new List<String>();
 
@@ -36,11 +37,11 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = sMgmt.ExecuteSearch("", LdapSearchType.OU);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.OU);
 
             foreach (var entry in resps)
             {
-                ous.Add(entry.GetAttribute("distinguishedName").StringValue);
+                ous.Add(entry.GetStringValueOrDefault("distinguishedName"));
                 results++;
             }
 
@@ -55,13 +56,13 @@ namespace adrapi
         /// </summary>
         /// <returns>The OU.</returns>
         /// <param name="DN">The Disitnguesh name of the OU</param>
-        public OU GetOU(string DN)
+        public async Task<OU> GetOUAsync(string DN)
         {
             var sMgmt = LdapQueryManager.Instance;
 
             try
             {
-                var entry = sMgmt.GetRegister(DN);
+                var entry = await sMgmt.GetRegister(DN);
                 var ou = ConvertfromLdap(entry); ;
                 return ou;
             }
@@ -83,11 +84,11 @@ namespace adrapi
         {
             var ou = new OU();
 
-            ou.Name = entry.GetAttribute("name").StringValue;
+            ou.Name = entry.GetStringValueOrDefault("name");
 
-            if (entry.GetAttribute("description") != null) ou.Description = entry.GetAttribute("description").StringValue;
+            if (entry.GetStringValueOrDefault("description") != null) ou.Description = entry.GetStringValueOrDefault("description");
 
-            ou.DN = entry.GetAttribute("distinguishedName").StringValue;
+            ou.DN = entry.GetStringValueOrDefault("distinguishedName");
 
 
             return ou;
@@ -107,7 +108,7 @@ namespace adrapi
             return attributeSet;
         }
 
-        public int CreateOU(OU ou)
+        public async Task<int> CreateOUAsync(OU ou)
         {
 
             //Creates the List attributes of the entry and add them to attributeset
@@ -125,7 +126,7 @@ namespace adrapi
             try
             {
                 logger.Info("Saving ou={OU}", ou.DN);
-                qMgmt.AddEntry(newEntry);
+                await qMgmt.AddEntryAsync(newEntry);
                 return 0;
 
             }
@@ -143,7 +144,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The OU. Must have DN set</returns>
         /// <param name="ou">OU.</param>
-        public int SaveOU(OU ou)
+        public async Task<int> SaveOUAsync(OU ou)
         {
 
             var qMgmt = LdapQueryManager.Instance;
@@ -155,7 +156,7 @@ namespace adrapi
             //Get user from the Directory
             try
             {
-                var dou = GetOU(ou.DN);
+                var dou = await GetOUAsync(ou.DN);
 
                 var dattrs = GetAttributeSet(dou);
 
@@ -192,7 +193,7 @@ namespace adrapi
 
                 try
                 {
-                    qMgmt.SaveEntry(ou.DN, modList.ToArray());
+                    await qMgmt.SaveEntry(ou.DN, modList.ToArray());
                     return 0;
 
                 }
@@ -219,7 +220,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The ou.</returns>
         /// <param name="ou">OU.</param>
-        public int DeleteOU(OU ou)
+        public async Task<int> DeleteOUAsync(OU ou)
         {
 
 
@@ -227,7 +228,7 @@ namespace adrapi
 
             try
             {
-                qMgmt.DeleteEntry(ou.DN);
+                await qMgmt.DeleteEntry(ou.DN);
                 return 0;
 
             }

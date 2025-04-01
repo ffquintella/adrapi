@@ -77,7 +77,7 @@ namespace Novell.Directory.Ldap.Controls
 			 * Get the 1st element which should be an integer containing the
 			 * size (RFC 2696).
 			 */
-			Asn1Object asn1Size = ((Asn1Sequence)asnObj).get_Renamed (0);
+			Asn1Object asn1Size = ((Asn1Sequence)asnObj)[0];//   .get_Renamed (0);
 			if ((asn1Size != null) && (asn1Size is Asn1Integer))
 				m_size = ((Asn1Integer)asn1Size).IntValue ();
 			else
@@ -87,7 +87,7 @@ namespace Novell.Directory.Ldap.Controls
 			 * Get the 2nd element which should be an octet string containing the
 			 * cookie (RFC 2696).
 			 */
-			Asn1Object asn1Cookie = ((Asn1Sequence)asnObj).get_Renamed (1);
+			Asn1Object asn1Cookie = ((Asn1Sequence)asnObj)[1]; //.get_Renamed (1);
 			if ((asn1Cookie != null) && (asn1Cookie is Asn1OctetString))
 				m_cookie = ((Asn1OctetString)asn1Cookie).StringValue ();
 			else
