@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.7" />
+    <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
     <PackageReference Include="Nuke.Common" Version="6.0.2" />
     <PackageReference Include="Nuke.GitHub" Version="3.0.0" />
     <PackageReference Include="Dangl.Nuke.CoberturaConverter" Version="2.0.0" />
