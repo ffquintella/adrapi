@@ -6,7 +6,6 @@ using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
 using static Nuke.Common.EnvironmentInfo;
-using static Nuke.Common.IO.FileSystemTasks;
 using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
@@ -61,13 +60,13 @@ class Build : NukeBuild
         .Executes(() =>
         {
             //DeleteDirectory(ArtifactsDirectory);
-            DeleteDirectory(RootDirectory + "/adrapi/obj");
-            DeleteDirectory(RootDirectory + "/adrapi/bin");
-            DeleteDirectory(RootDirectory + "/domain/obj");
-            DeleteDirectory(RootDirectory + "/domain/bin");
+            (RootDirectory / "adrapi/obj").DeleteDirectory();
+            (RootDirectory / "adrapi/bin").DeleteDirectory();
+            (RootDirectory / "domain/obj").DeleteDirectory();
+            (RootDirectory / "domain/bin").DeleteDirectory();
             
             //DeleteDirectories(GlobDirectories(TestsDirectory, "**/bin", "**/obj"));
-            EnsureCleanDirectory(ArtifactsDirectory);
+            ArtifactsDirectory.CreateOrCleanDirectory();
         });
 
     Target Restore => _ => _
@@ -83,7 +82,7 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            EnsureExistingDirectory(AppDirectory);
+            AppDirectory.CreateDirectory();
 
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
@@ -106,7 +105,7 @@ class Build : NukeBuild
         .Executes(() =>
         {
             Log.Write(LogEventLevel.Information, "Publishing to artifacts...");
-            EnsureExistingDirectory(AppDirectory);
+            AppDirectory.CreateDirectory();
             DotNetPublish(s => s
                 .SetConfiguration(Configuration)
                 .SetAuthors(Authors)
@@ -117,8 +116,9 @@ class Build : NukeBuild
                 .SetProject(Solution)
             );
           
-            if (Configuration != "Debug") DeleteFile(AppDirectory + "/appsettings.Development.json");
-            CopyFile(RootDirectory + "/adrapi/nLog.prod.config", AppDirectory + "/nlog.config", FileExistsPolicy.OverwriteIfNewer);
+            if (Configuration != "Debug") (AppDirectory / "appsettings.Development.json").DeleteFile();
+            (RootDirectory / "adrapi/nLog.prod.config")
+                .Copy(AppDirectory / "nlog.config", ExistsPolicy.FileOverwriteIfNewer);
 
             string fileName = AppDirectory + "/version.txt";
             using (StreamWriter sw = new StreamWriter(fileName, false))

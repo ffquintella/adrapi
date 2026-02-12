@@ -14,12 +14,15 @@ using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Hosting;
 using Swashbuckle.AspNetCore.Swagger;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 
 namespace adrapi
 {
+    /// <summary>
+    /// Configures dependency injection and the HTTP middleware pipeline.
+    /// </summary>
     public class Startup
     {
         public Startup(IConfiguration configuration)
@@ -32,7 +35,9 @@ namespace adrapi
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        /// <summary>
+        /// Registers MVC, versioning, authorization, authentication, and Swagger services.
+        /// </summary>
         public void ConfigureServices(IServiceCollection services)
         {
             //services.AddMvc();
@@ -85,7 +90,9 @@ namespace adrapi
          
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        /// <summary>
+        /// Configures middleware order for security, docs, and MVC endpoints.
+        /// </summary>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
         {
             if (env.IsDevelopment())

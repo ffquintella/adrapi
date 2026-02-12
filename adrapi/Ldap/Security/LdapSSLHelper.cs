@@ -33,11 +33,11 @@ namespace adrapi.Ldap.Security
 
             //Import the details of the certificate from the server.
 
-            X509Certificate x509 = null;
+            X509Certificate2 x509 = null;
             X509CertificateCollection coll = new X509CertificateCollection();
             byte[] data = certificate.GetRawCertData();
             if (data != null)
-                x509 = new X509Certificate(data);
+                x509 = X509CertificateLoader.LoadCertificate(data);
 
             //List the details of the Server
 
@@ -61,9 +61,10 @@ namespace adrapi.Ldap.Security
             {
                 //Add the certificate to the store. This is \Documents and Settings\program data\.mono. . .
                 if (x509 != null)
+                {
                     coll.Add(x509);
-
-                store.Add((X509Certificate2)x509);
+                    store.Add(x509);
+                }
                 
                 //store.Import(x509);
 

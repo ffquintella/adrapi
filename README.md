@@ -1,126 +1,79 @@
 # adrapi
-Active Directory Rest API
 
-## ABOUT
-This is a simple rest api to query and change active directory. It is build with .net 6 and can be run with docker. 
+Active Directory REST API for querying and managing users, groups, and OUs over LDAP.
 
-## Requirements 
+## Current Runtime/Tooling
 
-To develop or use it with the command linet you must have dotnet core 2.1 sdk installed
+- SDK used in this workspace: .NET `10.0.101`
+- Application target framework: `net10.0`
+- Test target framework: `net10.0`
 
-## How to run 
+## What This Service Does
 
-From the command line simply type: dotnet run
+- Exposes versioned REST endpoints for:
+- Users
+- Groups
+- Organizational Units (OUs)
+- Performs LDAP-backed read/write operations
+- Uses API-key based auth + claims authorization (`isAdministrator`, `isMonitor`)
+- Publishes OpenAPI/Swagger docs
 
-### Consuming the API
+## Project Structure
 
-To be able to consume the api you will need an apikey (see bellow) and define an api version 
-
-#### Versioning 
-
-The api is versioned through passing a header called api-version with a number. The header is mandatory and failing to set it will result on a error message.
-
-The valid values are:
- - 2.0 -> support pagination and more modern contracts. (06-2019)
- - 1.0 -> first api version (12-2018) **DEPRECTATED**
-
-#### API Key
-
- There must be a header called api-key witch is created with *key-ID:secretKey* 
+- `adrapi/`: Web API host, controllers, LDAP integration, security middleware, managers
+- `domain/`: Domain models and custom exceptions
+- `tests/`: Test project and environment-specific test settings
+- `build/`: NUKE build tooling
 
 ## Configuration
 
-You might want to configure the logging location. Do this by editing the NLog.config file and setting logDirectory to what ever suits you better.
+Main runtime configuration lives in:
 
-It´s also needed to configure the servers located under ldap section in appsettings.json
+- `adrapi/appsettings.json`
+- `adrapi/appsettings.Development.json`
+- `adrapi/security.json`
 
-### Security
+Important settings:
 
-Since our api has no database we use the security.json to determine witch apiKeys can connect to our system
+- `ldap`: LDAP servers and connection details
+- `certificate:file` / `certificate:password`: HTTPS certificate for Kestrel
+- `AllowedHosts`: Host binding behavior (`*` maps to `0.0.0.0` in startup)
 
-Basically what you need to configure there is: 
+## Security Model
 
-- secretKey: Some random string to work as the Authentication key
-- keyID: Unique identifier for the key
-- authorizedIP: The IP address authorized to use this key (for now it must be an ip for each key)
-- claims: Permission claims we support now the following:
-    - isAdministrator -> Determines that the person is an administrator and that it can do everthing 
-    - isMonitor -> Can read most of things
-    
-**WARNING** Change the security.json file or your api will be open!    
+The API expects these headers:
 
-## API
+- `api-key`: `keyID:secretKey`
+- `api-version`: API version selector
 
-Here there is a short description of the api. But you can also get the documentation running the program and accessing /swagger on it.
+Claims are loaded from `security.json`.
 
-### V1.0
+- `isAdministrator`: read/write access
+- `isMonitor`: read-oriented access
 
-#### Users
+## Run Locally
 
-- GET - /api/users - List all users 
-    - _full (bool) - Returns a full list
-    - _start (int) - Results index to start form
-    - _end (int) - Results index to end form
-- POST - /user/authenticate - Returns 200 if OK 400 if login or password is not present and 401 if password is wrong
-    - Body json:
-        - String: login
-        - String: password
-- GET - /api/users/:user - Gets the user's details  
-- PUT - /api/users/:user - Creates a new user (1)  
-    - Body json:
-        - String: name
-        - String: login
-        - String: description (optional)
-        - String: password (optional)
-        - Boolean: IsDisabled (optional)
-        - Boolean: IsLocked (optional)
-        - Boolean: PasswordExpired (optional)
-        - Array(String): memberof - List of DNs
-- DELETE - /api/users/:user - Deletes the user
-- POST - /user/:user/authenticate - Returns 200 if OK 404 if user not found and 401 if password is wrong
-    - Body json:
-        - String: password
-- GET - /api/users/:user/exists - Returns code 200 if true and 404 if false.
-- GET - /user/:user/member-of/:group - Returns code 200 if true, 404 if user is not found and 250 if not member.
+```bash
+dotnet restore adrapi.sln
+dotnet run --project adrapi/adrapi.csproj
+```
 
+Default Kestrel bindings are configured in code:
 
+- HTTP: `:6000`
+- HTTPS: `:6001`
 
-##### Observations
+## API Documentation
 
-* (1) It's only possible to create users with passwords with an active directory configured to use SSL
+After starting the service, open:
 
-#### Groups
+- `/swagger`
 
-- GET - /api/groups - List all groups
-    - _full (bool) - Returns a full list
-    - _start (int) - Results index to start form
-    - _end (int) - Results index to end form
-- GET - /api/groups/:group - Gets the group's details
-- PUT - /api/groups/:group - Creates a new group  
-    - Body json:
-        - String: name
-        - String: dn
-        - String: description (optional)
-        - Array(String): member - List of DNs
-- GET - /api/groups/:group/exists - Returns code 200 if true and 404 if false.
-- GET - /api/groups/:group/members - Returns a list of the DNs of the groups members.
-- PUT - /api/groups/:group/members - Returns a list of the DNs of the groups members.
-    - Body json:
-        - Array(String): member - List of DNs
-        
-#### OUs
+## Development Notes
 
-- GET - /api/ous - List all ous
-- PUT - /api/ous - Creates a new OU
-    - Body json:
-        - String: name
-        - String: dn
-        - String: description (optional)
-- GET - /api/ous/:ou - Gets the ou's details     
-- GET - /api/ous/:ou/exists - Returns code 200 if true and 404 if false.                     
-                                                   
-## Author
-Felipe F Quintella 
+- Use a local `net10.0` runtime/SDK for build and tests.
+- The repository includes legacy code paths and compatibility behaviors for older LDAP contracts; keep changes backward-compatible unless intentionally versioned.
 
-## License 
+## License
+
 Apache License v2.0
