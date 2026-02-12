@@ -103,6 +103,7 @@ namespace adrapi
             }
 
             var servers = ldap.GetSection("servers").Get<string[]>();
+            var sslEnabled = ldap.GetValue<bool>("ssl");
             if (servers == null || servers.Length == 0)
             {
                 errors.Add("ldap.servers must contain at least one entry in the format 'host:port'.");
@@ -128,6 +129,11 @@ namespace adrapi
                     if (port < 1 || port > 65535)
                     {
                         errors.Add($"ldap.servers[{i}]='{server}' has invalid port {port}. Expected 1-65535.");
+                    }
+
+                    if (sslEnabled && port == 389)
+                    {
+                        errors.Add($"ldap.servers[{i}]='{server}' is incompatible with ldap.ssl=true. Use LDAPS port 636 (or set ldap.ssl=false for 389).");
                     }
                 }
             }
