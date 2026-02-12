@@ -38,7 +38,7 @@ class Build : NukeBuild
     //readonly Configuration Configuration = Configuration.Release;
 
     [Parameter]
-    string Configuration { get; } = IsLocalBuild ? "Debug" : "Release";
+    string Configuration { get; } = "Release";
 
     [Parameter("Mandatory. Version part to bump: Major, Minor or Patch.")]
     readonly VersionBumpPart? Part;
@@ -143,7 +143,12 @@ class Build : NukeBuild
                 .SetProject(Solution)
             );
           
-            if (Configuration != "Debug") (AppDirectory / "appsettings.Development.json").DeleteFile();
+            if (string.Equals(Configuration, "Release", StringComparison.OrdinalIgnoreCase))
+            {
+                (AppDirectory / "appsettings.Development.json").DeleteFile();
+                if (!(AppDirectory / "appsettings.json").FileExists())
+                    throw new Exception("Release publish is missing appsettings.json.");
+            }
             (RootDirectory / "adrapi/nLog.prod.config")
                 .Copy(AppDirectory / "nlog.config", ExistsPolicy.FileOverwriteIfNewer);
 
@@ -196,6 +201,9 @@ class Build : NukeBuild
         .DependsOn(Create_Docker_Image)
         .Executes(() =>
         {
+            if (!string.Equals(Configuration, "Release", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Deploy_Docker_Image must run with --configuration Release.");
+
             Log.Write(LogEventLevel.Information, "Pushing Docker images to docker.io...");
             DockerTasks.DockerPush(s => s
                 .SetName($"{DockerImageName}:{BuildVersion}"));

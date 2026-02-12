@@ -6,6 +6,7 @@ using NLog;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
 using System.Threading.Tasks;
+using System.Threading;
 using RemoteCertificateValidationCallback = System.Net.Security.RemoteCertificateValidationCallback;
 
 
@@ -31,6 +32,7 @@ namespace adrapi.Ldap
 
         private List<LdapConnection> ConnectionPool;
         private List<LdapConnection> CleanConnectionPool;
+        private readonly SemaphoreSlim poolInitSemaphore = new SemaphoreSlim(1, 1);
 
         public async Task<LdapConnection> GetConnectionAsync(bool clean = false)
         {
@@ -54,58 +56,7 @@ namespace adrapi.Ldap
                 config.poolSize = 1;
             }
 
-            if(ConnectionPool == null)
-            {
-                ConnectionPool = new List<LdapConnection>();
-                CleanConnectionPool = new List<LdapConnection>();
-
-                for (short openConn = 0; openConn < config.poolSize; openConn++)
-                {
-                    LdapConnectionOptions options;
-                    if (config.ssl)
-                    {
-                         options = new LdapConnectionOptions()
-                            .ConfigureRemoteCertificateValidationCallback(
-                                new RemoteCertificateValidationCallback((a, b, c, d) => true))
-                            .UseSsl();
-                    }
-                    else
-                    {
-                        options = new LdapConnectionOptions();
-                    }
-
-                    var cn = new LdapConnection(options);
-                    var cnClean = new LdapConnection(options);
-
-
-                    var server = GetOptimalSever(config.servers);
-                    var server2 = GetOptimalSever(config.servers);
-
-                    
-                    await cn.ConnectAsync(server.FQDN, server.Port);
-                    await cnClean.ConnectAsync(server2.FQDN, server2.Port);
-
-                    try
-                    {
-                        await cn.BindAsync(LdapVersion, config.bindDn, config.bindCredentials);
-                        await cnClean.BindAsync(LdapVersion, config.bindDn, config.bindCredentials);
-                    }
-                    catch(Exception ex)
-                    {
-                        logger.Error(ex, "Error on bind opperation");
-
-                        throw new domain.Exceptions.InvalidCredentialsException(ex.Message);
-                    }
-                    
-
-                    ConnectionPool.Add(cn);
-                    CleanConnectionPool.Add(cnClean);
-                    
-                    if(ConnectionPool.Count == 0) throw new Exception("No connection pool available");
-
-                }
-
-            }
+            await EnsureConnectionPoolsAsync(config, LdapVersion);
 
             // GET a Random open Connection
             var rnd = new Random();
@@ -121,7 +72,16 @@ namespace adrapi.Ldap
             if (!con.Connected)
             {
                 var srv = GetOptimalSever(config.servers);
-                await con.ConnectAsync(srv.FQDN, srv.Port);
+                try
+                {
+                    await con.ConnectAsync(srv.FQDN, srv.Port);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error connecting to LDAP server {server}:{port}", srv.FQDN, srv.Port);
+                    throw new WrongParameterException(
+                        $"Failed to connect to LDAP server {srv.FQDN}:{srv.Port}. Check ldap.servers and ldap.ssl settings.");
+                }
                 try
                 {
                     await con.BindAsync(LdapVersion, config.bindDn, config.bindCredentials);
@@ -134,7 +94,7 @@ namespace adrapi.Ldap
                 }
             }
 
-            if(!con.Connected || !con.Connected)
+            if(!con.Connected)
             {
                 logger.Error("Error using a closed connection");
             }
@@ -144,6 +104,99 @@ namespace adrapi.Ldap
             }
 
             return con;
+        }
+
+        private async Task EnsureConnectionPoolsAsync(LdapConfig config, int ldapVersion)
+        {
+            if (ConnectionPool != null && CleanConnectionPool != null
+                && ConnectionPool.Count > 0 && CleanConnectionPool.Count > 0)
+            {
+                return;
+            }
+
+            await poolInitSemaphore.WaitAsync();
+            try
+            {
+                if (ConnectionPool != null && CleanConnectionPool != null
+                    && ConnectionPool.Count > 0 && CleanConnectionPool.Count > 0)
+                {
+                    return;
+                }
+
+                var pool = new List<LdapConnection>();
+                var cleanPool = new List<LdapConnection>();
+
+                try
+                {
+                    for (short openConn = 0; openConn < config.poolSize; openConn++)
+                    {
+                        LdapConnectionOptions options;
+                        if (config.ssl)
+                        {
+                            options = new LdapConnectionOptions()
+                                .ConfigureRemoteCertificateValidationCallback(
+                                    new RemoteCertificateValidationCallback((a, b, c, d) => true))
+                                .UseSsl();
+                        }
+                        else
+                        {
+                            options = new LdapConnectionOptions();
+                        }
+
+                        var cn = new LdapConnection(options);
+                        var cnClean = new LdapConnection(options);
+
+                        var server = GetOptimalSever(config.servers);
+                        var server2 = GetOptimalSever(config.servers);
+
+                        try
+                        {
+                            await cn.ConnectAsync(server.FQDN, server.Port);
+                            await cnClean.ConnectAsync(server2.FQDN, server2.Port);
+                        }
+                        catch (Exception ex)
+                        {
+                            cn.Dispose();
+                            cnClean.Dispose();
+                            logger.Error(ex, "Error connecting to LDAP servers while initializing pool.");
+                            throw new WrongParameterException(
+                                $"Failed to connect to LDAP server(s). Check ldap.servers and ldap.ssl settings. Last tried: {server.FQDN}:{server.Port}");
+                        }
+
+                        try
+                        {
+                            await cn.BindAsync(ldapVersion, config.bindDn, config.bindCredentials);
+                            await cnClean.BindAsync(ldapVersion, config.bindDn, config.bindCredentials);
+                        }
+                        catch (Exception ex)
+                        {
+                            cn.Dispose();
+                            cnClean.Dispose();
+                            logger.Error(ex, "Error on bind opperation");
+                            throw new domain.Exceptions.InvalidCredentialsException(ex.Message);
+                        }
+
+                        pool.Add(cn);
+                        cleanPool.Add(cnClean);
+                    }
+
+                    ConnectionPool = pool;
+                    CleanConnectionPool = cleanPool;
+                    logger.Info("LDAP connection pool initialized with {poolSize} connections.", pool.Count);
+                }
+                catch
+                {
+                    foreach (var c in pool) c.Dispose();
+                    foreach (var c in cleanPool) c.Dispose();
+                    ConnectionPool = null;
+                    CleanConnectionPool = null;
+                    throw;
+                }
+            }
+            finally
+            {
+                poolInitSemaphore.Release();
+            }
         }
 
 
