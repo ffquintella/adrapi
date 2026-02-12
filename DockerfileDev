@@ -1,7 +1,6 @@
-FROM ffquintella/docker-aspnetcore:sdk-6.0.1
+FROM mcr.microsoft.com/dotnet/sdk:10.0
 
-MAINTAINER Felipe Quintella <felipe@email>
-
+LABEL maintainer="Felipe Quintella <felipe@email>"
 LABEL version="0.8.1"
 LABEL description="This image contains the adrapi api."
 
@@ -14,8 +13,8 @@ ENV LC_ALL=en_US.UTF-8
 #ENV FACTER_XXX
 
 
-ENV FACTER_PRE_RUN_CMD ""
-ENV FACTER_EXTRA_PACKS ""
+ENV FACTER_PRE_RUN_CMD=""
+ENV FACTER_EXTRA_PACKS=""
 
 # Puppet stuff all the instalation is donne by puppet
 # Just after it we clean up everthing so the end image isn't too big

@@ -184,6 +184,7 @@ class Build : NukeBuild
             
             DockerTasks.DockerBuild(s => s
                 .AddLabel("adrapi")
+                .SetPlatform("linux/amd64")
                 .SetTag("ffquintella/adrapi:" + lversion)
                 .SetFile(DockerFile)
                 .SetForceRm(true)
