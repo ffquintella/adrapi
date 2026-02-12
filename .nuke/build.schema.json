@@ -21,13 +21,24 @@
         "VSCode"
       ]
     },
+    "VersionBumpPart": {
+      "type": "string",
+      "description": "",
+      "enum": [
+        "Major",
+        "Minor",
+        "Patch"
+      ]
+    },
     "ExecutableTarget": {
       "type": "string",
       "enum": [
+        "BumpVersion",
         "Clean",
         "Compile",
         "Create_Docker_Image",
         "Deploy_Docker_Image",
+        "ListCommands",
         "Local_Publish",
         "Pack",
         "Restore"
@@ -106,6 +117,10 @@
       "properties": {
         "Configuration": {
           "type": "string"
+        },
+        "Part": {
+          "description": "Version part to bump: Major, Minor or Patch",
+          "$ref": "#/definitions/VersionBumpPart"
         },
         "Solution": {
           "type": "string",
