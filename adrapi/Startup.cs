@@ -40,6 +40,8 @@ namespace adrapi
         /// </summary>
         public void ConfigureServices(IServiceCollection services)
         {
+            ValidateLdapConfiguration();
+
             //services.AddMvc();
 
             services.AddMvc(options => options.EnableEndpointRouting = false);
@@ -88,6 +90,58 @@ namespace adrapi
                 c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
             });
          
+        }
+
+        private void ValidateLdapConfiguration()
+        {
+            var errors = new List<string>();
+            var ldap = Configuration.GetSection("ldap");
+
+            if (!ldap.Exists())
+            {
+                throw new InvalidOperationException("Invalid configuration: missing 'ldap' section.");
+            }
+
+            var servers = ldap.GetSection("servers").Get<string[]>();
+            if (servers == null || servers.Length == 0)
+            {
+                errors.Add("ldap.servers must contain at least one entry in the format 'host:port'.");
+            }
+            else
+            {
+                for (var i = 0; i < servers.Length; i++)
+                {
+                    var server = servers[i];
+                    if (string.IsNullOrWhiteSpace(server))
+                    {
+                        errors.Add($"ldap.servers[{i}] is empty.");
+                        continue;
+                    }
+
+                    var parts = server.Split(':');
+                    if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out var port))
+                    {
+                        errors.Add($"ldap.servers[{i}]='{server}' is invalid. Expected 'host:port'.");
+                        continue;
+                    }
+
+                    if (port < 1 || port > 65535)
+                    {
+                        errors.Add($"ldap.servers[{i}]='{server}' has invalid port {port}. Expected 1-65535.");
+                    }
+                }
+            }
+
+            var poolSize = ldap.GetValue<short>("poolSize");
+            if (poolSize <= 0)
+            {
+                errors.Add($"ldap.poolSize must be greater than 0. Current value: {poolSize}.");
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException("Invalid LDAP configuration: " + string.Join(" ", errors));
+            }
         }
 
         /// <summary>

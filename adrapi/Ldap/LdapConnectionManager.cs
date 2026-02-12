@@ -45,6 +45,14 @@ namespace adrapi.Ldap
             int LdapVersion = LdapConnection.LdapV3;
 
             if (config == null) throw new NullException("Config cannot be null");
+            if (config.servers == null || config.servers.Length == 0)
+                throw new WrongParameterException("No LDAP servers configured. Set ldap.servers in appsettings.");
+
+            if (config.poolSize <= 0)
+            {
+                logger.Warn("Invalid ldap.poolSize={poolSize}. Falling back to 1.", config.poolSize);
+                config.poolSize = 1;
+            }
 
             if(ConnectionPool == null)
             {
@@ -66,8 +74,8 @@ namespace adrapi.Ldap
                         options = new LdapConnectionOptions();
                     }
 
-                    using var cn = new LdapConnection(options);
-                    using var cnClean = new LdapConnection(options);
+                    var cn = new LdapConnection(options);
+                    var cnClean = new LdapConnection(options);
 
 
                     var server = GetOptimalSever(config.servers);
@@ -102,19 +110,12 @@ namespace adrapi.Ldap
             // GET a Random open Connection
             var rnd = new Random();
 
-            int sorted;
-            LdapConnection con;
+            var pool = clean ? CleanConnectionPool : ConnectionPool;
+            if (pool == null || pool.Count == 0)
+                throw new WrongParameterException("LDAP connection pool is empty. Check ldap.poolSize and ldap.servers settings.");
 
-            if (clean)
-            {
-                sorted = rnd.Next(0, CleanConnectionPool.Count);
-                con = CleanConnectionPool[sorted];
-            }
-            else
-            {
-                sorted = rnd.Next(0, ConnectionPool.Count);
-                con = ConnectionPool[sorted];
-            }
+            var sorted = rnd.Next(0, pool.Count);
+            var con = pool[sorted];
 
 
             if (!con.Connected)
@@ -197,12 +198,16 @@ namespace adrapi.Ldap
         private LdapServer GetOptimalSever(string[] servers)
         {
             //TODO: Implement sorting logic -- for now it's just random
+            if (servers == null || servers.Length == 0)
+                throw new WrongParameterException("No LDAP servers configured.");
 
             var rnd = new Random();
 
             int sorted = rnd.Next(0, servers.Length);
 
             string srvStr = servers[sorted];
+            if (string.IsNullOrWhiteSpace(srvStr) || !srvStr.Contains(":"))
+                throw new WrongParameterException($"Invalid LDAP server format: '{srvStr}'. Expected 'host:port'.");
 
             var lserver = new LdapServer();
             lserver.FQDN = srvStr.Split(':')[0];
