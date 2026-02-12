@@ -42,8 +42,8 @@ COPY artifacts/app /app
 #RUN dotnet dev-certs https -q
 
 # Aspnet webserver
-EXPOSE 5000/tcp
-EXPOSE 5001/tcp
+EXPOSE 6000/tcp
+EXPOSE 6001/tcp
 
 WORKDIR /app
 
