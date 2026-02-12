@@ -27,13 +27,16 @@
       "enum": [
         "Major",
         "Minor",
+        "Patch",
+        "Major",
+        "Minor",
         "Patch"
       ]
     },
     "ExecutableTarget": {
       "type": "string",
       "enum": [
-        "BumpVersion",
+        "Bump",
         "Clean",
         "Compile",
         "Create_Docker_Image",
@@ -119,7 +122,11 @@
           "type": "string"
         },
         "Part": {
-          "description": "Version part to bump: Major, Minor or Patch",
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Mandatory. Version part to bump: Major, Minor or Patch",
           "$ref": "#/definitions/VersionBumpPart"
         },
         "Solution": {

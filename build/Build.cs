@@ -40,8 +40,8 @@ class Build : NukeBuild
     [Parameter]
     string Configuration { get; } = IsLocalBuild ? "Debug" : "Release";
 
-    [Parameter("Version part to bump: Major, Minor or Patch")]
-    readonly VersionBumpPart Part = VersionBumpPart.Patch;
+    [Parameter("Mandatory. Version part to bump: Major, Minor or Patch.")]
+    readonly VersionBumpPart? Part;
 
     [Solution] readonly Solution Solution;
 
@@ -204,11 +204,15 @@ class Build : NukeBuild
             );*/
         });
 
-    Target BumpVersion => _ => _
+    Target Bump => _ => _
         .Executes(() =>
         {
+            if (Part is null)
+                throw new Exception("Missing mandatory '--part' parameter. Use --part Major, --part Minor or --part Patch.");
+
             var current = ReadCurrentVersion();
-            var bumped = BumpVersionValue(current, Part);
+            var selectedPart = Part.Value;
+            var bumped = BumpVersionValue(current, selectedPart);
             var newVersion = GetVersionString(bumped);
 
             File.WriteAllText(VersionFile, newVersion + Environment.NewLine);
@@ -219,7 +223,7 @@ class Build : NukeBuild
                 UpdateProjectVersion(projectFile, newVersion);
             }
 
-            Log.Write(LogEventLevel.Information, "Version bumped: {0} -> {1} ({2})", GetVersionString(current), newVersion, Part);
+            Log.Write(LogEventLevel.Information, "Version bumped: {0} -> {1} ({2})", GetVersionString(current), newVersion, selectedPart);
             Log.Write(LogEventLevel.Information, "Updated {0} project files and VERSION.", projects.Count);
         });
 
