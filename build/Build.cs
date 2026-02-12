@@ -1,5 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Nuke.Common;
 using Nuke.Common.Git;
 using Nuke.Common.ProjectModel;
@@ -9,7 +14,6 @@ using static Nuke.Common.EnvironmentInfo;
 using static Nuke.Common.IO.PathConstruction;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 using static Nuke.GitHub.ChangeLogExtensions;
-using System.IO;
 using Microsoft.Build.Tasks;
 using Nuke.Common.IO;
 using Nuke.Common.Tools.Docker;
@@ -17,11 +21,17 @@ using Serilog;
 using Serilog.Events;
 using LogLevel = Nuke.Common.LogLevel;
 
+enum VersionBumpPart
+{
+    Major,
+    Minor,
+    Patch
+}
 
 class Build : NukeBuild
 {
     
-    public static int Main () => Execute<Build>(x => x.Compile);
+    public static int Main () => Execute<Build>(x => x.ListCommands);
 
     //[Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     //readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
@@ -30,12 +40,13 @@ class Build : NukeBuild
     [Parameter]
     string Configuration { get; } = IsLocalBuild ? "Debug" : "Release";
 
+    [Parameter("Version part to bump: Major, Minor or Patch")]
+    readonly VersionBumpPart Part = VersionBumpPart.Patch;
+
     [Solution] readonly Solution Solution;
 
-    static Int16 majorVersion = 1;
-    static Int16 minorVersion = 2;
-    string version = string.Format("{0}.{1}", majorVersion.ToString(), minorVersion.ToString());
-
+    AbsolutePath VersionFile => RootDirectory / "VERSION";
+    string BuildVersion => GetVersionString(ReadCurrentVersion());
 
     AbsolutePath TestsDirectory => RootDirectory / "tests";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
@@ -55,6 +66,21 @@ class Build : NukeBuild
 
 
     string[] Authors = { "Felipe F Quintella" };
+
+    Target ListCommands => _ => _
+        .Executes(() =>
+        {
+            var targets = GetType()
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(x => x.PropertyType == typeof(Target))
+                .Select(x => x.Name)
+                .OrderBy(x => x)
+                .ToList();
+
+            Log.Information("Available targets:");
+            foreach (var target in targets)
+                Log.Information("  - {TargetName}", target);
+        });
 
     Target Clean => _ => _
         .Executes(() =>
@@ -87,7 +113,7 @@ class Build : NukeBuild
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
-                .SetAssemblyVersion(version)
+                .SetAssemblyVersion(BuildVersion)
                 //.SetFileVersion(GitVersion.AssemblySemFileVer)
                 .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
@@ -109,7 +135,7 @@ class Build : NukeBuild
             DotNetPublish(s => s
                 .SetConfiguration(Configuration)
                 .SetAuthors(Authors)
-                .SetVersion(version)
+                .SetVersion(BuildVersion)
                 .SetTitle("ADRAPI")
                 .SetOutput(AppDirectory)
                 //.SetWorkingDirectory(RootDirectory)
@@ -123,7 +149,7 @@ class Build : NukeBuild
             string fileName = AppDirectory + "/version.txt";
             using (StreamWriter sw = new StreamWriter(fileName, false))
             {
-                sw.WriteLine(version);
+                sw.WriteLine(BuildVersion);
             }
             
         });
@@ -153,7 +179,7 @@ class Build : NukeBuild
 
             string lversion = "latest";
 
-            if (Configuration != "Debug") lversion = version;
+            if (Configuration != "Debug") lversion = BuildVersion;
             
             
             DockerTasks.DockerBuild(s => s
@@ -177,4 +203,92 @@ class Build : NukeBuild
                 .SetName("ffquintella/adrapi:" + GitVersion.GetNormalizedFileVersion())
             );*/
         });
+
+    Target BumpVersion => _ => _
+        .Executes(() =>
+        {
+            var current = ReadCurrentVersion();
+            var bumped = BumpVersionValue(current, Part);
+            var newVersion = GetVersionString(bumped);
+
+            File.WriteAllText(VersionFile, newVersion + Environment.NewLine);
+
+            var projects = GetProjectFiles();
+            foreach (var projectFile in projects)
+            {
+                UpdateProjectVersion(projectFile, newVersion);
+            }
+
+            Log.Write(LogEventLevel.Information, "Version bumped: {0} -> {1} ({2})", GetVersionString(current), newVersion, Part);
+            Log.Write(LogEventLevel.Information, "Updated {0} project files and VERSION.", projects.Count);
+        });
+
+    Version ReadCurrentVersion()
+    {
+        const string defaultVersion = "1.2.0";
+
+        var raw = File.Exists(VersionFile)
+            ? File.ReadAllText(VersionFile).Trim()
+            : defaultVersion;
+
+        if (!System.Version.TryParse(raw, out var parsed))
+            throw new Exception($"Invalid VERSION value '{raw}'. Expected semantic version format like 1.2.3.");
+
+        var patch = parsed.Build < 0 ? 0 : parsed.Build;
+        return new Version(parsed.Major, parsed.Minor, patch);
+    }
+
+    static Version BumpVersionValue(Version current, VersionBumpPart part)
+    {
+        var patch = current.Build < 0 ? 0 : current.Build;
+        return part switch
+        {
+            VersionBumpPart.Major => new Version(current.Major + 1, 0, 0),
+            VersionBumpPart.Minor => new Version(current.Major, current.Minor + 1, 0),
+            VersionBumpPart.Patch => new Version(current.Major, current.Minor, patch + 1),
+            _ => current
+        };
+    }
+
+    static string GetVersionString(Version version)
+    {
+        return string.Create(CultureInfo.InvariantCulture, $"{version.Major}.{version.Minor}.{version.Build}");
+    }
+
+    List<string> GetProjectFiles()
+    {
+        return Directory.GetFiles(RootDirectory, "*.csproj", SearchOption.AllDirectories)
+            .Where(path => !IsInBuildArtifacts(path))
+            .OrderBy(path => path)
+            .ToList();
+    }
+
+    static bool IsInBuildArtifacts(string path)
+    {
+        return path.Contains("/bin/") || path.Contains("\\bin\\")
+            || path.Contains("/obj/") || path.Contains("\\obj\\");
+    }
+
+    static void UpdateProjectVersion(string projectFile, string version)
+    {
+        var content = File.ReadAllText(projectFile);
+        var updated = content;
+
+        updated = Regex.Replace(updated, @"<Version>[^<]*</Version>", $"<Version>{version}</Version>");
+        updated = Regex.Replace(updated, @"<AssemblyVersion>[^<]*</AssemblyVersion>", $"<AssemblyVersion>{version}</AssemblyVersion>");
+        updated = Regex.Replace(updated, @"<FileVersion>[^<]*</FileVersion>", $"<FileVersion>{version}</FileVersion>");
+
+        if (!Regex.IsMatch(updated, @"<Version>[^<]*</Version>"))
+        {
+            updated = Regex.Replace(
+                updated,
+                @"<PropertyGroup>\s*",
+                $"<PropertyGroup>{Environment.NewLine}    <Version>{version}</Version>{Environment.NewLine}",
+                RegexOptions.None,
+                TimeSpan.FromSeconds(1));
+        }
+
+        if (!string.Equals(content, updated, StringComparison.Ordinal))
+            File.WriteAllText(projectFile, updated);
+    }
 }
