@@ -5,9 +5,9 @@ LABEL version="0.8.1"
 LABEL description="This image contains the adrapi api."
 
 
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
+ENV LANG=C.UTF-8
+ENV LANGUAGE=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 
 #ENV FACTER_XXX
@@ -15,6 +15,15 @@ ENV LC_ALL=en_US.UTF-8
 
 ENV FACTER_PRE_RUN_CMD=""
 ENV FACTER_EXTRA_PACKS=""
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && wget -q https://apt.voxpupuli.org/openvox8-release-ubuntu24.04.deb -O /tmp/openvox8-release.deb \
+    && dpkg -i /tmp/openvox8-release.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends openvox-agent \
+    && rm -f /tmp/openvox8-release.deb \
+    && rm -rf /var/lib/apt/lists/*
 
 # Puppet stuff all the instalation is donne by puppet
 # Just after it we clean up everthing so the end image isn't too big
