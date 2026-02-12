@@ -136,7 +136,7 @@ namespace adrapi.Ldap
                     if(!cont)
                         break;
                 }
-                catch (LdapReferralException e)
+                catch (LdapReferralException)
                 {
                     // we can ignore this exception since we do not support referrals
                     continue;
