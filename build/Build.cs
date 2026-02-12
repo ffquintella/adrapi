@@ -66,6 +66,7 @@ class Build : NukeBuild
 
 
     string[] Authors = { "Felipe F Quintella" };
+    string DockerImageName => "ffquintella/adrapi";
 
     Target ListCommands => _ => _
         .Executes(() =>
@@ -176,16 +177,12 @@ class Build : NukeBuild
         .Executes(() =>
         {
             Log.Write( LogEventLevel.Information, "Creating Docker Image...");
-
-            string lversion = "latest";
-
-            if (Configuration != "Debug") lversion = BuildVersion;
-            
-            
+           
             DockerTasks.DockerBuild(s => s
                 .AddLabel("adrapi")
                 .SetPlatform("linux/amd64")
-                .SetTag("ffquintella/adrapi:" + lversion)
+                .SetTag($"{DockerImageName}:{BuildVersion}")
+                .AddTag($"{DockerImageName}:latest")
                 .SetFile(DockerFile)
                 .SetForceRm(true)
                 .SetPath(RootDirectory)
@@ -199,10 +196,11 @@ class Build : NukeBuild
         .DependsOn(Create_Docker_Image)
         .Executes(() =>
         {
-            /*DockerPush(s => s
-                .SetWorkingDirectory(RootDirectory)
-                .SetName("ffquintella/adrapi:" + GitVersion.GetNormalizedFileVersion())
-            );*/
+            Log.Write(LogEventLevel.Information, "Pushing Docker images to docker.io...");
+            DockerTasks.DockerPush(s => s
+                .SetName($"{DockerImageName}:{BuildVersion}"));
+            DockerTasks.DockerPush(s => s
+                .SetName($"{DockerImageName}:latest"));
         });
 
     Target Bump => _ => _
