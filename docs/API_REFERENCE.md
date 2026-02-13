@@ -17,6 +17,10 @@ Every request must include:
 - `api-key: <keyId>:<secretKey>`
 - `api-version: 2.0` (or `1.0` for legacy routes)
 
+Optional request header:
+
+- `X-Correlation-ID: <id>` (used for end-to-end log correlation)
+
 Authorization policies:
 
 - `Reading`: allows users with claim `isAdministrator` or `isMonitor`
@@ -31,6 +35,15 @@ Authorization policies:
 - `409` conflict (invalid DN/query combinations)
 - `422` semantic validation error for member resolution
 - `500` internal server error
+
+Error mapping policy for hardened v2 handlers:
+
+- use `4xx` for invalid/missing/semantically incorrect client input
+- use `5xx` only for unexpected server/LDAP faults
+
+Auditability note:
+
+- Mutation endpoints emit structured `AUDIT` records including `requester`, `correlationId`, `clientIp`, `targetDn`, and change summary.
 
 Special legacy code:
 
@@ -68,16 +81,22 @@ When `_start` and `_end` are both `-1`, LDAP paged mode is used and response inc
 |---|---|---|
 | GET | `/api/groups` | List group CNs |
 | GET | `/api/groups?_full=true` | List full group objects |
-| GET | `/api/groups/{cn}` | Get group |
+| GET | `/api/groups/{groupId}` | Get group by DN (or CN for compatibility) |
 | GET | `/api/groups/{dn}/exists` | Check group existence |
-| GET | `/api/groups/{cn}/members` | List group members |
+| GET | `/api/groups/{groupId}/members` | List group members by DN (or CN for compatibility) |
+| POST | `/api/groups` | Create group (explicit v2 contract) |
 | PUT | `/api/groups/{dn}` | Create or update group |
+| PATCH | `/api/groups/{dn}/members` | Add/remove members (delta contract) |
 | PUT | `/api/groups/{dn}/members` | Replace group members |
 | DELETE | `/api/groups/{dn}` | Delete group |
 
 Important query parameters:
 
 - `_listCN` (bool): indicates if member values are CN/account-style values that must be resolved to DNs.
+- Membership write endpoints (`POST /api/groups`, `PUT /api/groups/{dn}`, `PUT/PATCH /api/groups/{dn}/members`) use all-or-fail validation: unresolved members return `422` and no partial update is persisted.
+- Member identifier resolution is strict:
+- DN-like values must exist as valid user/group DNs.
+- Non-DN values are resolved by group CN or user `sAMAccountName` (and by user `cn` when `_listCN=false`).
 
 ### OUs (`/api/ous`)
 
@@ -86,8 +105,18 @@ Important query parameters:
 | GET | `/api/ous` | List OUs |
 | GET | `/api/ous/{dn}` | Get OU |
 | GET | `/api/ous/{dn}/exists` | Check OU existence |
+| POST | `/api/ous` | Create OU (explicit v2 contract) |
 | PUT | `/api/ous/{dn}` | Create or update OU |
 | DELETE | `/api/ous/{dn}` | Delete OU |
+
+OU write guardrails:
+
+- DN must be OU-formatted (`OU=<name>,...`) and under `ldap.searchBase`.
+- OU name in payload must match DN RDN OU name.
+- Protected/system OUs are blocked from update/delete:
+- `ldap.searchBase` root DN
+- optional `ldap.protectedOUs` entries
+- built-in prefixes: `OU=Domain Controllers,`, `OU=System,`, `OU=Microsoft Exchange System Objects,`
 
 ### Infos (`/api/infos`)
 
@@ -138,6 +167,32 @@ Important query parameters:
 }
 ```
 
+### GroupCreateRequest (`POST /api/groups`)
+
+```json
+{
+  "dn": "CN=MyGroup,OU=Groups,DC=homologa,DC=br",
+  "name": "MyGroup",
+  "description": "Example group",
+  "members": [
+    "CN=jdoe,OU=Users,DC=homologa,DC=br"
+  ]
+}
+```
+
+### GroupMembersPatchRequest (`PATCH /api/groups/{dn}/members`)
+
+```json
+{
+  "add": [
+    "CN=jdoe,OU=Users,DC=homologa,DC=br"
+  ],
+  "remove": [
+    "CN=olduser,OU=Users,DC=homologa,DC=br"
+  ]
+}
+```
+
 ### OU (create/update)
 
 ```json
@@ -147,6 +202,21 @@ Important query parameters:
   "description": "Example OU"
 }
 ```
+
+## Stage 2 Response Matrix (v2 Contracts)
+
+| Endpoint | 200 | 400 | 404 | 409 | 422 | 500 |
+|---|---|---|---|---|---|---|
+| `POST /api/groups` | created | invalid body | - | duplicate DN or invalid DN | unresolved member when `_listCN=true` | ldap/internal error |
+| `PATCH /api/groups/{dn}/members` | updated | invalid/empty patch body | group not found | - | unresolved member when `_listCN=true` | ldap/internal error |
+| `PUT /api/groups/{dn}/members` | replaced | invalid body | group not found | - | unresolved member when `_listCN=true` | ldap/internal error |
+| `GET /api/groups/{dn}/members` | listed | - | group not found | - | - | ldap/internal error |
+| `POST /api/ous` | created | invalid body | - | duplicate DN or invalid DN | - | ldap/internal error |
+| `PUT /api/ous/{dn}` | created/updated | invalid body | - | invalid DN / DN mismatch | - | ldap/internal error |
+| `DELETE /api/ous/{dn}` | deleted | - | OU not found | invalid DN | - | ldap/internal error |
+| `GET /api/ous` | listed | - | - | - | - | ldap/internal error |
+| `GET /api/ous/{dn}` | returned | - | OU not found | - | - | ldap/internal error |
+| `GET /api/ous/{dn}/exists` | exists | - | OU not found | - | - | ldap/internal error |
 
 ## Legacy v1 Notes
 
