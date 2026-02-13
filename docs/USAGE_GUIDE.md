@@ -81,6 +81,50 @@ curl -k -X PUT 'https://localhost:6001/api/groups/CN=MyGroup,OU=Groups,DC=homolo
   -d '{"name":"MyGroup","member":["CN=jdoe,OU=Users,DC=homologa,DC=br"]}'
 ```
 
+### Example: create group using v2 contract (`POST /api/groups`)
+
+```bash
+curl -k -X POST 'https://localhost:6001/api/groups?_listCN=true' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: usage-group-post-001' \
+  -d '{"dn":"CN=Product,OU=Groups,DC=homologa,DC=br","name":"Product","description":"Product team","members":["jdoe"]}'
+```
+
+### Example: membership sync (replace full set)
+
+```bash
+curl -k -X PUT 'https://localhost:6001/api/groups/CN=Product,OU=Groups,DC=homologa,DC=br/members?_listCN=true' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: usage-group-members-001' \
+  -d '["jdoe","maria.silva"]'
+```
+
+### Example: OU lifecycle
+
+Create:
+
+```bash
+curl -k -X POST 'https://localhost:6001/api/ous' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: usage-ou-create-001' \
+  -d '{"dn":"OU=Engineering,DC=homologa,DC=br","name":"Engineering","description":"Engineering OU"}'
+```
+
+Delete:
+
+```bash
+curl -k -X DELETE 'https://localhost:6001/api/ous/OU=Engineering,DC=homologa,DC=br' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: usage-ou-delete-001'
+```
+
 ## 5. Swagger UI
 
 Once running, open:
@@ -142,3 +186,35 @@ docker exec -it <container> cat /app/appsettings.json
 
 - Check your mount/copy path and container recreation process.
 - Recreate container after config/image updates.
+
+### Membership sync returns `422`
+
+- Cause: at least one member cannot be resolved to a valid DN.
+- Action:
+- if using short identifiers (`jdoe`), call with `_listCN=true`
+- verify user/group exists (`GET /api/users/{id}/exists`, `GET /api/groups/{dn}/exists`)
+- retry only after resolving all unknown members (writes are all-or-fail)
+
+### OU operations return `409`
+
+- Cause:
+- DN format mismatch (`OU=...` expected)
+- DN outside configured `ldap.searchBase`
+- operation targeting protected/system OU
+- Action:
+- ensure DN and payload name match
+- ensure OU DN is under `ldap.searchBase`
+- verify DN is not root/protected OU
+
+### Verify API identity and client IP in logs
+
+- Write operations emit `AUDIT` logs with:
+- `requester` (from `api-key` key ID)
+- `clientIp` (from `X-Forwarded-For` or remote IP)
+- `correlationId` (from `X-Correlation-ID` or request trace id)
+- Use this to trace who changed groups/OUs and from which client IP.
+
+## 9. Migration Notes and Curl Collection
+
+- Migration notes: `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`
+- Curl collection: `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`

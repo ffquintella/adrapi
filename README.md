@@ -68,6 +68,8 @@ Default Kestrel bindings are configured in code:
 - Interactive docs: `/swagger`
 - Detailed reference: `/Users/felipe/Dev/adrapi/docs/API_REFERENCE.md`
 - Usage guide: `/Users/felipe/Dev/adrapi/docs/USAGE_GUIDE.md`
+- Migration notes: `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`
+- Curl collection: `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`
 
 ## Development Notes
 

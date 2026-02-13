@@ -19,7 +19,7 @@ Use this section to track execution status for each stage and acceptance item.
 - [x] Stage 5 - Security, Authorization, and Validation Hardening
 - [x] Stage 6 - Observability and Auditability
 - [x] Stage 7 - Testing and Quality Gates
-- [ ] Stage 8 - Documentation and Client Usage
+- [x] Stage 8 - Documentation and Client Usage
 
 
 ## 1. Discovery and Gap Validation (1-2 days)
@@ -112,10 +112,10 @@ Deliverable: CI gates requiring passing tests and coverage for group/OU features
 
 ## 8. Documentation and Client Usage (1 day)
 
-- [ ] Update API reference and usage docs with new group/OU flows and examples.
-- [ ] Add migration notes for clients moving to new endpoints.
-- [ ] Add troubleshooting examples for membership sync and OU operations.
-- [ ] Make shure all operations are logged and that the logs register the ip and the api identification
+- [x] Update API reference and usage docs with new group/OU flows and examples.
+- [x] Add migration notes for clients moving to new endpoints.
+- [x] Add troubleshooting examples for membership sync and OU operations.
+- [x] Make shure all operations are logged and that the logs register the ip and the api identification
 - Deliverable: published docs + sample curl collection.
 
 
@@ -136,3 +136,4 @@ Use this section to record dated updates.
 - 2026-02-13: `Stage 7.2` completed. Notes: LDAP-backed integration tests added in `/Users/felipe/Dev/adrapi/tests/LdapIntegrationTests.cs` and gated by `ADRAPI_RUN_LDAP_INTEGRATION=1`; default quality gate includes conditional integration target.
 - 2026-02-13: `Stage 7.3` completed. Notes: regression/contract/negative coverage completed with `/Users/felipe/Dev/adrapi/tests/RegressionContractTests.cs`, `/Users/felipe/Dev/adrapi/tests/ApiContractTests.cs`, and `/Users/felipe/Dev/adrapi/tests/NegativePathTests.cs`; `dotnet test` and NUKE `Quality_Gate` pass with 33 tests.
 - 2026-02-13: `Stage 7.4` completed. Notes: explicit unit/regression/integration quality gates plus changed-module coverage threshold are enforced in `/Users/felipe/Dev/adrapi/build/Build.cs` and `/Users/felipe/Dev/adrapi/scripts/check_changed_coverage.py`; merge-block CI workflow added at `/Users/felipe/Dev/adrapi/.github/workflows/quality-gate.yml`.
+- 2026-02-13: `Stage 8` completed. Notes: docs updated with v2 group/OU usage and troubleshooting in `/Users/felipe/Dev/adrapi/docs/API_REFERENCE.md` and `/Users/felipe/Dev/adrapi/docs/USAGE_GUIDE.md`; migration guide added at `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`; sample curl collection added at `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`; logging/audit traceability contract (requester + clientIp + correlationId) documented.

@@ -98,6 +98,49 @@ Important query parameters:
 - DN-like values must exist as valid user/group DNs.
 - Non-DN values are resolved by group CN or user `sAMAccountName` (and by user `cn` when `_listCN=false`).
 
+#### Group Mutation Examples
+
+Create group (new v2 create contract):
+
+```bash
+curl -k -X POST 'https://localhost:6001/api/groups?_listCN=true' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: grp-create-001' \
+  -d '{
+    "dn":"CN=DevOps,OU=Groups,DC=homologa,DC=br",
+    "name":"DevOps",
+    "description":"DevOps team",
+    "members":["jdoe","maria.silva"]
+  }'
+```
+
+Patch membership delta (add/remove):
+
+```bash
+curl -k -X PATCH 'https://localhost:6001/api/groups/CN=DevOps,OU=Groups,DC=homologa,DC=br/members?_listCN=true' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: grp-patch-001' \
+  -d '{
+    "add":["new.user"],
+    "remove":["old.user"]
+  }'
+```
+
+Replace full membership set:
+
+```bash
+curl -k -X PUT 'https://localhost:6001/api/groups/CN=DevOps,OU=Groups,DC=homologa,DC=br/members?_listCN=true' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: grp-replace-001' \
+  -d '["jdoe","maria.silva"]'
+```
+
 ### OUs (`/api/ous`)
 
 | Method | Path | Description |
@@ -117,6 +160,46 @@ OU write guardrails:
 - `ldap.searchBase` root DN
 - optional `ldap.protectedOUs` entries
 - built-in prefixes: `OU=Domain Controllers,`, `OU=System,`, `OU=Microsoft Exchange System Objects,`
+
+#### OU Mutation Examples
+
+Create OU:
+
+```bash
+curl -k -X POST 'https://localhost:6001/api/ous' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: ou-create-001' \
+  -d '{
+    "dn":"OU=Platform,DC=homologa,DC=br",
+    "name":"Platform",
+    "description":"Platform OU"
+  }'
+```
+
+Update OU:
+
+```bash
+curl -k -X PUT 'https://localhost:6001/api/ous/OU=Platform,DC=homologa,DC=br' \
+  -H 'Content-Type: application/json' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: ou-update-001' \
+  -d '{
+    "name":"Platform",
+    "description":"Platform OU - updated"
+  }'
+```
+
+Delete OU:
+
+```bash
+curl -k -X DELETE 'https://localhost:6001/api/ous/OU=Platform,DC=homologa,DC=br' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <adminKeyId>:<secretKey>' \
+  -H 'X-Correlation-ID: ou-delete-001'
+```
 
 ### Infos (`/api/infos`)
 
@@ -222,9 +305,25 @@ OU write guardrails:
 
 - v1 users/groups controllers are still present and marked deprecated.
 - Prefer `api-version: 2.0` for all new integrations.
+- v1 controllers keep `Reading`/`Writting` policy protection; do not bypass the same `api-key` and claims model.
 
 ## Interactive API Docs
 
 Swagger UI is available at:
 
 - `/swagger`
+
+## Logging and Audit Contract
+
+Mutation endpoints emit `AUDIT` log entries through `BaseController.LogAudit`.
+
+Expected metadata fields:
+
+- `action`: operation identifier (`group.create.success`, `ou.delete.request`, etc.)
+- `requester`: API key ID extracted from header `api-key` (`keyId:secret`)
+- `correlationId`: value from `X-Correlation-ID` or request trace ID fallback
+- `clientIp`: first IP from `X-Forwarded-For` or remote socket IP fallback
+- `targetDn`: target LDAP DN
+- `change`: compact change summary
+
+This guarantees every write operation can be traced to source API identity and client IP.
