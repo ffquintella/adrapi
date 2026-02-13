@@ -137,6 +137,11 @@ namespace adrapi.Controllers
         {
             this.ProcessRequest();
 
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                return BadRequest();
+            }
+
             var uManager = UserManager.Instance;
 
             try
@@ -159,8 +164,8 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ItemExists, "User DN={dn} not found. err:" + ex.Message);
-                return NotFound();
+                logger.LogError(ItemExists, "Error checking user locator={user} attribute={attribute}. err:{message}", user, _attribute, ex.Message);
+                return this.StatusCode(500);
             }
 
         }
@@ -171,12 +176,21 @@ namespace adrapi.Controllers
         {
             this.ProcessRequest();
 
+            if (string.IsNullOrWhiteSpace(DN) || string.IsNullOrWhiteSpace(group))
+            {
+                return BadRequest();
+            }
+
             var uManager = UserManager.Instance;
 
             try
             {
                 logger.LogDebug(ItemExists, "User DN={dn} found", DN);
                 var user = await uManager.GetUserAsync(DN);
+                if (user == null)
+                {
+                    return NotFound();
+                }
 
 
                 foreach (domain.Group grp in user.MemberOf)
@@ -194,8 +208,8 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ItemExists, "User DN={dn} not found. err:" + ex.Message);
-                return NotFound();
+                logger.LogError(ItemExists, "Error checking membership for DN={dn} group={group}. err:{message}", DN, group, ex.Message);
+                return this.StatusCode(500);
             }
 
         }
@@ -207,6 +221,10 @@ namespace adrapi.Controllers
         [HttpPost("{userId}/authenticate")]
         public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
         {
+            if (req == null)
+            {
+                return BadRequest();
+            }
 
             var uManager = UserManager.Instance;
 
@@ -246,6 +264,10 @@ namespace adrapi.Controllers
         [HttpPost("authenticate")]
         public async Task<ActionResult> AuthenticateDirect([FromBody] AuthenticationRequest req)
         {
+            if (req == null)
+            {
+                return BadRequest();
+            }
 
             var uManager = UserManager.Instance;
 

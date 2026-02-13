@@ -52,6 +52,7 @@ class Build : NukeBuild
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     AbsolutePath PackDirectory => RootDirectory / "artifacts/nupkg";
     AbsolutePath AppDirectory => RootDirectory / "artifacts/app";
+    AbsolutePath CoverageDirectory => RootDirectory / "artifacts/coverage";
 
     AbsolutePath DockerFile
     {
@@ -125,6 +126,33 @@ class Build : NukeBuild
                 .SetConfiguration(Configuration)
                 .EnableNodeReuse());
                 */
+        });
+
+    Target Test => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            Log.Write(LogEventLevel.Information, "Running test suite...");
+            DotNetTest(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration)
+                .EnableNoRestore());
+        });
+
+    Target Coverage => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            CoverageDirectory.CreateOrCleanDirectory();
+            Log.Write(LogEventLevel.Information, "Collecting test coverage artifacts...");
+            DotNet($"test \"{Solution}\" --configuration {Configuration} --no-restore --collect:\"XPlat Code Coverage\" --results-directory \"{CoverageDirectory}\"");
+        });
+
+    Target Quality_Gate => _ => _
+        .DependsOn(Test, Coverage)
+        .Executes(() =>
+        {
+            Log.Write(LogEventLevel.Information, "Quality gate passed (build + tests + coverage).");
         });
 
     private Target Local_Publish => _ => _

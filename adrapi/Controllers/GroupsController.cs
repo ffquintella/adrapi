@@ -14,6 +14,7 @@ using adrapi.domain;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using adrapi.Tools;
+using System.Linq;
 
 namespace adrapi.Controllers
 {
@@ -95,17 +96,26 @@ namespace adrapi.Controllers
         {
             this.ProcessRequest();
 
+            if (!IsValidGroupDn(DN))
+            {
+                return Conflict();
+            }
+
             var gManager = GroupManager.Instance;
             try
             {
                 var group = await gManager.GetGroupAsync(DN);
+                if (group == null)
+                {
+                    return NotFound();
+                }
                 logger.LogDebug(GetItem, "Getting OU={0}", group.Name);
                 return group;
             }
             catch(Exception ex)
             {
                 logger.LogError(GetItem, "Error getting group ex:{0}", ex.Message);
-                return null;
+                return this.StatusCode(500);
             }
 
 
@@ -117,6 +127,11 @@ namespace adrapi.Controllers
         public async Task<IActionResult> GetExists(string DN)
         {
             this.ProcessRequest();
+
+            if (!IsValidGroupDn(DN))
+            {
+                return Conflict();
+            }
 
             var gManager = GroupManager.Instance;
 
@@ -136,9 +151,8 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                
-                logger.LogDebug(ItemExists, "Group DN={dn} not found. err:" + ex.Message, DN);
-                return NotFound();
+                logger.LogError(ItemExists, "Error checking group DN={dn}. err:" + ex.Message, DN);
+                return this.StatusCode(500);
             }
 
         }
@@ -150,20 +164,29 @@ namespace adrapi.Controllers
         public async Task<ActionResult<List<String>>> GetMembers(string DN, [FromQuery]Boolean _listCN = false)
         {
             this.ProcessRequest();
+            if (!IsValidGroupDn(DN))
+            {
+                return Conflict();
+            }
+
             var gManager = GroupManager.Instance;
 
             try
             {
                 logger.LogDebug(ListItems, "Group DN={dn} found", DN);
                 var group = await gManager.GetGroupAsync(DN, _listCN);
+                if (group == null)
+                {
+                    return NotFound();
+                }
 
                 return group.Member;
 
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ListItems, "Group DN={dn} not found. err:" + ex.Message, DN);
-                return NotFound();
+                logger.LogError(ListItems, "Error listing members for group DN={dn}. err:" + ex.Message, DN);
+                return this.StatusCode(500);
             }
 
         }
@@ -185,7 +208,7 @@ namespace adrapi.Controllers
 
             logger.LogDebug(PutItem, "Tring to create group:{0}", DN);
 
-            if (ModelState.IsValid)
+            if (ModelState.IsValid && group != null)
             {
                 if (group.DN != null && group.DN != DN)
                 {
@@ -203,7 +226,12 @@ namespace adrapi.Controllers
                     return Conflict();
                 }
 
-                var gName= match.Groups["gname"];
+                var gName= match.Groups["gname"].Value;
+                if (!string.Equals(gName, group.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.LogError(PutItem, "Group name and DN CN mismatch name={name} DN={DN}", group.Name, DN);
+                    return Conflict();
+                }
 
                 var gManager = GroupManager.Instance;
                 var uManager = UserManager.Instance;
@@ -248,7 +276,12 @@ namespace adrapi.Controllers
 
                     group.DN = DN;
 
+                    LogAudit("group.v1.create.request", DN, $"membersCount={group.Member.Count}");
                     var result = await gManager.CreateGroupAsync(group);
+                    if (result == 0)
+                    {
+                        LogAudit("group.v1.create.success", DN, $"membersCount={group.Member.Count}");
+                    }
 
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
@@ -261,7 +294,12 @@ namespace adrapi.Controllers
 
                     group.DN = DN;
 
+                    LogAudit("group.v1.update.request", DN, $"membersCount={group.Member.Count}");
                     var result = await gManager.SaveGroupAsync(group);
+                    if (result == 0)
+                    {
+                        LogAudit("group.v1.update.success", DN, $"membersCount={group.Member.Count}");
+                    }
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
@@ -288,6 +326,7 @@ namespace adrapi.Controllers
         /// <param name="_listCN">If the list is in CN format</param>
         /// <returns></returns>
         // PUT api/groups/:group/members
+        [Authorize(Policy = "Writting")]
         [HttpPut("{DN}/members")]
         public async Task<ActionResult> PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false)
         {
@@ -297,14 +336,23 @@ namespace adrapi.Controllers
 
             try
             {
+                if (!IsValidGroupDn(DN))
+                {
+                    return Conflict();
+                }
+
                 logger.LogDebug(ListItems, "Group DN={dn} found", DN);
                 var group = await gManager.GetGroupAsync(DN);
+                if (group == null)
+                {
+                    return NotFound();
+                }
 
-                group.Member.Clear();
+                var resolvedMembers = new List<string>();
 
                 foreach(String member in members)
                 {
-                    string dname = "";
+                    string dname = member;
                     if (_listCN)
                     {
                         var grp = await gManager.GetGroupAsync(member, true,true);
@@ -320,14 +368,27 @@ namespace adrapi.Controllers
                             }
                         }
                     }
-                    
-                    group.Member.Add(dname);
+
+                    if (string.IsNullOrWhiteSpace(dname))
+                    {
+                        logger.LogError(InternalError, "Could not find member {member} for group {DN}", member, DN);
+                        return this.StatusCode(422);
+                    }
+
+                    if (!resolvedMembers.Any(existing => string.Equals(existing, dname, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        resolvedMembers.Add(dname);
+                    }
                 }
+
+                group.Member = resolvedMembers;
 
                 try
                 {
                     logger.LogInformation(PutItem, "Saving group members for group:{DN}", DN);
+                    LogAudit("group.v1.members.replace.request", DN, $"membersCount={group.Member.Count}");
                     await gManager.SaveGroupAsync(group);
+                    LogAudit("group.v1.members.replace.success", DN, $"membersCount={group.Member.Count}");
                     return Ok();
                 }catch(Exception ex)
                 {
@@ -340,8 +401,8 @@ namespace adrapi.Controllers
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ListItems, "Group DN={dn} not found. err:{message} ", DN, ex.Message);
-                return NotFound();
+                logger.LogError(ListItems, "Error updating members for group DN={dn}. err:{message} ", DN, ex.Message);
+                return this.StatusCode(500);
             }
 
         }
@@ -394,7 +455,12 @@ namespace adrapi.Controllers
                 // Delete 
                 logger.LogInformation(DeleteItem, "Deleting group DN={DN}", DN);
 
+                LogAudit("group.v1.delete.request", DN, "delete");
                 var result = await gManager.DeleteGroup(dgroup);
+                if (result == 0)
+                {
+                    LogAudit("group.v1.delete.success", DN, "delete");
+                }
                 if (result == 0) return Ok();
                 else return this.StatusCode(500);
 
@@ -404,5 +470,11 @@ namespace adrapi.Controllers
         }
 
         #endregion
+
+        private static bool IsValidGroupDn(string dn)
+        {
+            var regex = new Regex(@"\Acn=(?<gname>[^,]+?),", RegexOptions.IgnoreCase);
+            return regex.IsMatch(dn);
+        }
     }
 }

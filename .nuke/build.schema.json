@@ -39,12 +39,15 @@
         "Bump",
         "Clean",
         "Compile",
+        "Coverage",
         "Create_Docker_Image",
         "Deploy_Docker_Image",
         "ListCommands",
         "Local_Publish",
         "Pack",
-        "Restore"
+        "Quality_Gate",
+        "Restore",
+        "Test"
       ]
     },
     "Verbosity": {
