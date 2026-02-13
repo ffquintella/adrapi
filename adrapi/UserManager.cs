@@ -53,6 +53,7 @@ namespace adrapi
             
             var userNames = new List<string>();
             var users = new List<User>();
+            var attributes = ParseRequestedAttributes(attribute);
 
             var sMgmt = LdapQueryManager.Instance;
 
@@ -62,8 +63,9 @@ namespace adrapi
 
             if (filter != "")
             {
-                if (attribute != "")
-                    formatedFilter = attribute + "=" + filter;
+                var filterAttribute = attributes.Count > 0 ? attributes[0] : attribute;
+                if (filterAttribute != "")
+                    formatedFilter = filterAttribute + "=" + filter;
                 else
                     formatedFilter = "cn=" + filter;
             }
@@ -79,7 +81,7 @@ namespace adrapi
 
             foreach(var entry in resps)
             {
-                if (attribute == "")
+                if (attributes.Count == 0)
                 {
                     //users.Add(entry.GetAttribute("distinguishedName").StringValue);
                     userNames.Add(entry.GetStringValueOrDefault("samaccountname"));
@@ -103,8 +105,18 @@ namespace adrapi
                     users.Add(user);
 
                 }
+                else if (attributes.Count == 1)
+                {
+                    userNames.Add(entry.GetStringValueOrDefault(attributes[0]));
+                }
                 else
-                    userNames.Add(entry.GetStringValueOrDefault(attribute));
+                {
+                    var projected = ProjectUserFromAttributes(entry, attributes);
+                    users.Add(projected);
+
+                    var usernameKey = attributes.Contains("sAMAccountName") ? "sAMAccountName" : attributes[0];
+                    userNames.Add(entry.GetStringValueOrDefault(usernameKey));
+                }
                 results++;
             }
 
@@ -131,7 +143,9 @@ namespace adrapi
         {
             var response = new UserListResponse();
             
-            var users = new List<String>();
+            var users = new List<string>();
+            var projectedUsers = new List<User>();
+            var attributes = ParseRequestedAttributes(attribute);
 
             var sMgmt = LdapQueryManager.Instance;
 
@@ -141,8 +155,9 @@ namespace adrapi
 
             if (filter != "")
             {
-                if (attribute != "")
-                    formatedFilter = attribute + "=" + filter;
+                var filterAttribute = attributes.Count > 0 ? attributes[0] : attribute;
+                if (filterAttribute != "")
+                    formatedFilter = filterAttribute + "=" + filter;
                 else
                     formatedFilter = "cn=" + filter;
             }
@@ -153,10 +168,22 @@ namespace adrapi
             foreach (var entry in resps)
             {
                 string u = "";
-                if (attribute == "")
+                if (attributes.Count == 0)
+                {
                     u = entry.GetStringValueOrDefault("distinguishedName");
+                }
+                else if (attributes.Count == 1)
+                {
+                    u = entry.GetStringValueOrDefault(attributes[0]);
+                }
                 else
-                    u = entry.GetStringValueOrDefault(attribute);
+                {
+                    var projected = ProjectUserFromAttributes(entry, attributes);
+                    projectedUsers.Add(projected);
+
+                    var usernameKey = attributes.Contains("sAMAccountName") ? "sAMAccountName" : attributes[0];
+                    u = entry.GetStringValueOrDefault(usernameKey);
+                }
                 users.Add(u);
 
                 results++;
@@ -165,10 +192,81 @@ namespace adrapi
             response.SearchType = "User";
             response.SearchMethod = LdapSearchMethod.Limited;
             response.UserNames = users;
+            if (projectedUsers.Count > 0)
+            {
+                response.Users = projectedUsers;
+            }
             logger.Debug("User search executed results:{result}", results);
 
 
             return response;
+        }
+
+        private static List<string> ParseRequestedAttributes(string attribute)
+        {
+            if (string.IsNullOrWhiteSpace(attribute))
+            {
+                return new List<string>();
+            }
+
+            return attribute
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(a => NormalizeAttributeName(a.Trim()))
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static string NormalizeAttributeName(string attribute)
+        {
+            return attribute.ToLowerInvariant() switch
+            {
+                "samaccountname" => "sAMAccountName",
+                "dn" => "distinguishedName",
+                "distinguishedname" => "distinguishedName",
+                "displayname" => "displayName",
+                "givenname" => "givenName",
+                "surname" => "sn",
+                _ => attribute
+            };
+        }
+
+        private static User ProjectUserFromAttributes(LdapEntry entry, List<string> attributes)
+        {
+            var user = new User();
+            foreach (var attribute in attributes)
+            {
+                var value = entry.GetStringValueOrDefault(attribute);
+                if (value == null)
+                {
+                    continue;
+                }
+
+                switch (attribute.ToLowerInvariant())
+                {
+                    case "samaccountname":
+                        user.Account = value;
+                        break;
+                    case "mail":
+                        user.Mail = value;
+                        break;
+                    case "givenname":
+                        user.GivenName = value;
+                        break;
+                    case "sn":
+                        user.Surname = value;
+                        break;
+                    case "displayname":
+                    case "name":
+                        user.Name = value;
+                        break;
+                    case "distinguishedname":
+                        user.DN = value;
+                        break;
+                }
+            }
+
+            return user;
         }
 
         /// <summary>
