@@ -61,14 +61,28 @@ namespace adrapi.Controllers.V2
                 return uManager.GetList(_attribute, "", _cookie);
             }*/
 
+            // Default mode: LDAP paged query using cookie.
             if (_start == -1 && _end == -1)
             {
                 var response = await uManager.GetListAsync(_attribute, _filter, _cookie);
 
                 return response;
             }
-            else
-                return await uManager.GetListAsync(_start,_end, _attribute, _filter);
+
+            // Range mode requires both values and valid bounds.
+            if (_start < 0 || _end < 0)
+            {
+                return Conflict();
+            }
+
+            if (_end < _start)
+            {
+                return Conflict();
+            }
+
+            // VLV is 1-based internally; accept _start=0 from clients as first item.
+            var normalizedStart = _start == 0 ? 1 : _start;
+            return await uManager.GetListAsync(normalizedStart, _end, _attribute, _filter);
 
         }
 

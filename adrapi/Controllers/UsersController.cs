@@ -45,7 +45,12 @@ namespace adrapi.Controllers
 
             var uManager = UserManager.Instance;
 
-            if (_start == 0 && _end != 0)
+            if (_start < 0 || _end < 0)
+            {
+                return Conflict();
+            }
+
+            if (_end < _start)
             {
                 return Conflict();
             }
@@ -55,11 +60,12 @@ namespace adrapi.Controllers
                 if (_filter == "")
                 {
                     if (_start == 0 && _end == 0) return await uManager.GetListAsync();
-                    return await uManager.GetListAsync(_start, _end);
+                    var normalizedStart = _start == 0 ? 1 : _start;
+                    return await uManager.GetListAsync(normalizedStart, _end);
                 }
 
                 if (_start == 0 && _end == 0) return await uManager.GetListAsync("", _filter);
-                return await uManager.GetListAsync(_start, _end, "", _filter);
+                return await uManager.GetListAsync(_start == 0 ? 1 : _start, _end, "", _filter);
                 
                 
             }
@@ -67,11 +73,11 @@ namespace adrapi.Controllers
             if (_filter == "")
             {
                 if (_start == 0 && _end == 0) return await uManager.GetListAsync(_attribute);
-                return await uManager.GetListAsync(_start, _end, _attribute);
+                return await uManager.GetListAsync(_start == 0 ? 1 : _start, _end, _attribute);
             }
             
             if (_start == 0 && _end == 0) return await uManager.GetListAsync(_attribute, _filter);
-            return await uManager.GetListAsync(_start, _end, _attribute, _filter);
+            return await uManager.GetListAsync(_start == 0 ? 1 : _start, _end, _attribute, _filter);
             
 
         }
