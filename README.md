@@ -65,9 +65,9 @@ Default Kestrel bindings are configured in code:
 
 ## API Documentation
 
-After starting the service, open:
-
-- `/swagger`
+- Interactive docs: `/swagger`
+- Detailed reference: `/Users/felipe/Dev/adrapi/docs/API_REFERENCE.md`
+- Usage guide: `/Users/felipe/Dev/adrapi/docs/USAGE_GUIDE.md`
 
 ## Development Notes
 
