@@ -1,0 +1,55 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: Build, tests, and coverage gate
+    runs-on: ubuntu-latest
+    env:
+      ADRAPI_COVERAGE_THRESHOLD: "0.70"
+      GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run quality gate
+        run: dotnet run --project build/_build.csproj -- Quality_Gate --configuration Release --changed-coverage-threshold $ADRAPI_COVERAGE_THRESHOLD
+
+  ldap-integration:
+    name: LDAP integration tests
+    if: ${{ vars.ADRAPI_RUN_LDAP_INTEGRATION == '1' }}
+    runs-on: ubuntu-latest
+    env:
+      ADRAPI_RUN_LDAP_INTEGRATION: "1"
+      GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run integration target
+        run: dotnet run --project build/_build.csproj -- Integration_Test --configuration Release

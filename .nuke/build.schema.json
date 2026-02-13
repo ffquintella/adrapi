@@ -40,14 +40,18 @@
         "Clean",
         "Compile",
         "Coverage",
+        "Coverage_Threshold",
         "Create_Docker_Image",
         "Deploy_Docker_Image",
+        "Integration_Test",
         "ListCommands",
         "Local_Publish",
         "Pack",
         "Quality_Gate",
+        "Regression_Test",
         "Restore",
-        "Test"
+        "Test",
+        "Unit_Test"
       ]
     },
     "Verbosity": {
@@ -121,6 +125,11 @@
   "allOf": [
     {
       "properties": {
+        "ChangedCoverageThreshold": {
+          "type": "number",
+          "description": "Minimum line coverage for changed source modules (0-1). Default 0.70",
+          "format": "double"
+        },
         "Configuration": {
           "type": "string"
         },

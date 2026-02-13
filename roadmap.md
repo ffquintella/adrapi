@@ -18,7 +18,7 @@ Use this section to track execution status for each stage and acceptance item.
 - [x] Stage 4 - OU Management Implementation
 - [x] Stage 5 - Security, Authorization, and Validation Hardening
 - [x] Stage 6 - Observability and Auditability
-- [-] Stage 7 - Testing and Quality Gates
+- [x] Stage 7 - Testing and Quality Gates
 - [ ] Stage 8 - Documentation and Client Usage
 
 
@@ -87,26 +87,26 @@ Use this section to track execution status for each stage and acceptance item.
 
 ### 7.2 Integration Test Coverage
 
-- [ ] LDAP-backed integration tests for:
-- [ ] Create group
-- [ ] Add members to group
-- [ ] Remove members from group
-- [ ] Replace membership set
-- [ ] Create/update/delete OU
-- [ ] Exists/list endpoints for groups and OUs
-- [ ] Authentication/authorization behavior for `Reading` and `Writting` policies.
+- [x] LDAP-backed integration tests for:
+- [x] Create group
+- [x] Add members to group
+- [x] Remove members from group
+- [x] Replace membership set
+- [x] Create/update/delete OU
+- [x] Exists/list endpoints for groups and OUs
+- [x] Authentication/authorization behavior for `Reading` and `Writting` policies.
 
 ### 7.3 Regression and Contract Tests
 
-- [-] Regression suite for existing v1/v2 endpoints that must remain stable.
-- [-] API contract tests for request/response schema and status codes.
-- [-] Negative tests for malformed DN, missing required fields, unknown members, and inaccessible LDAP.
+- [x] Regression suite for existing v1/v2 endpoints that must remain stable.
+- [x] API contract tests for request/response schema and status codes.
+- [x] Negative tests for malformed DN, missing required fields, unknown members, and inaccessible LDAP.
 
 ### 7.4 CI Quality Gates
 
-- [-] Enforce: build + unit + integration + regression tests must pass.
-- [ ] Enforce minimum coverage threshold for changed modules.
-- [ ] Block merges on failing tests.
+- [x] Enforce: build + unit + integration + regression tests must pass.
+- [x] Enforce minimum coverage threshold for changed modules.
+- [x] Block merges on failing tests.
 
 Deliverable: CI gates requiring passing tests and coverage for group/OU features. Stage 7 progress details: `/Users/felipe/Dev/adrapi/docs/STAGE7_TESTING_QUALITY.md`.
 
@@ -133,3 +133,6 @@ Use this section to record dated updates.
 - 2026-02-13: `Stage 7` started. Notes: added controller/audit unit tests and NUKE `Test` + `Quality_Gate` targets in `/Users/felipe/Dev/adrapi/build/Build.cs`.
 - 2026-02-13: `Stage 7` progress update. Notes: expanded test suite to 18 passing tests (controller validation/regression + audit helper tests) and enabled coverage artifact generation in `Quality_Gate`.
 - 2026-02-13: `Stage 7.1` completed. Notes: test suite expanded to 22 passing tests including manager logic unit tests.
+- 2026-02-13: `Stage 7.2` completed. Notes: LDAP-backed integration tests added in `/Users/felipe/Dev/adrapi/tests/LdapIntegrationTests.cs` and gated by `ADRAPI_RUN_LDAP_INTEGRATION=1`; default quality gate includes conditional integration target.
+- 2026-02-13: `Stage 7.3` completed. Notes: regression/contract/negative coverage completed with `/Users/felipe/Dev/adrapi/tests/RegressionContractTests.cs`, `/Users/felipe/Dev/adrapi/tests/ApiContractTests.cs`, and `/Users/felipe/Dev/adrapi/tests/NegativePathTests.cs`; `dotnet test` and NUKE `Quality_Gate` pass with 33 tests.
+- 2026-02-13: `Stage 7.4` completed. Notes: explicit unit/regression/integration quality gates plus changed-module coverage threshold are enforced in `/Users/felipe/Dev/adrapi/build/Build.cs` and `/Users/felipe/Dev/adrapi/scripts/check_changed_coverage.py`; merge-block CI workflow added at `/Users/felipe/Dev/adrapi/.github/workflows/quality-gate.yml`.

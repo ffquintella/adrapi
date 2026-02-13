@@ -43,6 +43,9 @@ class Build : NukeBuild
     [Parameter("Mandatory. Version part to bump: Major, Minor or Patch.")]
     readonly VersionBumpPart? Part;
 
+    [Parameter("Minimum line coverage for changed source modules (0-1). Default 0.70.")]
+    readonly double ChangedCoverageThreshold = 0.70;
+
     [Solution] readonly Solution Solution;
 
     AbsolutePath VersionFile => RootDirectory / "VERSION";
@@ -53,6 +56,7 @@ class Build : NukeBuild
     AbsolutePath PackDirectory => RootDirectory / "artifacts/nupkg";
     AbsolutePath AppDirectory => RootDirectory / "artifacts/app";
     AbsolutePath CoverageDirectory => RootDirectory / "artifacts/coverage";
+    AbsolutePath CoverageGateScript => RootDirectory / "scripts/check_changed_coverage.py";
 
     AbsolutePath DockerFile
     {
@@ -110,14 +114,11 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            AppDirectory.CreateDirectory();
-
             DotNetBuild(s => s
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
                 .SetAssemblyVersion(BuildVersion)
                 //.SetFileVersion(GitVersion.AssemblySemFileVer)
-                .SetOutputDirectory(AppDirectory)
                 .EnableNoRestore());
             
             /*MSBuild(o => o
@@ -139,6 +140,30 @@ class Build : NukeBuild
                 .EnableNoRestore());
         });
 
+    Target Unit_Test => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            Log.Write(LogEventLevel.Information, "Running unit/non-integration tests...");
+            DotNetTest(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration)
+                .EnableNoRestore()
+                .SetFilter("FullyQualifiedName!~LdapIntegrationTests.Integration_&FullyQualifiedName!~RegressionContractTests&FullyQualifiedName!~ApiContractTests&FullyQualifiedName!~NegativePathTests"));
+        });
+
+    Target Regression_Test => _ => _
+        .DependsOn(Compile)
+        .Executes(() =>
+        {
+            Log.Write(LogEventLevel.Information, "Running regression/contract/negative tests...");
+            DotNetTest(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration)
+                .EnableNoRestore()
+                .SetFilter("FullyQualifiedName~RegressionContractTests|FullyQualifiedName~ApiContractTests|FullyQualifiedName~NegativePathTests"));
+        });
+
     Target Coverage => _ => _
         .DependsOn(Compile)
         .Executes(() =>
@@ -148,11 +173,44 @@ class Build : NukeBuild
             DotNet($"test \"{Solution}\" --configuration {Configuration} --no-restore --collect:\"XPlat Code Coverage\" --results-directory \"{CoverageDirectory}\"");
         });
 
-    Target Quality_Gate => _ => _
-        .DependsOn(Test, Coverage)
+    Target Integration_Test => _ => _
+        .DependsOn(Compile)
+        .OnlyWhenDynamic(() => Environment.GetEnvironmentVariable("ADRAPI_RUN_LDAP_INTEGRATION") == "1")
         .Executes(() =>
         {
-            Log.Write(LogEventLevel.Information, "Quality gate passed (build + tests + coverage).");
+            Log.Write(LogEventLevel.Information, "Running LDAP-backed integration tests...");
+            DotNetTest(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration)
+                .EnableNoRestore()
+                .SetFilter("FullyQualifiedName~LdapIntegrationTests.Integration_"));
+        });
+
+    Target Coverage_Threshold => _ => _
+        .DependsOn(Coverage)
+        .Executes(() =>
+        {
+            if (!CoverageGateScript.FileExists())
+                throw new Exception($"Coverage gate script not found: {CoverageGateScript}");
+
+            var threshold = ChangedCoverageThreshold.ToString("0.00", CultureInfo.InvariantCulture);
+            var baseSha = Environment.GetEnvironmentVariable("GITHUB_BASE_SHA");
+            var headSha = Environment.GetEnvironmentVariable("GITHUB_SHA");
+
+            var args = $"\"{CoverageGateScript}\" --coverage-root \"{CoverageDirectory}\" --threshold {threshold}";
+            if (!string.IsNullOrWhiteSpace(baseSha))
+                args += $" --base-sha {baseSha}";
+            if (!string.IsNullOrWhiteSpace(headSha))
+                args += $" --head-sha {headSha}";
+
+            ProcessTasks.StartProcess("python3", args, RootDirectory, logOutput: true).AssertZeroExitCode();
+        });
+
+    Target Quality_Gate => _ => _
+        .DependsOn(Unit_Test, Regression_Test, Integration_Test, Coverage_Threshold)
+        .Executes(() =>
+        {
+            Log.Write(LogEventLevel.Information, "Quality gate passed (build + unit + regression + conditional integration + changed-module coverage).");
         });
 
     private Target Local_Publish => _ => _
