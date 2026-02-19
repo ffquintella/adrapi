@@ -538,10 +538,32 @@ namespace adrapi
 
         public async Task<bool> ValidateAuthenticationAsync(string login, string password)
         {
+            if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
+            {
+                return false;
+            }
+
+            var bindLogin = login.Trim();
+
+            // If caller provides a plain account name, resolve it first so bind is deterministic.
+            if (!bindLogin.Contains("=") && !bindLogin.Contains("@") && !bindLogin.Contains("\\"))
+            {
+                var adUser = await GetUserAsync(bindLogin, "sAMAccountName");
+                if (adUser != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(adUser.DN))
+                    {
+                        bindLogin = adUser.DN;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(adUser.Login))
+                    {
+                        bindLogin = adUser.Login;
+                    }
+                }
+            }
 
             LdapConnectionManager lcm = LdapConnectionManager.Instance;
-
-            return await lcm.ValidateAuthenticationAsync(login, password);
+            return await lcm.ValidateAuthenticationAsync(bindLogin, password);
 
         }
 
