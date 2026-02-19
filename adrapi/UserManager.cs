@@ -150,6 +150,8 @@ namespace adrapi
             var sMgmt = LdapQueryManager.Instance;
 
             int results = 0;
+            if (start < 1) start = 1;
+            if (end < start) end = start;
 
             string formatedFilter = "";
 
@@ -162,35 +164,67 @@ namespace adrapi
                     formatedFilter = "cn=" + filter;
             }
             
-            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.User, start, end, formatedFilter);
-         
+            string cookie = "";
+            string previousCookie = null;
+            int absoluteIndex = 0;
 
-            foreach (var entry in resps)
+            while (absoluteIndex < end)
             {
-                string u = "";
-                if (attributes.Count == 0)
+                var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie);
+                var entries = presp?.Entries ?? new List<LdapEntry>();
+                if (entries.Count == 0)
                 {
-                    u = entry.GetStringValueOrDefault("distinguishedName");
+                    response.Cookie = string.Empty;
+                    break;
                 }
-                else if (attributes.Count == 1)
-                {
-                    u = entry.GetStringValueOrDefault(attributes[0]);
-                }
-                else
-                {
-                    var projected = ProjectUserFromAttributes(entry, attributes);
-                    projectedUsers.Add(projected);
 
-                    var usernameKey = attributes.Contains("sAMAccountName") ? "sAMAccountName" : attributes[0];
-                    u = entry.GetStringValueOrDefault(usernameKey);
-                }
-                users.Add(u);
+                foreach (var entry in entries)
+                {
+                    absoluteIndex++;
+                    if (absoluteIndex < start)
+                    {
+                        continue;
+                    }
 
-                results++;
+                    if (absoluteIndex > end)
+                    {
+                        break;
+                    }
+
+                    string u = "";
+                    if (attributes.Count == 0)
+                    {
+                        u = entry.GetStringValueOrDefault("distinguishedName");
+                    }
+                    else if (attributes.Count == 1)
+                    {
+                        u = entry.GetStringValueOrDefault(attributes[0]);
+                    }
+                    else
+                    {
+                        var projected = ProjectUserFromAttributes(entry, attributes);
+                        projectedUsers.Add(projected);
+
+                        var usernameKey = attributes.Contains("sAMAccountName") ? "sAMAccountName" : attributes[0];
+                        u = entry.GetStringValueOrDefault(usernameKey);
+                    }
+                    users.Add(u);
+                    results++;
+                }
+
+                var nextCookie = presp?.Cookie ?? string.Empty;
+                response.Cookie = nextCookie;
+                if (string.IsNullOrWhiteSpace(nextCookie) || string.Equals(previousCookie, nextCookie, StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                previousCookie = nextCookie;
+                cookie = nextCookie;
             }
 
             response.SearchType = "User";
-            response.SearchMethod = LdapSearchMethod.Limited;
+            response.SearchMethod = LdapSearchMethod.Paged;
             response.UserNames = users;
             if (projectedUsers.Count > 0)
             {
