@@ -309,7 +309,16 @@ namespace adrapi.Ldap
 
             // Send the search request - Synchronous Search is being used here 
             logger.Debug("Calling Asynchronous Search...");
-            LdapSearchResults res = (LdapSearchResults) await conn.SearchAsync(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+            LdapSearchResults res;
+            try
+            {
+                res = (LdapSearchResults) await conn.SearchAsync(sb, LdapConnection.ScopeSub, filter, null, false, (LdapSearchConstraints)null);
+            }
+            catch (LdapException ex) when (ex.ResultCode == 12)
+            {
+                logger.Warn(ex, "LDAP server does not support VLV critical extension. Falling back to standard range search.");
+                return await ExecuteLimitedSearchFallbackAsync(searchBase, filter, start, end);
+            }
 
             // Loop through the results and print them out
             while (await res.HasMoreAsync())
@@ -323,6 +332,11 @@ namespace adrapi.Ldap
                 {
                     nextEntry = await res.NextAsync();
                     results.Add(nextEntry);
+                }
+                catch (LdapException ex) when (ex.ResultCode == 12)
+                {
+                    logger.Warn(ex, "LDAP server does not support VLV critical extension. Falling back to standard range search.");
+                    return await ExecuteLimitedSearchFallbackAsync(searchBase, filter, start, end);
                 }
                 catch (Exception e)
                 {
@@ -403,6 +417,34 @@ namespace adrapi.Ldap
             }
 
             return results;
+        }
+
+        private async Task<List<LdapEntry>> ExecuteLimitedSearchFallbackAsync(string searchBase, string filter, int start, int end)
+        {
+            var all = await ExecuteSearchAsync(searchBase, filter);
+            if (all.Count == 0)
+            {
+                return all;
+            }
+
+            if (start < 1)
+            {
+                start = 1;
+            }
+
+            var skip = start - 1;
+            if (skip >= all.Count)
+            {
+                return new List<LdapEntry>();
+            }
+
+            var take = end >= start ? (end - start + 1) : end;
+            if (take <= 0)
+            {
+                take = all.Count - skip;
+            }
+
+            return all.Skip(skip).Take(take).ToList();
         }
 
         public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, LdapSearchType type, string filter = "", string cookie = "")
