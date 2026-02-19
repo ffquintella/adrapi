@@ -15,6 +15,8 @@ namespace adrapi
 {
     public class UserManager : ObjectManager
     {
+        private const int MemberOfRangeWindow = 1500;
+
         private static readonly string[] userAttrs = new string[] {
             "name",
             "givenName",
@@ -91,15 +93,10 @@ namespace adrapi
                     user.GivenName = entry.GetStringValueOrDefault("cn");
 
 
-                    if (entry.GetAttributeSet().ContainsKey("memberOf"))
+                    var memberOfDns = GetAttributeStringValues(entry, "memberOf");
+                    foreach (var groupDn in memberOfDns)
                     {
-                        var groupsStr = entry.GetAttributeSet("memberOf");// .GetAttribute("memberOf").StringValueArray;
-                        foreach (var grp in groupsStr)
-                        {
-                            var group = new Group();
-                            group.Name = grp.StringValue;
-                            user.MemberOf.Add(group);
-                        }
+                        user.MemberOf.Add(CreateGroupFromDn(groupDn));
                     }
 
                     users.Add(user);
@@ -413,6 +410,11 @@ namespace adrapi
                 }
 
                 var user = ConvertfromLdap(entry);
+                var userDn = !string.IsNullOrWhiteSpace(user.DN) ? user.DN : entry.Dn;
+                var fullMemberOfDns = await GetCompleteMemberOfDnsAsync(userDn, entry);
+                user.MemberOf = fullMemberOfDns
+                    .Select(CreateGroupFromDn)
+                    .ToList();
                 return user;
             }catch(LdapException ex)
             {
@@ -479,7 +481,8 @@ namespace adrapi
                 response.Attributes[attr.Name] = values;
             }
 
-            if (response.Attributes.TryGetValue("memberOf", out var memberOf))
+            var memberOf = await GetCompleteMemberOfDnsAsync(response.DistinguishedName, entry);
+            if (memberOf != null)
             {
                 response.MemberOfDns = memberOf;
                 response.MemberOfCns = memberOf
@@ -708,26 +711,10 @@ namespace adrapi
             if(entry.GetAttributeSet().ContainsKey("mail")) user.Mail = entry.GetStringValueOrDefault("mail");
             if(entry.GetAttributeSet().ContainsKey("mobile")) user.Mobile = entry.GetStringValueOrDefault("mobile");
 
-            if (entry.GetAttributeSet().ContainsKey("memberOf"))
+            var memberships = GetAttributeStringValues(entry, "memberOf");
+            foreach (var groupDn in memberships)
             {
-                var attrMo = entry.GetAttributeSet("memberOf");// .GetAttribute("memberOf");
-
-                var mofs = attrMo.Values;
-                
-                //var mofs = attrMo.StringValues;
-
-                foreach(var mof in mofs) {
-                    var group = new Group();
-                    group.DN = mof.StringValue;
-                    var groupDn = mof.StringValue;
-                    var cnPart = groupDn?.Split(',').FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(cnPart) && cnPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        group.Name = cnPart.Substring(3);
-                    }
-                    user.MemberOf.Add(group);
-                }
-                
+                user.MemberOf.Add(CreateGroupFromDn(groupDn));
             }
 
 
@@ -738,6 +725,219 @@ namespace adrapi
         private static bool LooksLikeDistinguishedName(string value)
         {
             return !string.IsNullOrWhiteSpace(value) && value.Contains("=");
+        }
+
+        private static List<string> GetAttributeStringValues(LdapEntry entry, string attributeName)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(attributeName))
+            {
+                return new List<string>();
+            }
+
+            var values = new List<string>();
+            foreach (LdapAttribute attribute in entry.GetAttributeSet())
+            {
+                var key = attribute.Name;
+                if (attribute == null || string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(key, attributeName, StringComparison.OrdinalIgnoreCase)
+                    && !TryParseRangeAttributeName(key, attributeName, out _, out _, out _))
+                {
+                    continue;
+                }
+
+                if (attribute.StringValueArray != null && attribute.StringValueArray.Length > 0)
+                {
+                    values.AddRange(attribute.StringValueArray.Where(v => !string.IsNullOrWhiteSpace(v)));
+                }
+                else if (!string.IsNullOrWhiteSpace(attribute.StringValue))
+                {
+                    values.Add(attribute.StringValue);
+                }
+            }
+
+            return values
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static Group CreateGroupFromDn(string groupDn)
+        {
+            var group = new Group
+            {
+                DN = groupDn
+            };
+
+            var cnPart = groupDn?.Split(',').FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(cnPart) && cnPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+            {
+                group.Name = cnPart.Substring(3);
+            }
+
+            return group;
+        }
+
+        private async Task<List<string>> GetCompleteMemberOfDnsAsync(string userDn, LdapEntry seedEntry = null)
+        {
+            var memberships = new List<string>();
+            if (!string.IsNullOrWhiteSpace(userDn) && seedEntry != null)
+            {
+                memberships.AddRange(GetAttributeStringValues(seedEntry, "memberOf"));
+            }
+
+            if (string.IsNullOrWhiteSpace(userDn))
+            {
+                return memberships
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            LdapEntry currentEntry = seedEntry;
+            var nextRangeStart = GetNextRangeStart(currentEntry, "memberOf");
+            if (nextRangeStart < 0)
+            {
+                return memberships
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            var sMgmt = LdapQueryManager.Instance;
+            while (nextRangeStart >= 0)
+            {
+                var requestedRange = $"memberOf;range={nextRangeStart}-{nextRangeStart + MemberOfRangeWindow - 1}";
+                try
+                {
+                    currentEntry = await sMgmt.GetRegister(userDn, new[] { requestedRange });
+                }
+                catch
+                {
+                    break;
+                }
+
+                if (currentEntry == null)
+                {
+                    break;
+                }
+
+                memberships.AddRange(GetAttributeStringValues(currentEntry, "memberOf"));
+
+                if (HasCompletedRangedAttribute(currentEntry, "memberOf"))
+                {
+                    break;
+                }
+
+                var newNextRangeStart = GetNextRangeStart(currentEntry, "memberOf");
+                if (newNextRangeStart <= nextRangeStart)
+                {
+                    break;
+                }
+
+                nextRangeStart = newNextRangeStart;
+            }
+
+            return memberships
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool HasCompletedRangedAttribute(LdapEntry entry, string attributeName)
+        {
+            if (entry == null)
+            {
+                return false;
+            }
+
+            foreach (LdapAttribute attribute in entry.GetAttributeSet())
+            {
+                if (TryParseRangeAttributeName(attribute.Name, attributeName, out _, out _, out var terminal) && terminal)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int GetNextRangeStart(LdapEntry entry, string attributeName)
+        {
+            if (entry == null)
+            {
+                return -1;
+            }
+
+            var highestEnd = -1;
+            var hasRange = false;
+
+            foreach (LdapAttribute attribute in entry.GetAttributeSet())
+            {
+                if (!TryParseRangeAttributeName(attribute.Name, attributeName, out _, out var end, out var terminal))
+                {
+                    continue;
+                }
+
+                hasRange = true;
+                if (terminal)
+                {
+                    return -1;
+                }
+
+                if (end > highestEnd)
+                {
+                    highestEnd = end;
+                }
+            }
+
+            return hasRange ? highestEnd + 1 : -1;
+        }
+
+        private static bool TryParseRangeAttributeName(string attributeKey, string baseAttributeName, out int start, out int end, out bool terminal)
+        {
+            start = -1;
+            end = -1;
+            terminal = false;
+
+            if (string.IsNullOrWhiteSpace(attributeKey) || string.IsNullOrWhiteSpace(baseAttributeName))
+            {
+                return false;
+            }
+
+            var prefix = $"{baseAttributeName};range=";
+            if (!attributeKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var rangePart = attributeKey.Substring(prefix.Length);
+            var separatorIndex = rangePart.IndexOf('-');
+            if (separatorIndex <= 0 || separatorIndex >= rangePart.Length - 1)
+            {
+                return false;
+            }
+
+            var startPart = rangePart.Substring(0, separatorIndex);
+            var endPart = rangePart.Substring(separatorIndex + 1);
+
+            if (!int.TryParse(startPart, out start))
+            {
+                return false;
+            }
+
+            if (endPart == "*")
+            {
+                terminal = true;
+                end = int.MaxValue;
+                return true;
+            }
+
+            if (!int.TryParse(endPart, out end))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private async Task<LdapEntry> ResolveUserEntryAsync(string userID)
