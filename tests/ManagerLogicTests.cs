@@ -17,6 +17,13 @@ namespace tests
             return method.Invoke(instance, args);
         }
 
+        private static object InvokeNonPublicStatic(Type type, string methodName, params object[] args)
+        {
+            var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.NotNull(method);
+            return method.Invoke(null, args);
+        }
+
         [Fact]
         public void GroupManager_GetAttributeSet_ContainsCoreAndMembers()
         {
@@ -101,6 +108,35 @@ namespace tests
             Assert.Equal("Infra", ou.Name);
             Assert.Equal("Infrastructure", ou.Description);
             Assert.Equal("OU=Infra,DC=homologa,DC=br", ou.DN);
+        }
+
+        [Fact]
+        public void UserManager_GetAttributeStringValues_ReadsRangedMemberOfValues()
+        {
+            var attrSet = new LdapAttributeSet
+            {
+                new LdapAttribute("memberOf;range=0-1", new[]
+                {
+                    "CN=GrpA,OU=Groups,DC=homologa,DC=br",
+                    "CN=GrpB,OU=Groups,DC=homologa,DC=br"
+                }),
+                new LdapAttribute("memberOf;range=2-*", new[]
+                {
+                    "CN=GrpC,OU=Groups,DC=homologa,DC=br"
+                })
+            };
+
+            var entry = new LdapEntry("CN=User,OU=Users,DC=homologa,DC=br", attrSet);
+            var values = (System.Collections.Generic.List<string>)InvokeNonPublicStatic(
+                typeof(UserManager),
+                "GetAttributeStringValues",
+                entry,
+                "memberOf");
+
+            Assert.Equal(3, values.Count);
+            Assert.Contains("CN=GrpA,OU=Groups,DC=homologa,DC=br", values);
+            Assert.Contains("CN=GrpB,OU=Groups,DC=homologa,DC=br", values);
+            Assert.Contains("CN=GrpC,OU=Groups,DC=homologa,DC=br", values);
         }
     }
 }
