@@ -213,6 +213,10 @@ namespace adrapi.Controllers.V2
         [HttpPost("{userId}/authenticate")]
         public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
         {
+            if (req == null || string.IsNullOrWhiteSpace(req.Password))
+            {
+                return BadRequest();
+            }
 
             var uManager = UserManager.Instance;
 
@@ -257,7 +261,7 @@ namespace adrapi.Controllers.V2
 
             string login;
 
-            if (req.Login == null)
+            if (req == null || string.IsNullOrWhiteSpace(req.Login) || string.IsNullOrWhiteSpace(req.Password))
             {
                 logger.LogDebug(AuthenticationItem, "Invalid Authentication request without login");
                 return BadRequest();
