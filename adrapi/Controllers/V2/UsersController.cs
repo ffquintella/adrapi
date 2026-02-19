@@ -171,6 +171,27 @@ namespace adrapi.Controllers.V2
 
         }
 
+        // GET api/users/:user/attributes
+        [HttpGet("{user}/attributes")]
+        public async Task<ActionResult<UserAttributeInspectionResponse>> GetAttributes(string user, [FromQuery] string _lookupAttribute = "sAMAccountName")
+        {
+            this.ProcessRequest();
+
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                return BadRequest();
+            }
+
+            var uManager = UserManager.Instance;
+            var inspection = await uManager.InspectUserAttributesAsync(user, _lookupAttribute);
+            if (inspection == null)
+            {
+                return NotFound();
+            }
+
+            return inspection;
+        }
+
         // GET api/users/:user/member-of/:group
         [HttpGet("{DN}/member-of/{group}")]
         public async Task<IActionResult> IsMemberOf(string DN, string group)

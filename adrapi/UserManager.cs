@@ -424,6 +424,77 @@ namespace adrapi
 
         }
 
+        public async Task<UserAttributeInspectionResponse> InspectUserAttributesAsync(string lookupValue, string lookupAttribute = "sAMAccountName")
+        {
+            if (string.IsNullOrWhiteSpace(lookupValue))
+            {
+                return null;
+            }
+
+            var sMgmt = LdapQueryManager.Instance;
+            var lookupAttr = string.IsNullOrWhiteSpace(lookupAttribute) ? "sAMAccountName" : lookupAttribute;
+
+            LdapEntry entry = null;
+            if (lookupValue.Contains("="))
+            {
+                try
+                {
+                    entry = await sMgmt.GetRegister(lookupValue);
+                }
+                catch
+                {
+                    entry = null;
+                }
+            }
+
+            if (entry == null)
+            {
+                var filter = $"(&(objectClass=user)(objectCategory=person)({LdapInjectionControll.EscapeForSearchFilter(lookupAttr)}={LdapInjectionControll.EscapeForSearchFilter(lookupValue)}))";
+                var search = await sMgmt.ExecutePagedSearchAsync("", filter);
+                entry = search.Entries.FirstOrDefault();
+            }
+
+            if (entry == null)
+            {
+                return null;
+            }
+
+            var response = new UserAttributeInspectionResponse
+            {
+                LookupValue = lookupValue,
+                LookupAttribute = lookupAttr,
+                DistinguishedName = entry.GetStringValueOrDefault("distinguishedName")
+            };
+
+            foreach (LdapAttribute attr in entry.GetAttributeSet())
+            {
+                var values = new List<string>();
+                if (attr.StringValueArray != null && attr.StringValueArray.Length > 0)
+                {
+                    values.AddRange(attr.StringValueArray.Where(v => !string.IsNullOrWhiteSpace(v)));
+                }
+                else if (attr.ByteValue != null)
+                {
+                    values.Add("base64:" + Convert.ToBase64String(attr.ByteValue));
+                }
+
+                response.Attributes[attr.Name] = values;
+            }
+
+            if (response.Attributes.TryGetValue("memberOf", out var memberOf))
+            {
+                response.MemberOfDns = memberOf;
+                response.MemberOfCns = memberOf
+                    .Select(dn => dn?.Split(',').FirstOrDefault())
+                    .Where(part => !string.IsNullOrWhiteSpace(part) && part.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                    .Select(part => part.Substring(3))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            return response;
+        }
+
         /// <summary>
         /// Creates the user on LDAP Directory.
         /// </summary>
@@ -650,6 +721,12 @@ namespace adrapi
                 foreach(var mof in mofs) {
                     var group = new Group();
                     group.DN = mof.StringValue;
+                    var groupDn = mof.StringValue;
+                    var cnPart = groupDn?.Split(',').FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(cnPart) && cnPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        group.Name = cnPart.Substring(3);
+                    }
                     user.MemberOf.Add(group);
                 }
                 
