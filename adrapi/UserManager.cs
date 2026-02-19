@@ -380,40 +380,38 @@ namespace adrapi
 
             try
             {
-                
-                LdapEntry entry;
-                
-                if (attribute != "")
+                if (string.IsNullOrWhiteSpace(userID))
                 {
-                    
-                    var results = await sMgmt.ExecutePagedSearchAsync("", "(&(objectClass=user)(objectCategory=person)("+LdapInjectionControll.EscapeForSearchFilter(attribute)+"="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
+                    return null;
+                }
 
+                LdapEntry entry = null;
+                var normalizedAttribute = string.IsNullOrWhiteSpace(attribute) ? "" : NormalizeAttributeName(attribute.Trim());
+                var lookupValue = userID.Trim();
 
-                    if (results.Entries.Count == 0)
+                if (normalizedAttribute != "")
+                {
+                    if (string.Equals(normalizedAttribute, "distinguishedName", StringComparison.OrdinalIgnoreCase) || LooksLikeDistinguishedName(lookupValue))
                     {
-                        logger.Debug("User not found {0}", userID);
-                        return null;
+                        entry = await TryGetUserEntryByDnAsync(lookupValue);
                     }
-                    
-                    entry = results.Entries.First();
 
+                    if (entry == null)
+                    {
+                        entry = await FindUserEntryByAttributeAsync(lookupValue, normalizedAttribute);
+                    }
                 }
                 else
                 {
-                    var results = await sMgmt.ExecutePagedSearchAsync("", "(&(objectClass=user)(objectCategory=person)(sAMAccountName="+LdapInjectionControll.EscapeForSearchFilter(userID)+"))");
-
-                    if (results.Entries.Count == 0)
-                    {
-                        logger.Debug("User not found {0}", userID);
-                        return null;
-                    }
-                    
-                    entry = results.Entries.First();
-                    
-                    //entry = sMgmt.GetRegister(userID, userAttrs);
+                    entry = await ResolveUserEntryAsync(lookupValue);
                 }
-                
-                //entry = sMgmt.GetRegister(userID);
+
+                if (entry == null)
+                {
+                    logger.Debug("User not found {0}", userID);
+                    return null;
+                }
+
                 var user = ConvertfromLdap(entry);
                 return user;
             }catch(LdapException ex)
@@ -735,6 +733,63 @@ namespace adrapi
 
 
             return user;
+        }
+
+        private static bool LooksLikeDistinguishedName(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value) && value.Contains("=");
+        }
+
+        private async Task<LdapEntry> ResolveUserEntryAsync(string userID)
+        {
+            if (LooksLikeDistinguishedName(userID))
+            {
+                var byDn = await TryGetUserEntryByDnAsync(userID);
+                if (byDn != null)
+                {
+                    return byDn;
+                }
+            }
+
+            var bySamAccountName = await FindUserEntryByAttributeAsync(userID, "sAMAccountName");
+            if (bySamAccountName != null)
+            {
+                return bySamAccountName;
+            }
+
+            return await FindUserEntryByAttributeAsync(userID, "userPrincipalName");
+        }
+
+        private async Task<LdapEntry> FindUserEntryByAttributeAsync(string value, string attribute)
+        {
+            var sMgmt = LdapQueryManager.Instance;
+            var filter = $"(&(objectClass=user)(objectCategory=person)({LdapInjectionControll.EscapeForSearchFilter(attribute)}={LdapInjectionControll.EscapeForSearchFilter(value)}))";
+            var results = await sMgmt.ExecutePagedSearchAsync("", filter);
+            var entry = results.Entries.FirstOrDefault();
+            if (entry == null)
+            {
+                return null;
+            }
+
+            return await TryGetUserEntryByDnAsync(entry.Dn) ?? entry;
+        }
+
+        private async Task<LdapEntry> TryGetUserEntryByDnAsync(string dn)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return null;
+            }
+
+            var sMgmt = LdapQueryManager.Instance;
+            try
+            {
+                return await sMgmt.GetRegister(dn, userAttrs);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

@@ -75,6 +75,22 @@ namespace tests
             }
         }
 
+        private static string ExtractCnFromDn(string dn)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return null;
+            }
+
+            var first = dn.Split(',').FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(first) || !first.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return first.Substring(3);
+        }
+
         [Fact]
         public async Task Integration_GroupLifecycleAndMembership_Works()
         {
@@ -228,6 +244,85 @@ namespace tests
             {
                 await controller.Delete(ouDn);
             }
+        }
+
+        [Fact]
+        public async Task Integration_UserMembershipReadEndpoints_AreConsistent_ForDnAndCnInputs()
+        {
+            if (!IntegrationEnabled)
+            {
+                return;
+            }
+
+            var config = BuildConfiguration();
+            Assert.True(await CanConnectAsync(config), "LDAP integration is enabled but connection/bind failed.");
+
+            var users = await UserManager.Instance.GetListAsync();
+            var accountCandidates = users.UserNames?.Where(a => !string.IsNullOrWhiteSpace(a)).Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new List<string>();
+            if (accountCandidates.Count == 0)
+            {
+                return;
+            }
+
+            adrapi.domain.User memberUser = null;
+            string targetGroupDn = null;
+            foreach (var account in accountCandidates)
+            {
+                var candidate = await UserManager.Instance.GetUserAsync(account);
+                var memberDn = candidate?.MemberOf?.Select(m => m?.DN).FirstOrDefault(dn => !string.IsNullOrWhiteSpace(dn));
+                if (candidate != null && !string.IsNullOrWhiteSpace(memberDn))
+                {
+                    memberUser = candidate;
+                    targetGroupDn = memberDn;
+                    break;
+                }
+            }
+
+            if (memberUser == null || string.IsNullOrWhiteSpace(targetGroupDn))
+            {
+                return;
+            }
+
+            var targetGroupCn = ExtractCnFromDn(targetGroupDn);
+            if (string.IsNullOrWhiteSpace(targetGroupCn))
+            {
+                return;
+            }
+
+            var usersController = new V2UsersController(NullLogger<V1UsersController>.Instance, config);
+            var groupsController = new V2GroupsController(NullLogger<V2GroupsController>.Instance, config);
+            SetupContext(usersController);
+            SetupContext(groupsController);
+
+            var getUser = await usersController.Get(memberUser.Account);
+            var getUserValue = Assert.IsType<adrapi.domain.User>(getUser.Value);
+            Assert.Contains(getUserValue.MemberOf, g => string.Equals(g.DN, targetGroupDn, StringComparison.OrdinalIgnoreCase));
+
+            var membershipByDn = await usersController.IsMemberOf(memberUser.DN, targetGroupDn);
+            Assert.IsType<OkResult>(membershipByDn);
+
+            var membershipByCn = await usersController.IsMemberOf(memberUser.DN, targetGroupCn);
+            Assert.IsType<OkResult>(membershipByCn);
+
+            var membershipBySam = await usersController.IsMemberOf(memberUser.Account, targetGroupDn);
+            Assert.IsType<OkResult>(membershipBySam);
+
+            if (!string.IsNullOrWhiteSpace(memberUser.Login))
+            {
+                var membershipByUpn = await usersController.IsMemberOf(memberUser.Login, targetGroupDn);
+                Assert.IsType<OkResult>(membershipByUpn);
+            }
+
+            var userGroups = await usersController.GetGroups(memberUser.Account);
+            var userGroupsValue = Assert.IsType<UserGroupsResponse>(userGroups.Value);
+            Assert.Contains(targetGroupDn, userGroupsValue.MemberOfDns, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains(targetGroupCn, userGroupsValue.MemberOfCns, StringComparer.OrdinalIgnoreCase);
+
+            var membersByGroupDn = await groupsController.GetMembers(targetGroupDn, false);
+            Assert.Contains(memberUser.DN, membersByGroupDn.Value, StringComparer.OrdinalIgnoreCase);
+
+            var membersByGroupCn = await groupsController.GetMembers(targetGroupCn, false);
+            Assert.Contains(memberUser.DN, membersByGroupCn.Value, StringComparer.OrdinalIgnoreCase);
         }
 
         [Fact]

@@ -12,6 +12,7 @@ using adrapi.domain;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using adrapi.Models;
+using System.Linq;
 
 namespace adrapi.Controllers.V2
 {
@@ -193,26 +194,29 @@ namespace adrapi.Controllers.V2
         }
 
         // GET api/users/:user/member-of/:group
-        [HttpGet("{DN}/member-of/{group}")]
-        public async Task<IActionResult> IsMemberOf(string DN, string group)
+        [HttpGet("{user}/member-of/{group}")]
+        public async Task<IActionResult> IsMemberOf(string user, string group)
         {
             this.ProcessRequest();
+
+            if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(group))
+            {
+                return BadRequest();
+            }
 
             var uManager = UserManager.Instance;
 
             try
             {
-                logger.LogDebug(ItemExists, "User DN={dn} found", DN);
-                var user = await uManager.GetUserAsync(DN);
-
-
-                foreach (domain.Group grp in user.MemberOf)
+                logger.LogDebug(ItemExists, "Checking membership for user={user} group={group}", user, group);
+                var adUser = await uManager.GetUserAsync(user);
+                if (adUser == null)
                 {
-                    if (grp.DN == group)
-                    {
-                        return Ok();
-                    }
+                    return NotFound();
                 }
+
+                if (IsMembershipMatch(adUser, group))
+                    return Ok();
 
                 // Rerturns 460 code telling that the user exists but it's not a member 
                 return StatusCode(250);
@@ -225,6 +229,44 @@ namespace adrapi.Controllers.V2
                 return NotFound();
             }
 
+        }
+
+        [HttpGet("{user}/groups")]
+        public async Task<ActionResult<UserGroupsResponse>> GetGroups(string user)
+        {
+            this.ProcessRequest();
+
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                return BadRequest();
+            }
+
+            var uManager = UserManager.Instance;
+            var adUser = await uManager.GetUserAsync(user);
+            if (adUser == null)
+            {
+                return NotFound();
+            }
+
+            var groupDns = adUser.MemberOf
+                .Select(g => g?.DN)
+                .Where(dn => !string.IsNullOrWhiteSpace(dn))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var groupCns = groupDns
+                .Select(ExtractCnFromDn)
+                .Where(cn => !string.IsNullOrWhiteSpace(cn))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return new UserGroupsResponse
+            {
+                LookupValue = user,
+                DistinguishedName = adUser.DN,
+                MemberOfDns = groupDns,
+                MemberOfCns = groupCns
+            };
         }
         #endregion
 
@@ -447,6 +489,54 @@ namespace adrapi.Controllers.V2
         }
 
         #endregion
+
+        private static bool IsMembershipMatch(User user, string group)
+        {
+            if (user == null || string.IsNullOrWhiteSpace(group))
+            {
+                return false;
+            }
+
+            var normalizedGroup = group.Trim();
+            var compareAsDn = normalizedGroup.Contains("=");
+
+            return user.MemberOf.Any(member =>
+            {
+                if (string.IsNullOrWhiteSpace(member?.DN))
+                {
+                    return false;
+                }
+
+                if (string.Equals(member.DN, normalizedGroup, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (compareAsDn)
+                {
+                    return false;
+                }
+
+                var memberCn = !string.IsNullOrWhiteSpace(member.Name) ? member.Name : ExtractCnFromDn(member.DN);
+                return string.Equals(memberCn, normalizedGroup, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        private static string ExtractCnFromDn(string dn)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return null;
+            }
+
+            var firstPart = dn.Split(',').FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(firstPart) || !firstPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return firstPart.Substring(3);
+        }
     }
 
 }
