@@ -160,32 +160,38 @@ namespace adrapi.Controllers
 
 
         // GET api/groups/:group/members
-        [HttpGet("{DN}/members")]
-        public async Task<ActionResult<List<String>>> GetMembers(string DN, [FromQuery]Boolean _listCN = false)
+        [HttpGet("{groupId}/members")]
+        public async Task<ActionResult<List<String>>> GetMembers(string groupId, [FromQuery]Boolean _listCN = false)
         {
             this.ProcessRequest();
-            if (!IsValidGroupDn(DN))
+
+            if (string.IsNullOrWhiteSpace(groupId))
             {
-                return Conflict();
+                return BadRequest();
             }
 
             var gManager = GroupManager.Instance;
 
             try
             {
-                logger.LogDebug(ListItems, "Group DN={dn} found", DN);
-                var group = await gManager.GetGroupAsync(DN, _listCN);
+                logger.LogDebug(ListItems, "Resolving group members for groupId={groupId}", groupId);
+                var group = await gManager.GetGroupAsync(groupId, false);
+                if (group == null)
+                {
+                    group = await gManager.GetGroupAsync(groupId, false, true);
+                }
+
                 if (group == null)
                 {
                     return NotFound();
                 }
 
-                return group.Member;
+                return ToMemberResponse(group.Member, _listCN);
 
             }
             catch (Exception ex)
             {
-                logger.LogError(ListItems, "Error listing members for group DN={dn}. err:" + ex.Message, DN);
+                logger.LogError(ListItems, "Error listing members for group={groupId}. err:" + ex.Message, groupId);
                 return this.StatusCode(500);
             }
 
@@ -475,6 +481,36 @@ namespace adrapi.Controllers
         {
             var regex = new Regex(@"\Acn=(?<gname>[^,]+?),", RegexOptions.IgnoreCase);
             return regex.IsMatch(dn);
+        }
+
+        private static List<string> ToMemberResponse(IEnumerable<string> members, bool listCn)
+        {
+            var list = members?.ToList() ?? new List<string>();
+            if (!listCn)
+            {
+                return list;
+            }
+
+            return list
+                .Select(ExtractCnFromDn)
+                .Where(cn => !string.IsNullOrWhiteSpace(cn))
+                .ToList();
+        }
+
+        private static string ExtractCnFromDn(string dn)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return null;
+            }
+
+            var firstPart = dn.Split(',').FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(firstPart) || !firstPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return firstPart.Substring(3);
         }
     }
 }

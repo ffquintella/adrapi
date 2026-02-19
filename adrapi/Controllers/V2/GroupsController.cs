@@ -181,11 +181,11 @@ namespace adrapi.Controllers.V2
 
             try
             {
-                logger.LogDebug(ListItems, "Group DN={dn} found", groupId);
-                var group = await gManager.GetGroupAsync(groupId, _listCN);
+                logger.LogDebug(ListItems, "Resolving group members for groupId={groupId}", groupId);
+                var group = await gManager.GetGroupAsync(groupId, false);
                 if (group == null)
                 {
-                    group = await gManager.GetGroupAsync(groupId, _listCN, true);
+                    group = await gManager.GetGroupAsync(groupId, false, true);
                 }
 
                 if (group == null)
@@ -193,7 +193,7 @@ namespace adrapi.Controllers.V2
                     return NotFound();
                 }
 
-                return group.Member;
+                return ToMemberResponse(group.Member, _listCN);
 
             }
             catch (Exception ex)
@@ -575,6 +575,36 @@ namespace adrapi.Controllers.V2
             }
 
             return value.Contains("=") && value.Contains(",");
+        }
+
+        private static List<string> ToMemberResponse(IEnumerable<string> members, bool listCn)
+        {
+            var list = members?.ToList() ?? new List<string>();
+            if (!listCn)
+            {
+                return list;
+            }
+
+            return list
+                .Select(ExtractCnFromDn)
+                .Where(cn => !string.IsNullOrWhiteSpace(cn))
+                .ToList();
+        }
+
+        private static string ExtractCnFromDn(string dn)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return null;
+            }
+
+            var firstPart = dn.Split(',').FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(firstPart) || !firstPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return firstPart.Substring(3);
         }
 
         private async Task<bool> HasConflictingGroupAsync(string dn, string groupName)
