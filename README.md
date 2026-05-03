@@ -66,10 +66,10 @@ Default Kestrel bindings are configured in code:
 ## API Documentation
 
 - Interactive docs: `/swagger`
-- Detailed reference: `/Users/felipe/Dev/adrapi/docs/API_REFERENCE.md`
-- Usage guide: `/Users/felipe/Dev/adrapi/docs/USAGE_GUIDE.md`
-- Migration notes: `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`
-- Curl collection: `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`
+- Detailed reference: `adrapi/docs/API_REFERENCE.md`
+- Usage guide: `adrapi/docs/USAGE_GUIDE.md`
+- Migration notes: `adrapi/docs/MIGRATION_NOTES.md`
+- Curl collection: `adrapi/docs/CURL_COLLECTION.md`
 
 ## Development Notes
 
