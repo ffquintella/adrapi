@@ -181,6 +181,51 @@ deploy time from a secret-manager-sourced seed via the CLI).
 Test keys live in an ephemeral SQLite file created by each test fixture
 (`tests/Security.cs`); nothing about test data is persisted.
 
+### Encrypted Application Secrets (LDAP credentials etc.)
+
+Sensitive config values — `ldap:bindDn`, `ldap:bindCredentials`,
+`certificate:password` — are stored encrypted in the same SQLite database as
+the API keys (table `app_secrets`). On startup the API reads and decrypts them
+into the standard `IConfiguration` tree, so existing code (`LdapConfig`,
+`certificate:*`) keeps working without changes.
+
+**Encryption.** ChaCha20-Poly1305 (256-bit key, AEAD, RFC 8439 — quantum-safe
+in practice: Grover's algorithm only halves effective key strength to 128 bits,
+still secure). The 256-bit key is derived via HKDF-SHA256 from:
+
+- the **machine ID** (`/etc/machine-id` on Linux, `ioreg IOPlatformUUID` on
+  macOS, `HKLM\…\MachineGuid` on Windows; falls back to hostname+OS), and
+- a **random 32-byte seed** generated on first run of the CLI tool and stored
+  at `cfg/.seed` (0600 on Unix), configurable via `security:seedFile`.
+
+Both factors are required to decrypt: an attacker with the SQLite file alone
+sees nothing useful; with seed + DB but on a different host, decryption still
+fails. Conversely, **if you migrate hosts or lose the seed, the data is
+unrecoverable** — back up the seed file out-of-band.
+
+**Managing secrets** (same CLI tool, `secret` subcommand group):
+
+```bash
+# Set a value interactively (input hidden) or with --value
+dotnet run --project tools/AdrapiApiKeys -- secret set --name "ldap:bindCredentials"
+
+# List secret names (values stay encrypted)
+dotnet run --project tools/AdrapiApiKeys -- secret list
+
+# Decrypt and print
+dotnet run --project tools/AdrapiApiKeys -- secret get --name "ldap:bindCredentials"
+
+# Delete
+dotnet run --project tools/AdrapiApiKeys -- secret remove --name "ldap:bindCredentials"
+
+# One-shot migration from appsettings/user-secrets JSON
+dotnet run --project tools/AdrapiApiKeys -- secret import-ldap \
+    --from ~/.microsoft/usersecrets/<UserSecretsId>/secrets.json
+```
+
+On the very first `secret` command the tool generates and announces the seed
+file with a prominent banner. Back it up.
+
 ### Rate Limiting on Authentication Endpoints
 
 `POST /api/users/{userId}/authenticate` and `POST /api/users/authenticate` are

@@ -7,12 +7,31 @@
   from `cfg/api-keys.db` (configurable via `security:databaseFile`). Only
   Argon2id PHC-encoded hashes (OWASP 2024 params: 19 MiB / t=2 / p=1) are
   persisted — plaintext secrets are never stored.
-- **`tools/AdrapiApiKeys` CLI** for managing the store: `add`, `list`,
-  `rotate`, `remove`, `verify`, `import`. `add` and `rotate` generate
-  cryptographically random 32-byte secrets and print them once.
+- **`tools/AdrapiApiKeys` CLI** for managing the store, redesigned for
+  interactive use: grouped `key` and `secret` commands, prompts with hidden
+  input for secrets, confirmation prompts for destructive ops, colorized
+  success/error markers, and a boxed banner highlighting the printed secret
+  on `key add` / `key rotate` (the only moments a plaintext secret is shown).
+  Backward-compatible flat aliases (`add`, `list`, `rotate`, etc.) preserved.
+- **Encrypted application secrets** (`app_secrets` table in the same SQLite DB):
+  LDAP bind credentials and the HTTPS certificate password move out of
+  `IConfiguration` JSON/user-secrets into AEAD-encrypted rows. Algorithm:
+  ChaCha20-Poly1305 (RFC 8439, 256-bit key, quantum-safe at 128-bit Grover
+  margin). The key is derived via HKDF-SHA256 from the machine ID blended
+  with a 32-byte seed generated on first run of the CLI tool (path
+  configurable via `security:seedFile`, default `cfg/.seed`, mode 0600 on Unix).
+- **`SqliteSecretsConfigurationProvider`** wires the encrypted secrets into the
+  standard `IConfiguration` pipeline (between user-secrets and env vars), so
+  consumers like `LdapConfig` keep reading values via `IConfiguration["ldap:bindDn"]`
+  without changes.
+- **`secret import-ldap`** CLI subcommand pulls `ldap:bindDn`,
+  `ldap:bindCredentials`, and `certificate:password` out of a chosen JSON file
+  (appsettings, user-secrets, etc.) into the encrypted store in one shot.
 - **One-shot migration** from legacy `security.json` runs on startup: keys are
   imported (hashed), then the source file is renamed to
   `security.json.imported.<timestamp>`.
+- **Test coverage** for SecretBox round-trip, tampered/wrong-key failure modes,
+  AppSecretsStore CRUD, and seed stability across MachineKeyProvider instances.
 
 ### Changed
 - `BasicAuthenticationHandler` now splits `api-key: keyID:secret`, looks up the

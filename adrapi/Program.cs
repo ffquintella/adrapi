@@ -41,6 +41,16 @@ namespace adrapi
                 configBuilder.AddUserSecrets<Program>(optional: true);
             }
 
+            // SQLite-backed encrypted secrets (LDAP bind credentials etc.). Reads
+            // from the same DB used by the API key store. Optional — a missing DB
+            // or seed simply means earlier sources win.
+            var bootstrap = configBuilder.Build();
+            var dbPath = bootstrap.GetSection("security").GetValue<string>("databaseFile")
+                ?? "cfg/api-keys.db";
+            var seedPath = bootstrap.GetSection("security").GetValue<string>("seedFile")
+                ?? "cfg/.seed";
+            configBuilder.AddSqliteSecrets(dbPath, seedPath, optional: true);
+
             configBuilder.AddEnvironmentVariables();
             configBuilder.AddCommandLine(args);
 
