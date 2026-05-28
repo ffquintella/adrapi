@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### Added (latest pass)
+- **AGENTS.md** documenting authentication, secret-handling, and
+  test-discipline conventions for AI coding agents (and humans). `CLAUDE.md`
+  is a one-liner stub that points there.
+- **End-to-end authentication test suite** covering 51 endpoints × 5 auth
+  scenarios (no key / unknown keyID / wrong secret / unauthorized IP / wrong
+  claim / valid admin) via `WebApplicationFactory<Program>` with an
+  isolated pre-seeded SQLite store. New files under
+  `tests/Authentication/`. Total test count up from 43 to 298.
+
+### Changed (latest pass)
+- `Program.CreateHostBuilder` simplified to a single `(string[] args)`
+  signature so `WebApplicationFactory<Program>` can discover it.
+  `SqliteSecretsConfigurationProvider` now layers into the host's
+  `ConfigureAppConfiguration` callback (it was previously only in `Main`'s
+  configuration, meaning encrypted secrets were not actually visible to
+  `Startup` / `LdapConfig` at runtime — that bug is now fixed).
+- Dependency upgrades:
+  - `Microsoft.OpenApi`        3.3.1 → 3.5.4
+  - `NLog`                     6.1.0 → 6.1.3
+  - `NLog.Web.AspNetCore`      6.1.1 → 6.1.3
+  - `Swashbuckle.AspNetCore`   10.1.2 → 10.1.7
+  - `coverlet.collector`       6.0.4 → 10.0.1
+  - `Microsoft.NET.Test.Sdk`   18.0.1 → 18.6.0
+  - `Microsoft.Build.Tasks.Core` 18.3.3 → 18.6.3
+  - `ReportGenerator`          5.5.1 → 5.5.10
+- Removed obsolete packages: `CoreCompat.System.ComponentModel.DataAnnotations`
+  (replaced by built-in .NET 10) and `Microsoft.Extensions.Configuration.UserSecrets`
+  (already in the ASP.NET Core SDK; the `UserSecretsId` registration stays).
+
 ### Added
 - **SQLite-backed API key store with Argon2id hashing.** API keys are now read
   from `cfg/api-keys.db` (configurable via `security:databaseFile`). Only
