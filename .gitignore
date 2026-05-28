@@ -55,11 +55,19 @@ _build.csproj.DotSettings
 cfg/ldap-trusted-certs.json
 /adrapi/cfg/ldap-trusted-certs.json
 
-# API key store — secrets, never commit. Use security.json.example as the template.
+# Legacy plaintext API key files. Never commit. The API now reads from a
+# SQLite store managed by the adrapi-api-keys CLI tool — security.json is
+# only kept around as a migration source.
 /adrapi/security.json
 /docker/Settings/security.json
 **/security.json
+**/security.json.imported.*
 !**/security.json.example
-!tests/security-tests.json
+
+# SQLite API key store (and its WAL/SHM siblings)
+**/api-keys.db
+**/api-keys.db-*
+api-keys-tests.db
+api-keys-tests.db-*
 
 .nuke/temp/

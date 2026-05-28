@@ -1,50 +1,79 @@
-﻿using System;
 using System.IO;
 using NLog;
-using Newtonsoft.Json;
-using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 using adrapi.domain.Security;
 
 namespace adrapi.Security
 {
-	public static class ApiKeyManager
-	{
+    /// <summary>
+    /// Facade over <see cref="ApiKeyStore"/>. Holds a singleton store initialized
+    /// from configuration at startup, plus an independent store used by tests.
+    /// </summary>
+    public static class ApiKeyManager
+    {
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private static readonly object _initLock = new object();
+        private static ApiKeyStore _store;
+        private static ApiKeyStore _testStore;
 
-		private static Logger logger = LogManager.GetCurrentClassLogger();
+        public const string DefaultDatabasePath = "cfg/api-keys.db";
 
-		public static ApiKey FindBySecretKey(string secretKey, bool isTest = false)
-		{
-			string json = "";
-			if (isTest) json = File.ReadAllText("security-tests.json");
-			else json = File.ReadAllText("security.json");
+        public static ApiKeyStore Store
+        {
+            get
+            {
+                if (_store == null) Initialize(DefaultDatabasePath);
+                return _store;
+            }
+        }
 
-			List<ApiKey> keys = JsonConvert.DeserializeObject<List<ApiKey>>(json);
-			logger.Debug("Loaded {count} API key(s) from store.", keys?.Count ?? 0);
+        public static void Initialize(string databasePath)
+        {
+            lock (_initLock)
+            {
+                _store = new ApiKeyStore(databasePath);
+                logger.Info("API key store initialized: {path}", Path.GetFullPath(databasePath));
+            }
+        }
 
-			foreach (ApiKey key in keys)
-			{
-				if (key.secretKey == secretKey) return key;
-			}
+        public static void InitializeFromConfiguration(IConfiguration configuration)
+        {
+            var path = configuration.GetSection("security").GetValue<string>("databaseFile")
+                ?? DefaultDatabasePath;
+            Initialize(path);
+        }
 
-			return null;
-		}
+        public static void SetTestStore(ApiKeyStore store)
+        {
+            lock (_initLock) { _testStore = store; }
+        }
 
-		public static ApiKey Find(string keyID, bool isTest = false)
-		{
+        private static ApiKeyStore GetStore(bool isTest)
+        {
+            if (!isTest) return Store;
+            if (_testStore == null)
+            {
+                lock (_initLock)
+                {
+                    _testStore ??= new ApiKeyStore("api-keys-tests.db");
+                }
+            }
+            return _testStore;
+        }
 
-			string json = "";
-			if (isTest) json = File.ReadAllText("security-tests.json");
-			else json = File.ReadAllText("security.json");
+        /// <summary>
+        /// Lookup by keyID + verify plaintext secret against the stored Argon2id
+        /// hash. Returns the record on success (so claims/authorizedIP are usable
+        /// without a second query), or null on any failure.
+        /// </summary>
+        public static ApiKey Authenticate(string keyId, string plaintextSecret, bool isTest = false)
+            => GetStore(isTest).VerifyAndLoad(keyId, plaintextSecret);
 
-			List<ApiKey> keys = JsonConvert.DeserializeObject<List<ApiKey>>(json);
-			logger.Debug("Loaded {count} API key(s) from store.", keys?.Count ?? 0);
-
-			foreach (ApiKey key in keys)
-			{
-                if (key.keyID == keyID) return key;
-			}
-
-			return null;
-		}
-	}
+        /// <summary>
+        /// Lookup by keyID alone, no secret verification. The returned
+        /// <see cref="ApiKey.secretKey"/> is always null — only the hash is stored.
+        /// </summary>
+        public static ApiKey Find(string keyId, bool isTest = false)
+            => GetStore(isTest).FindByKeyId(keyId);
+    }
 }

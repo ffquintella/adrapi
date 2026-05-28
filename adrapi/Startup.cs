@@ -34,6 +34,11 @@ namespace adrapi
 
             var conf = ConfigurationManager.Instance;
             conf.Config = configuration;
+
+            // Initialize the SQLite-backed API key store and import any legacy
+            // security.json on first run.
+            Security.ApiKeyManager.InitializeFromConfiguration(configuration);
+            Security.ApiKeyMigration.ImportLegacyJsonIfPresent(configuration);
         }
 
         public IConfiguration Configuration { get; }

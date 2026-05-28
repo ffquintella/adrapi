@@ -1,5 +1,35 @@
 ﻿# RELEASE NOTES
 
+## Unreleased
+
+### Added
+- **SQLite-backed API key store with Argon2id hashing.** API keys are now read
+  from `cfg/api-keys.db` (configurable via `security:databaseFile`). Only
+  Argon2id PHC-encoded hashes (OWASP 2024 params: 19 MiB / t=2 / p=1) are
+  persisted — plaintext secrets are never stored.
+- **`tools/AdrapiApiKeys` CLI** for managing the store: `add`, `list`,
+  `rotate`, `remove`, `verify`, `import`. `add` and `rotate` generate
+  cryptographically random 32-byte secrets and print them once.
+- **One-shot migration** from legacy `security.json` runs on startup: keys are
+  imported (hashed), then the source file is renamed to
+  `security.json.imported.<timestamp>`.
+
+### Changed
+- `BasicAuthenticationHandler` now splits `api-key: keyID:secret`, looks up the
+  record by `keyID`, and verifies the secret against the stored Argon2id hash
+  in constant time. Unauthorized IP returns 401 with a structured warning log.
+- Test suite no longer reads `tests/security-tests.json` — each test creates an
+  ephemeral SQLite database and seeds a known key via the new store API.
+
+### Removed
+- `adrapi/Security/HttpSecurity.cs` (only consumer was the auth handler, which
+  now reads claims directly from the verified record).
+- `adrapi/Security/KeyAuthenticationMiddleware.cs` (dead code; it was already
+  commented out of the pipeline and not callable from anywhere).
+- `ApiKeyManager.FindBySecretKey` (no longer makes sense with hashed storage).
+- `<Content Update="security.json">` from `adrapi.csproj` (file no longer
+  exists or needs copying to the build output).
+
 ## V1.5.0 — Security hardening
 
 ### Added

@@ -131,30 +131,55 @@ Claims are loaded from `security.json`.
 - `isAdministrator`: read/write access
 - `isMonitor`: read-oriented access
 
-### API Key Store (`security.json`)
+### API Key Store (SQLite + Argon2id)
 
-`security.json` holds the API keys the server accepts. It is **gitignored** —
-never commit it. Each environment provides its own file.
+API keys live in a local SQLite database (default: `cfg/api-keys.db`,
+configurable via `security:databaseFile`). Only an Argon2id hash of each secret
+is persisted — plaintext is **never** stored. The database file is gitignored.
 
-To bootstrap a new environment, copy the template and replace every
-`REPLACE_ME_...` placeholder with a freshly generated random string (e.g.
-`openssl rand -base64 32`):
+The store is managed with the `adrapi-api-keys` CLI tool. From the repo root:
 
 ```bash
-cp adrapi/security.json.example adrapi/security.json
-# Edit adrapi/security.json and replace the placeholder secretKey values.
+# Create a new key (the plaintext secret is printed ONCE — record it now)
+dotnet run --project tools/AdrapiApiKeys -- add \
+    --keyID admin-prod --ip 10.0.0.5 --claims isAdministrator
 
-# For container deployments using the docker/ tree:
-cp docker/Settings/security.json.example docker/Settings/security.json
+# List keys (metadata only — never the secret)
+dotnet run --project tools/AdrapiApiKeys -- list
+
+# Rotate a secret (issues a new plaintext; the old one stops working immediately)
+dotnet run --project tools/AdrapiApiKeys -- rotate --keyID admin-prod
+
+# Delete a key
+dotnet run --project tools/AdrapiApiKeys -- remove --keyID admin-prod
+
+# Debug: confirm a secret matches the stored hash
+dotnet run --project tools/AdrapiApiKeys -- verify --keyID admin-prod --secret '...'
+
+# Import an older plaintext security.json into the store (one-shot)
+dotnet run --project tools/AdrapiApiKeys -- import --from /path/to/security.json
+
+# All commands accept --db <path> to target a non-default store location.
 ```
 
-For production, mount the file from a secret manager (Docker secrets, Kubernetes
-secrets backed by Vault/External Secrets, etc.) instead of baking it into the
-image. Also keep `authorizedIP` as narrow as possible — `0.0.0.0` effectively
-disables the IP allow-list.
+**Migration from `security.json`:** on first boot the API auto-imports any
+`security.json` it finds next to the working directory, hashes each secret with
+Argon2id, writes them into the SQLite store, and renames the source to
+`security.json.imported.<timestamp>` so it isn't re-read. Review and delete the
+archived file once you've verified the new store works.
 
-Test keys live in `tests/security-tests.json` and are intentionally tracked
-(they're dummies used only by the test project).
+**Hash parameters** (Argon2id, OWASP 2024 recommendation): memory 19 MiB,
+iterations 2, parallelism 1, salt 16 B, output 32 B. Each verify costs roughly
+20–50 ms on commodity hardware — acceptable per-request for admin APIs, and a
+strong barrier against offline cracking if the DB ever leaks.
+
+**Production deployment:** keep the `.db` file on encrypted storage, restrict
+filesystem permissions to the API process user, and back it up out-of-band. For
+container deployments mount it from a persistent volume (or generate it at
+deploy time from a secret-manager-sourced seed via the CLI).
+
+Test keys live in an ephemeral SQLite file created by each test fixture
+(`tests/Security.cs`); nothing about test data is persisted.
 
 ### Rate Limiting on Authentication Endpoints
 

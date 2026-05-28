@@ -130,7 +130,11 @@ namespace adrapi.Ldap
 
                 try
                 {
-                    var pinStore = new LdapCertificatePinStore(config.trustedCertificatesFile);
+                    // Pin store is only needed when SSL is enabled; constructing it
+                    // requires a non-empty path which plain-LDAP configs don't set.
+                    var pinStore = config.ssl
+                        ? new LdapCertificatePinStore(config.trustedCertificatesFile ?? "cfg/ldap-trusted-certs.json")
+                        : null;
 
                     for (short openConn = 0; openConn < config.poolSize; openConn++)
                     {
@@ -202,7 +206,9 @@ namespace adrapi.Ldap
             logger.Debug("Authenticating user: {login} on server: {server}", login, server);
 
 
-            var pinStore = new LdapCertificatePinStore(ldapConf.trustedCertificatesFile);
+            var pinStore = ldapConf.ssl
+                ? new LdapCertificatePinStore(ldapConf.trustedCertificatesFile ?? "cfg/ldap-trusted-certs.json")
+                : null;
             using var cn = new LdapConnection(BuildOptions(ldapConf, pinStore, server.FQDN));
 
             await cn.ConnectAsync(server.FQDN, server.Port);

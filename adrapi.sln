@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdrapiLdapCertPin", "tools\AdrapiLdapCertPin\AdrapiLdapCertPin.csproj", "{C39E7C18-9187-4079-A753-60A3DB5FF49E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdrapiApiKeys", "tools\AdrapiApiKeys\AdrapiApiKeys.csproj", "{42E88D94-C809-4369-B5A5-1EC61E9CE76D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -91,11 +93,24 @@ Global
 		{C39E7C18-9187-4079-A753-60A3DB5FF49E}.Release|x64.Build.0 = Release|Any CPU
 		{C39E7C18-9187-4079-A753-60A3DB5FF49E}.Release|x86.ActiveCfg = Release|Any CPU
 		{C39E7C18-9187-4079-A753-60A3DB5FF49E}.Release|x86.Build.0 = Release|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Debug|x64.Build.0 = Debug|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Debug|x86.Build.0 = Debug|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Release|x64.ActiveCfg = Release|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Release|x64.Build.0 = Release|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Release|x86.ActiveCfg = Release|Any CPU
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{C39E7C18-9187-4079-A753-60A3DB5FF49E} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
+		{42E88D94-C809-4369-B5A5-1EC61E9CE76D} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal
