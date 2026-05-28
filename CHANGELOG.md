@@ -1,6 +1,6 @@
 ﻿# RELEASE NOTES
 
-## Unreleased — Security hardening
+## V1.5.0 — Security hardening
 
 ### Added
 - **LDAPS certificate pinning.** New `LdapCertificateValidator` accepts a server
