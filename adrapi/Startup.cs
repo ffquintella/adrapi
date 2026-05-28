@@ -14,12 +14,15 @@ using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Hosting;
 using Swashbuckle.AspNetCore.Swagger;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 
 namespace adrapi
 {
+    /// <summary>
+    /// Configures dependency injection and the HTTP middleware pipeline.
+    /// </summary>
     public class Startup
     {
         public Startup(IConfiguration configuration)
@@ -32,9 +35,13 @@ namespace adrapi
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        /// <summary>
+        /// Registers MVC, versioning, authorization, authentication, and Swagger services.
+        /// </summary>
         public void ConfigureServices(IServiceCollection services)
         {
+            ValidateLdapConfiguration();
+
             //services.AddMvc();
 
             services.AddMvc(options => options.EnableEndpointRouting = false);
@@ -85,7 +92,67 @@ namespace adrapi
          
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        private void ValidateLdapConfiguration()
+        {
+            var errors = new List<string>();
+            var ldap = Configuration.GetSection("ldap");
+
+            if (!ldap.Exists())
+            {
+                throw new InvalidOperationException("Invalid configuration: missing 'ldap' section.");
+            }
+
+            var servers = ldap.GetSection("servers").Get<string[]>();
+            var sslEnabled = ldap.GetValue<bool>("ssl");
+            if (servers == null || servers.Length == 0)
+            {
+                errors.Add("ldap.servers must contain at least one entry in the format 'host:port'.");
+            }
+            else
+            {
+                for (var i = 0; i < servers.Length; i++)
+                {
+                    var server = servers[i];
+                    if (string.IsNullOrWhiteSpace(server))
+                    {
+                        errors.Add($"ldap.servers[{i}] is empty.");
+                        continue;
+                    }
+
+                    var parts = server.Split(':');
+                    if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out var port))
+                    {
+                        errors.Add($"ldap.servers[{i}]='{server}' is invalid. Expected 'host:port'.");
+                        continue;
+                    }
+
+                    if (port < 1 || port > 65535)
+                    {
+                        errors.Add($"ldap.servers[{i}]='{server}' has invalid port {port}. Expected 1-65535.");
+                    }
+
+                    if (sslEnabled && port == 389)
+                    {
+                        errors.Add($"ldap.servers[{i}]='{server}' is incompatible with ldap.ssl=true. Use LDAPS port 636 (or set ldap.ssl=false for 389).");
+                    }
+                }
+            }
+
+            var poolSize = ldap.GetValue<short>("poolSize");
+            if (poolSize <= 0)
+            {
+                errors.Add($"ldap.poolSize must be greater than 0. Current value: {poolSize}.");
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException("Invalid LDAP configuration: " + string.Join(" ", errors));
+            }
+        }
+
+        /// <summary>
+        /// Configures middleware order for security, docs, and MVC endpoints.
+        /// </summary>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IApiVersionDescriptionProvider provider)
         {
             if (env.IsDevelopment())

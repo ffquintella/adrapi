@@ -3,6 +3,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace adrapi
 {
+    /// <summary>
+    /// Singleton holder for application configuration shared across legacy singleton managers.
+    /// </summary>
     public class ConfigurationManager
     {
 
@@ -18,6 +21,9 @@ namespace adrapi
 
         #endregion
 
+        /// <summary>
+        /// Runtime configuration loaded at startup.
+        /// </summary>
         public IConfiguration Config { get; set; }
 
     }

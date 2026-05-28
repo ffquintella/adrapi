@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <Version>1.4.8</Version>
+<TargetFramework>net10.0</TargetFramework>
 
     <IsPackable>false</IsPackable>
 
@@ -9,14 +10,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
-    <PackageReference Include="Novell.Directory.Ldap.NETStandard2_0" Version="3.1.0" />
+    <PackageReference Include="Novell.Directory.Ldap.NETStandard" Version="4.0.0" />
   </ItemGroup>
 
   <ItemGroup>

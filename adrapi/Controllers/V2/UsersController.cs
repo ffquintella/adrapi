@@ -12,6 +12,7 @@ using adrapi.domain;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using adrapi.Models;
+using System.Linq;
 
 namespace adrapi.Controllers.V2
 {
@@ -61,14 +62,28 @@ namespace adrapi.Controllers.V2
                 return uManager.GetList(_attribute, "", _cookie);
             }*/
 
+            // Default mode: LDAP paged query using cookie.
             if (_start == -1 && _end == -1)
             {
                 var response = await uManager.GetListAsync(_attribute, _filter, _cookie);
 
                 return response;
             }
-            else
-                return await uManager.GetListAsync(_start,_end, _attribute, _filter);
+
+            // Range mode requires both values and valid bounds.
+            if (_start < 0 || _end < 0)
+            {
+                return Conflict();
+            }
+
+            if (_end < _start)
+            {
+                return Conflict();
+            }
+
+            // VLV is 1-based internally; accept _start=0 from clients as first item.
+            var normalizedStart = _start == 0 ? 1 : _start;
+            return await uManager.GetListAsync(normalizedStart, _end, _attribute, _filter);
 
         }
 
@@ -157,27 +172,51 @@ namespace adrapi.Controllers.V2
 
         }
 
-        // GET api/users/:user/member-of/:group
-        [HttpGet("{DN}/member-of/{group}")]
-        public async Task<IActionResult> IsMemberOf(string DN, string group)
+        // GET api/users/:user/attributes
+        [HttpGet("{user}/attributes")]
+        public async Task<ActionResult<UserAttributeInspectionResponse>> GetAttributes(string user, [FromQuery] string _lookupAttribute = "sAMAccountName")
         {
             this.ProcessRequest();
+
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                return BadRequest();
+            }
+
+            var uManager = UserManager.Instance;
+            var inspection = await uManager.InspectUserAttributesAsync(user, _lookupAttribute);
+            if (inspection == null)
+            {
+                return NotFound();
+            }
+
+            return inspection;
+        }
+
+        // GET api/users/:user/member-of/:group
+        [HttpGet("{user}/member-of/{group}")]
+        public async Task<IActionResult> IsMemberOf(string user, string group)
+        {
+            this.ProcessRequest();
+
+            if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(group))
+            {
+                return BadRequest();
+            }
 
             var uManager = UserManager.Instance;
 
             try
             {
-                logger.LogDebug(ItemExists, "User DN={dn} found", DN);
-                var user = await uManager.GetUserAsync(DN);
-
-
-                foreach (domain.Group grp in user.MemberOf)
+                logger.LogDebug(ItemExists, "Checking membership for user={user} group={group}", user, group);
+                var adUser = await uManager.GetUserAsync(user);
+                if (adUser == null)
                 {
-                    if (grp.DN == group)
-                    {
-                        return Ok();
-                    }
+                    return NotFound();
                 }
+
+                if (IsMembershipMatch(adUser, group))
+                    return Ok();
 
                 // Rerturns 460 code telling that the user exists but it's not a member 
                 return StatusCode(250);
@@ -191,6 +230,44 @@ namespace adrapi.Controllers.V2
             }
 
         }
+
+        [HttpGet("{user}/groups")]
+        public async Task<ActionResult<UserGroupsResponse>> GetGroups(string user)
+        {
+            this.ProcessRequest();
+
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                return BadRequest();
+            }
+
+            var uManager = UserManager.Instance;
+            var adUser = await uManager.GetUserAsync(user);
+            if (adUser == null)
+            {
+                return NotFound();
+            }
+
+            var groupDns = adUser.MemberOf
+                .Select(g => g?.DN)
+                .Where(dn => !string.IsNullOrWhiteSpace(dn))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var groupCns = groupDns
+                .Select(ExtractCnFromDn)
+                .Where(cn => !string.IsNullOrWhiteSpace(cn))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return new UserGroupsResponse
+            {
+                LookupValue = user,
+                DistinguishedName = adUser.DN,
+                MemberOfDns = groupDns,
+                MemberOfCns = groupCns
+            };
+        }
         #endregion
 
         #region Authentication
@@ -199,6 +276,10 @@ namespace adrapi.Controllers.V2
         [HttpPost("{userId}/authenticate")]
         public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
         {
+            if (req == null || string.IsNullOrWhiteSpace(req.Password))
+            {
+                return BadRequest();
+            }
 
             var uManager = UserManager.Instance;
 
@@ -243,7 +324,7 @@ namespace adrapi.Controllers.V2
 
             string login;
 
-            if (req.Login == null)
+            if (req == null || string.IsNullOrWhiteSpace(req.Login) || string.IsNullOrWhiteSpace(req.Password))
             {
                 logger.LogDebug(AuthenticationItem, "Invalid Authentication request without login");
                 return BadRequest();
@@ -408,6 +489,54 @@ namespace adrapi.Controllers.V2
         }
 
         #endregion
+
+        private static bool IsMembershipMatch(User user, string group)
+        {
+            if (user == null || string.IsNullOrWhiteSpace(group))
+            {
+                return false;
+            }
+
+            var normalizedGroup = group.Trim();
+            var compareAsDn = normalizedGroup.Contains("=");
+
+            return user.MemberOf.Any(member =>
+            {
+                if (string.IsNullOrWhiteSpace(member?.DN))
+                {
+                    return false;
+                }
+
+                if (string.Equals(member.DN, normalizedGroup, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (compareAsDn)
+                {
+                    return false;
+                }
+
+                var memberCn = !string.IsNullOrWhiteSpace(member.Name) ? member.Name : ExtractCnFromDn(member.DN);
+                return string.Equals(memberCn, normalizedGroup, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        private static string ExtractCnFromDn(string dn)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return null;
+            }
+
+            var firstPart = dn.Split(',').FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(firstPart) || !firstPart.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return firstPart.Substring(3);
+        }
     }
 
 }

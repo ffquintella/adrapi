@@ -1,21 +1,29 @@
-FROM ffquintella/docker-aspnetcore:sdk-6.0.1
+FROM mcr.microsoft.com/dotnet/sdk:10.0
 
-MAINTAINER Felipe Quintella <felipe@email>
-
+LABEL maintainer="Felipe Quintella <felipe@email>"
 LABEL version="0.8.1"
 LABEL description="This image contains the adrapi api."
 
 
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
+ENV LANG=C.UTF-8
+ENV LANGUAGE=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 
 #ENV FACTER_XXX
 
 
-ENV FACTER_PRE_RUN_CMD ""
-ENV FACTER_EXTRA_PACKS ""
+ENV FACTER_PRE_RUN_CMD=""
+ENV FACTER_EXTRA_PACKS=""
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && wget -q https://apt.voxpupuli.org/openvox8-release-ubuntu24.04.deb -O /tmp/openvox8-release.deb \
+    && dpkg -i /tmp/openvox8-release.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends openvox-agent \
+    && rm -f /tmp/openvox8-release.deb \
+    && rm -rf /var/lib/apt/lists/*
 
 # Puppet stuff all the instalation is donne by puppet
 # Just after it we clean up everthing so the end image isn't too big
@@ -34,8 +42,8 @@ COPY artifacts/app /app
 RUN dotnet dev-certs https -q
 
 # Aspnet webserver
-EXPOSE 5000/tcp
-EXPOSE 5001/tcp
+EXPOSE 6000/tcp
+EXPOSE 6001/tcp
 
 WORKDIR /app
 
