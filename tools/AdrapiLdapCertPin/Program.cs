@@ -128,8 +128,25 @@ namespace adrapi.Tools.LdapCertPin
         {
             if (string.IsNullOrWhiteSpace(sha))
             {
-                Console.Error.WriteLine("--remove requires <host> <sha256>");
-                return 1;
+                // Host-only removal: drop every pin recorded for this host. Useful for
+                // automation that doesn't track thumbprints (e.g. puppet declaring a host
+                // as absent — it can't know the sha in advance).
+                var pins = store.Load();
+                var toRemove = pins
+                    .Where(p => string.Equals(p.Host, host, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (toRemove.Count == 0)
+                {
+                    Console.WriteLine("No matching pin found.");
+                    return 1;
+                }
+                var removed = 0;
+                foreach (var p in toRemove)
+                {
+                    if (store.Remove(p.Host, p.Sha256)) removed++;
+                }
+                Console.WriteLine($"Removed {removed} pin(s) for host \"{host}\".");
+                return removed > 0 ? 0 : 1;
             }
             var ok = store.Remove(host, sha);
             Console.WriteLine(ok ? "Pin removed." : "No matching pin found.");
@@ -190,14 +207,15 @@ namespace adrapi.Tools.LdapCertPin
 Usage:
   adrapi-ldap-cert-pin <host:port> [--store <path>] [--note ""text""] [--yes]
   adrapi-ldap-cert-pin --list [--store <path>]
-  adrapi-ldap-cert-pin --remove <host> <sha256> [--store <path>]
+  adrapi-ldap-cert-pin --remove <host> [<sha256>] [--store <path>]
 
 Options:
   --store <path>   Pin store file (default: cfg/ldap-trusted-certs.json)
   --note ""text""    Free-text note attached to the new pin
   --yes            Skip the interactive confirmation prompt
   --list           List all pins in the store
-  --remove h s     Remove the pin for host h with SHA-256 thumbprint s
+  --remove h [s]   Remove pin(s) for host h. Without <sha256>, every pin
+                   recorded for that host is removed.
   -h, --help       Show this help");
         }
 

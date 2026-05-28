@@ -90,13 +90,23 @@ namespace adrapi.Tools.ApiKeys
         {
             o.KeyId ??= Prompt("key ID (short identifier, e.g. \"prod-admin\")");
             o.Ip ??= Prompt("authorized client IP (use 0.0.0.0 for any — discouraged)");
+            // When the caller supplies --secret (e.g. config management like puppet
+            // declaring the desired value), we want idempotent behaviour: if a key with
+            // that ID already holds the supplied secret, exit 0 with no change; if it
+            // holds a different secret, refuse and point to `rotate`.
             if (store.FindByKeyId(o.KeyId) != null)
             {
+                if (o.Secret != null && store.VerifyAndLoad(o.KeyId, o.Secret) != null)
+                {
+                    Ok($"key '{o.KeyId}' already present with matching secret — no change.");
+                    return 0;
+                }
                 Err($"key ID '{o.KeyId}' already exists. Use `key rotate` to replace the secret.");
                 return 1;
             }
             var claims = o.Claims ?? PromptClaims();
-            var secret = ApiKeyHasher.GenerateSecret();
+            var callerSuppliedSecret = o.Secret != null;
+            var secret = o.Secret ?? ApiKeyHasher.GenerateSecret();
             store.Insert(new ApiKey
             {
                 keyID = o.KeyId,
@@ -105,9 +115,12 @@ namespace adrapi.Tools.ApiKeys
             }, plaintextSecret: secret);
 
             Ok($"key '{o.KeyId}' created.");
-            Console.WriteLine();
-            Box("Record this secret now — it CANNOT be recovered from the store:",
-                $"api-key: {o.KeyId}:{secret}");
+            if (!callerSuppliedSecret)
+            {
+                Console.WriteLine();
+                Box("Record this secret now — it CANNOT be recovered from the store:",
+                    $"api-key: {o.KeyId}:{secret}");
+            }
             return 0;
         }
 
@@ -131,14 +144,24 @@ namespace adrapi.Tools.ApiKeys
         {
             o.KeyId ??= Prompt("key ID to rotate");
             if (store.FindByKeyId(o.KeyId) == null) { Err($"key ID '{o.KeyId}' not found."); return 1; }
+            // Idempotency for caller-supplied secret: if already matches, no rotation needed.
+            if (o.Secret != null && store.VerifyAndLoad(o.KeyId, o.Secret) != null)
+            {
+                Ok($"key '{o.KeyId}' already holds the supplied secret — no rotation.");
+                return 0;
+            }
             if (!o.AssumeYes && !Confirm($"Rotate secret for '{o.KeyId}'? The previous secret will stop working immediately"))
             { Console.WriteLine("aborted."); return 1; }
-            var secret = ApiKeyHasher.GenerateSecret();
+            var callerSuppliedSecret = o.Secret != null;
+            var secret = o.Secret ?? ApiKeyHasher.GenerateSecret();
             store.Rotate(o.KeyId, secret);
             Ok($"secret rotated for '{o.KeyId}'.");
-            Console.WriteLine();
-            Box("New secret — record it now:",
-                $"api-key: {o.KeyId}:{secret}");
+            if (!callerSuppliedSecret)
+            {
+                Console.WriteLine();
+                Box("New secret — record it now:",
+                    $"api-key: {o.KeyId}:{secret}");
+            }
             return 0;
         }
 
@@ -396,11 +419,15 @@ GROUPS
   secret   manage encrypted application secrets (ChaCha20-Poly1305)
 
 KEY COMMANDS
-  key add     [--keyID <id>] [--ip <ip>] [--claims a,b]
-              create a new key; secret is generated and printed once
+  key add     [--keyID <id>] [--ip <ip>] [--claims a,b] [--secret <s>]
+              create a new key. If --secret is supplied, that value is stored
+              (idempotent: same secret on an existing key exits 0); otherwise
+              a secret is generated and printed once.
   key list    list all keys (metadata only — never the secret)
-  key rotate  --keyID <id> [--yes]
-              issue a new secret; the previous one stops working immediately
+  key rotate  --keyID <id> [--secret <s>] [--yes]
+              issue a new secret; the previous one stops working immediately.
+              If --secret is supplied, rotate to that value (no-op when it
+              already matches); otherwise a new secret is generated.
   key remove  --keyID <id> [--yes]
               delete a key
   key verify  [--keyID <id>] [--secret <s>]

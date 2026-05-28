@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+- `adrapi-api-keys key add` and `key rotate` now accept `--secret <value>` to
+  store a caller-supplied secret instead of generating one. Idempotent: a
+  second `add` (or `rotate`) with the same secret exits 0 without changes; a
+  conflicting `add` still errors and points to `rotate`. Enables config
+  management (puppet, ansible, …) to declare api-key secrets from eyaml.
+- `adrapi-ldap-cert-pin --remove <host>` (without `<sha256>`) now removes every
+  pin recorded for that host. The previous `--remove <host> <sha256>` form is
+  unchanged. Lets automation drop a host's pins without tracking thumbprints.
+
 ### Added (latest pass)
 - **AGENTS.md** documenting authentication, secret-handling, and
   test-discipline conventions for AI coding agents (and humans). `CLAUDE.md`
