@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -19,17 +20,31 @@ namespace adrapi
         /// </summary>
         public static void Main(string[] args)
         {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
 #if DEBUG
-            var configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.Development.json", optional: false)
-                .AddCommandLine(args)
-                .Build();
+                ?? "Development";
 #else
-            var configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: false)
-                .AddCommandLine(args)
-                .Build();
+                ?? "Production";
 #endif
+
+            var configBuilder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile($"appsettings.{environment}.json", optional: true, reloadOnChange: true);
+
+            // In Development, layer secrets from `dotnet user-secrets` on top of the JSON files.
+            // These are stored outside the repo (~/.microsoft/usersecrets/<UserSecretsId>/secrets.json on Linux/macOS,
+            // %APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json on Windows) and never get committed.
+            if (string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase))
+            {
+                configBuilder.AddUserSecrets<Program>(optional: true);
+            }
+
+            configBuilder.AddEnvironmentVariables();
+            configBuilder.AddCommandLine(args);
+
+            var configuration = configBuilder.Build();
 
             // NLog: setup the logger first to catch all errors
             var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();

@@ -15,6 +15,7 @@ namespace adrapi.Ldap
         public short poolSize { get; set; }
         public int maxResults { get; set; }
         public string[] servers { get; set; }
+        public string trustedCertificatesFile { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="T:adrapi.Ldap.LdapConfig"/> class.
@@ -35,6 +36,8 @@ namespace adrapi.Ldap
             searchFilter = config.GetSection("ldap").GetValue<string>("searchFilter");
             maxResults = config.GetSection("ldap").GetValue<int>("maxResults");
             adminCn = config.GetSection("ldap").GetValue<string>("adminCn");
+            trustedCertificatesFile = config.GetSection("ldap").GetValue<string>("trustedCertificatesFile")
+                ?? "cfg/ldap-trusted-certs.json";
         }
 
         /// <summary>

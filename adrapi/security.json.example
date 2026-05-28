@@ -1,0 +1,8 @@
+[
+  {
+    "secretKey": "REPLACE_ME_WITH_A_LONG_RANDOM_STRING",
+    "keyID": "dev-local",
+    "authorizedIP": "127.0.0.1",
+    "claims": [ "isAdministrator" ]
+  }
+]

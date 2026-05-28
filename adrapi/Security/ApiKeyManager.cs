@@ -18,9 +18,8 @@ namespace adrapi.Security
 			if (isTest) json = File.ReadAllText("security-tests.json");
 			else json = File.ReadAllText("security.json");
 
-			logger.Debug("Json File:" + json);
-
 			List<ApiKey> keys = JsonConvert.DeserializeObject<List<ApiKey>>(json);
+			logger.Debug("Loaded {count} API key(s) from store.", keys?.Count ?? 0);
 
 			foreach (ApiKey key in keys)
 			{
@@ -37,9 +36,8 @@ namespace adrapi.Security
 			if (isTest) json = File.ReadAllText("security-tests.json");
 			else json = File.ReadAllText("security.json");
 
-			logger.Debug("Json File:" + json);
-
 			List<ApiKey> keys = JsonConvert.DeserializeObject<List<ApiKey>>(json);
+			logger.Debug("Loaded {count} API key(s) from store.", keys?.Count ?? 0);
 
 			foreach (ApiKey key in keys)
 			{

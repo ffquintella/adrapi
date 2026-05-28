@@ -51,4 +51,15 @@ _build.csproj.DotSettings
 /adrapi/appsettings.Development_1.json
 /testconsole/appsettings.Development.json
 
+# Trusted LDAPS server certificate pins (environment-specific local infra config)
+cfg/ldap-trusted-certs.json
+/adrapi/cfg/ldap-trusted-certs.json
+
+# API key store — secrets, never commit. Use security.json.example as the template.
+/adrapi/security.json
+/docker/Settings/security.json
+**/security.json
+!**/security.json.example
+!tests/security-tests.json
+
 .nuke/temp/

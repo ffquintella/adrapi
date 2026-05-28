@@ -2,10 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -77,9 +80,11 @@ namespace adrapi
                     );
             });
 
-            // configure basic authentication 
+            // configure basic authentication
             services.AddAuthentication("BasicAuthentication")
                 .AddScheme<AuthenticationSchemeOptions, Security.BasicAuthenticationHandler>("BasicAuthentication", null);
+
+            ConfigureRateLimiting(services);
 
 
 
@@ -90,6 +95,62 @@ namespace adrapi
                 c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
             });
          
+        }
+
+        /// <summary>
+        /// Registers rate-limiting policies. The "AuthEndpoint" policy throttles the
+        /// LDAP authentication endpoints with a sliding window partitioned by a
+        /// composite (client-IP, authenticated keyID) key. Each unique (ip, keyID)
+        /// pair gets its own bucket, so an attacker has to vary both the source IP
+        /// AND the API key they hold to evade the limit.
+        ///
+        /// Configurable via the "rateLimit:auth" section:
+        ///   permitLimit       — requests allowed per window per (ip, keyID) (default 5)
+        ///   windowSeconds     — sliding window length in seconds (default 60)
+        ///   segmentsPerWindow — granularity of the sliding window (default 6)
+        /// </summary>
+        private void ConfigureRateLimiting(IServiceCollection services)
+        {
+            var section = Configuration.GetSection("rateLimit:auth");
+            int permit = section.GetValue<int?>("permitLimit") ?? 5;
+            int windowSeconds = section.GetValue<int?>("windowSeconds") ?? 60;
+            int segments = section.GetValue<int?>("segmentsPerWindow") ?? 6;
+            var window = TimeSpan.FromSeconds(windowSeconds);
+
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.OnRejected = (context, _) =>
+                {
+                    context.HttpContext.Response.Headers["Retry-After"] = windowSeconds.ToString();
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("RateLimiter");
+                    var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    var keyId = context.HttpContext.User?.Identity?.Name ?? "anonymous";
+                    logger.LogWarning(
+                        "Rate limit hit on {path} (ip={ip}, keyID={keyId}).",
+                        context.HttpContext.Request.Path, ip, keyId);
+                    return new System.Threading.Tasks.ValueTask();
+                };
+
+                options.AddPolicy("AuthEndpoint", httpContext =>
+                {
+                    var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    var keyId = httpContext.User?.Identity?.Name ?? "anonymous";
+                    return RateLimitPartition.GetSlidingWindowLimiter(
+                        partitionKey: $"auth|ip={ip}|key={keyId}",
+                        factory: _ => new SlidingWindowRateLimiterOptions
+                        {
+                            PermitLimit = permit,
+                            Window = window,
+                            SegmentsPerWindow = segments,
+                            QueueLimit = 0,
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            AutoReplenishment = true,
+                        });
+                });
+            });
         }
 
         private void ValidateLdapConfiguration()
@@ -168,6 +229,8 @@ namespace adrapi
 
             app.UseFileServer();
             app.UseAuthentication();
+            // Rate limiter sits after authentication so policies can read the keyID claim.
+            app.UseRateLimiter();
 
             //app.UseMiddleware<Security.KeyAuthenticationMiddleware>();
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using static adrapi.domain.LoggingEvents;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -277,8 +278,12 @@ namespace adrapi.Controllers
 
         #region Authentication
 
-        // GET api/users/:user/authenticate
+        // POST api/users/:user/authenticate
+        // Verifies a user's password against AD. Requires a valid api-key (Reading policy)
+        // AND is rate-limited per (ip, keyID) and per ip to throttle brute force.
         [HttpPost("{userId}/authenticate")]
+        [Authorize(Policy = "Reading")]
+        [EnableRateLimiting("AuthEndpoint")]
         public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
         {
             if (req == null || string.IsNullOrWhiteSpace(req.Password))
@@ -320,8 +325,11 @@ namespace adrapi.Controllers
 
         }
 
-        // GET api/users/authenticate
+        // POST api/users/authenticate
+        // Direct credentials check (no userId lookup). Same auth + rate-limit posture.
         [HttpPost("authenticate")]
+        [Authorize(Policy = "Reading")]
+        [EnableRateLimiting("AuthEndpoint")]
         public async Task<ActionResult> AuthenticateDirect([FromBody] AuthenticationRequest req)
         {
             if (req == null)

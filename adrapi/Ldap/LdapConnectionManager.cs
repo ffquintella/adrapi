@@ -2,6 +2,8 @@
 using Novell.Directory.Ldap;
 using System.Collections.Generic;
 using adrapi.domain.Exceptions;
+using adrapi.domain.Security;
+using adrapi.Ldap.Security;
 using NLog;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
@@ -128,26 +130,15 @@ namespace adrapi.Ldap
 
                 try
                 {
+                    var pinStore = new LdapCertificatePinStore(config.trustedCertificatesFile);
+
                     for (short openConn = 0; openConn < config.poolSize; openConn++)
                     {
-                        LdapConnectionOptions options;
-                        if (config.ssl)
-                        {
-                            options = new LdapConnectionOptions()
-                                .ConfigureRemoteCertificateValidationCallback(
-                                    new RemoteCertificateValidationCallback((a, b, c, d) => true))
-                                .UseSsl();
-                        }
-                        else
-                        {
-                            options = new LdapConnectionOptions();
-                        }
-
-                        var cn = new LdapConnection(options);
-                        var cnClean = new LdapConnection(options);
-
                         var server = GetOptimalSever(config.servers);
                         var server2 = GetOptimalSever(config.servers);
+
+                        var cn = new LdapConnection(BuildOptions(config, pinStore, server.FQDN));
+                        var cnClean = new LdapConnection(BuildOptions(config, pinStore, server2.FQDN));
 
                         try
                         {
@@ -211,20 +202,8 @@ namespace adrapi.Ldap
             logger.Debug("Authenticating user: {login} on server: {server}", login, server);
 
 
-            LdapConnectionOptions options;
-            if (ldapConf.ssl)
-            {
-                options = new LdapConnectionOptions()
-                    .ConfigureRemoteCertificateValidationCallback(
-                        new RemoteCertificateValidationCallback((a, b, c, d) => true))
-                    .UseSsl();
-            }
-            else
-            {
-                options = new LdapConnectionOptions();
-            }
-
-            using var cn = new LdapConnection(options);
+            var pinStore = new LdapCertificatePinStore(ldapConf.trustedCertificatesFile);
+            using var cn = new LdapConnection(BuildOptions(ldapConf, pinStore, server.FQDN));
 
             await cn.ConnectAsync(server.FQDN, server.Port);
 
@@ -247,6 +226,22 @@ namespace adrapi.Ldap
         }
 
 
+
+        /// <summary>
+        /// Builds connection options with strict TLS validation when SSL is enabled.
+        /// The validator accepts certificates trusted by the system CA store, or
+        /// those pinned (by SHA-256) for the target host in the pin store.
+        /// </summary>
+        private static LdapConnectionOptions BuildOptions(LdapConfig config, LdapCertificatePinStore pinStore, string targetHost)
+        {
+            if (!config.ssl) return new LdapConnectionOptions();
+
+            var validator = new LdapCertificateValidator(pinStore, targetHost);
+            return new LdapConnectionOptions()
+                .ConfigureRemoteCertificateValidationCallback(
+                    new RemoteCertificateValidationCallback(validator.Validate))
+                .UseSsl();
+        }
 
         private LdapServer GetOptimalSever(string[] servers)
         {
