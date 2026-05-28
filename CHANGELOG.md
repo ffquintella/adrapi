@@ -1,6 +1,6 @@
 ﻿# RELEASE NOTES
 
-## Unreleased
+## 1.5.1
 
 ### Added
 - `adrapi-api-keys key add` and `key rotate` now accept `--secret <value>` to
