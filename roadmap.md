@@ -129,8 +129,8 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 ### Stage Status
 
-- [ ] Stage 1 - Discovery and Scope Definition
-- [ ] Stage 2 - Authentication and Authorization (Entra ID OAuth2/OIDC)
+- [x] Stage 1 - Discovery and Scope Definition
+- [x] Stage 2 - Authentication and Authorization (Entra ID OAuth2/OIDC)
 - [ ] Stage 3 - Microsoft Graph Client Foundation
 - [ ] Stage 4 - User Management via Graph
 - [ ] Stage 5 - Group and Membership Management via Graph
@@ -142,19 +142,19 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 ## 1. Discovery and Scope Definition
 
-- [ ] Inventory current on-prem LDAP/AD capabilities that must have an Entra ID equivalent (users, groups, OUs, membership).
-- [ ] Decide integration model: Entra ID as an additional backend vs. replacement vs. hybrid (sync/coexistence).
-- [ ] Map Entra ID concepts to existing adrapi concepts (e.g. OUs → administrative units, security/Microsoft 365 groups, directory roles).
-- [ ] Identify Microsoft Graph API surface and required permissions (delegated vs. application).
-- Deliverable: scope document with capability mapping and gap list.
+- [x] Inventory current on-prem LDAP/AD capabilities that must have an Entra ID equivalent (users, groups, OUs, membership).
+- [x] Decide integration model: Entra ID as an additional backend vs. replacement vs. hybrid (sync/coexistence). **Decision: additive per-domain backend (hybrid/coexistence), reusing the multi-domain seam.**
+- [x] Map Entra ID concepts to existing adrapi concepts (e.g. OUs → administrative units, security/Microsoft 365 groups, directory roles).
+- [x] Identify Microsoft Graph API surface and required permissions (delegated vs. application).
+- Deliverable: scope document with capability mapping and gap list. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE1_SCOPE.md`.
 
 ## 2. Authentication and Authorization (Entra ID OAuth2/OIDC)
 
-- [ ] Implement app registration onboarding (client ID, tenant ID, client secret/certificate).
-- [ ] Support OAuth2 client-credentials flow for service-to-service Graph access.
-- [ ] Acquire and cache/refresh Graph access tokens (MSAL).
-- [ ] Map adrapi `Reading`/`Writting` policies onto required Graph scopes/app roles.
-- Deliverable: working token acquisition with secure secret handling.
+- [x] Implement app registration onboarding (client ID, tenant ID, client secret/certificate). Config under `ldap:domains:{name}:entra` with `kind: entraid`; secret sourced from the encrypted store; validated at startup.
+- [x] Support OAuth2 client-credentials flow for service-to-service Graph access. `EntraTokenProvider` via MSAL confidential client.
+- [x] Acquire and cache/refresh Graph access tokens (MSAL). MSAL in-memory app token cache, one client per domain, auto-refresh.
+- [x] Map adrapi `Reading`/`Writting` policies onto required Graph scopes/app roles. `EntraScopeMap` (ReadWrite implies Read) + coverage validation.
+- Deliverable: working token acquisition with secure secret handling. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE2_AUTH.md`.
 
 ## 3. Microsoft Graph Client Foundation
 
@@ -234,3 +234,5 @@ Use this section to record dated updates.
 - 2026-02-13: `Stage 7.3` completed. Notes: regression/contract/negative coverage completed with `/Users/felipe/Dev/adrapi/tests/RegressionContractTests.cs`, `/Users/felipe/Dev/adrapi/tests/ApiContractTests.cs`, and `/Users/felipe/Dev/adrapi/tests/NegativePathTests.cs`; `dotnet test` and NUKE `Quality_Gate` pass with 33 tests.
 - 2026-02-13: `Stage 7.4` completed. Notes: explicit unit/regression/integration quality gates plus changed-module coverage threshold are enforced in `/Users/felipe/Dev/adrapi/build/Build.cs` and `/Users/felipe/Dev/adrapi/scripts/check_changed_coverage.py`; merge-block CI workflow added at `/Users/felipe/Dev/adrapi/.github/workflows/quality-gate.yml`.
 - 2026-02-13: `Stage 8` completed. Notes: docs updated with v2 group/OU usage and troubleshooting in `/Users/felipe/Dev/adrapi/docs/API_REFERENCE.md` and `/Users/felipe/Dev/adrapi/docs/USAGE_GUIDE.md`; migration guide added at `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`; sample curl collection added at `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`; logging/audit traceability contract (requester + clientIp + correlationId) documented.
+- 2026-05-29: `Entra ID Stage 1` completed. Notes: scope document with capability inventory, integration-model decision (additive per-domain backend reusing the multi-domain seam), AD→Entra concept mapping, Graph API surface + app permissions, and gap list at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE1_SCOPE.md`.
+- 2026-05-29: `Entra ID Stage 2` completed. Notes: Entra auth layer added under `/Users/felipe/Dev/adrapi/adrapi/Entra/` (EntraConfig, EntraTokenProvider via MSAL client-credentials, EntraScopeMap policy→app-role mapping); domain-kind awareness + startup validation; client secret sourced from the encrypted store; 13 unit tests (full suite 466 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE2_AUTH.md`.

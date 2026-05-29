@@ -22,6 +22,10 @@ namespace adrapi.Ldap
     {
         public const string FallbackDefaultDomain = "default";
 
+        /// <summary>Directory backend kinds a domain can declare via <c>kind</c>.</summary>
+        public const string KindLdap = "ldap";
+        public const string KindEntraId = "entraid";
+
         /// <summary>
         /// Resource names that may not double as domain names — they would make
         /// routes like <c>/api/users/users</c> ambiguous.
@@ -107,6 +111,25 @@ namespace adrapi.Ldap
 
             return names;
         }
+
+        /// <summary>
+        /// Backend kind for a domain (<see cref="KindLdap"/> or <see cref="KindEntraId"/>),
+        /// from <c>ldap:domains:{name}:kind</c>. The default domain is always LDAP.
+        /// </summary>
+        public string GetDomainKind(string domain)
+        {
+            if (IsDefault(domain))
+            {
+                return KindLdap;
+            }
+
+            var kind = Config?.GetValue<string>($"ldap:domains:{domain.Trim()}:kind");
+            return string.IsNullOrWhiteSpace(kind) ? KindLdap : kind.Trim().ToLowerInvariant();
+        }
+
+        /// <summary>True when the domain is backed by Entra ID rather than LDAP.</summary>
+        public bool IsEntraDomain(string domain)
+            => string.Equals(GetDomainKind(domain), KindEntraId, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// True when <paramref name="domain"/> is null/empty (default), the default

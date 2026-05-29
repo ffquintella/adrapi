@@ -102,6 +102,13 @@ Rules when adding/most touching a V2 controller action:
    row to `tests/Authentication/EndpointCatalog.cs`. V1 stays domain-less — no
    domain rows for `1.0`.
 
+A domain may be backed by **LDAP** (default) or **Entra ID** via
+`ldap:domains:{name}:kind` (`ldap` | `entraid`). Entra domains carry an `entra`
+block (tenant/client + secret-or-certificate); the client secret must be stored
+in the encrypted secret store (`adrapi-api-keys secret set ldap:domains:{name}:entra:clientSecret ...`),
+never in plaintext config. Token acquisition + policy→Graph-role mapping live in
+`adrapi/Entra/` — see `docs/ENTRA_STAGE2_AUTH.md`. OU operations remain LDAP-only.
+
 Configuration: the top-level `ldap` section is the default domain; additional
 domains live under `ldap:domains:{name}` (same shape), and `ldap:defaultDomain`
 names the default. Domain names may not be `users`/`groups`/`ous`/`infos`

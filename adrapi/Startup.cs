@@ -183,7 +183,20 @@ namespace adrapi
                         errors.Add($"ldap.domains.{domain.Key} uses a reserved resource name. Domains may not be named users/groups/ous/infos.");
                     }
 
-                    ValidateLdapSection($"ldap.domains.{domain.Key}", domain, errors);
+                    var kind = domain.GetValue<string>("kind");
+                    if (string.Equals(kind, Ldap.LdapDomainRegistry.KindEntraId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Entra ID-backed domain: validate the app registration, not LDAP servers.
+                        var entra = Entra.EntraConfig.FromSection(domain.GetSection("entra"), domain.Key);
+                        foreach (var e in entra.Validate())
+                        {
+                            errors.Add($"ldap.domains.{domain.Key}.{e}");
+                        }
+                    }
+                    else
+                    {
+                        ValidateLdapSection($"ldap.domains.{domain.Key}", domain, errors);
+                    }
                 }
             }
 
