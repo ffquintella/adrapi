@@ -2,7 +2,8 @@
 
 ADRAPI ships a companion command-line tool, **`adrapi-api-keys`**, for managing
 the SQLite store that backs authentication and application secrets. It lives at
-[`tools/AdrapiApiKeys/`](https://github.com/) and is built as a standalone
+[`tools/AdrapiApiKeys/`](https://github.com/ffquintella/adrapi/tree/develop/tools/AdrapiApiKeys)
+and is built as a standalone
 executable (`AssemblyName` = `adrapi-api-keys`).
 
 The store has two command groups:
