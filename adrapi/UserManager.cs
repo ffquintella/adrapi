@@ -48,9 +48,9 @@ namespace adrapi
         /// Return a string list of the users DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public async Task<UserListResponse> GetListAsync(string attribute = "", string filter = "", string cookie = "")
+        public async Task<UserListResponse> GetListAsync(string attribute = "", string filter = "", string cookie = "", LdapConfig config = null)
         {
-            
+
             var response = new UserListResponse();
             
             var userNames = new List<string>();
@@ -75,7 +75,7 @@ namespace adrapi
             List<LdapEntry> resps;
             
 
-            var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie);
+            var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie, config);
 
             response.Cookie = presp.Cookie;
             resps = presp.Entries;
@@ -136,7 +136,7 @@ namespace adrapi
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
         /// <param name="attribute">The attribute name to appear on the list</param>
-        public async Task<UserListResponse> GetListAsync(int start, int end, string attribute = "" , string filter = "")
+        public async Task<UserListResponse> GetListAsync(int start, int end, string attribute = "" , string filter = "", LdapConfig config = null)
         {
             var response = new UserListResponse();
             
@@ -167,7 +167,7 @@ namespace adrapi
 
             while (absoluteIndex < end)
             {
-                var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie);
+                var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie, config);
                 var entries = presp?.Entries ?? new List<LdapEntry>();
                 if (entries.Count == 0)
                 {
@@ -304,16 +304,16 @@ namespace adrapi
         /// Gets the list of all users.
         /// </summary>
         /// <returns>The users.</returns>
-        public async Task<UserListResponse> GetUsersAsync()
+        public async Task<UserListResponse> GetUsersAsync(LdapConfig config = null)
         {
-            
+
             var response = new UserListResponse();
 
             var users = new List<User>();
 
             var sMgmt = LdapQueryManager.Instance;
 
-            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.User);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.User, "", config);
             int results = 0;
 
             response.UserNames = new List<string>();
@@ -337,7 +337,7 @@ namespace adrapi
         }
 
 
-        public async Task<UserListResponse> GetUsers(int start, int end)
+        public async Task<UserListResponse> GetUsers(int start, int end, LdapConfig config = null)
         {
             var response = new UserListResponse();
             var users = new List<User>();
@@ -347,7 +347,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.User, start, end);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.User, start, end, "", config);
 
             foreach (var entry in resps)
             {
@@ -371,7 +371,7 @@ namespace adrapi
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the user</param>
         /// <<param name="attribute">Optional attribute to use as search base</param>
-        public async Task<User> GetUserAsync (string userID, string attribute = "")
+        public async Task<User> GetUserAsync (string userID, string attribute = "", LdapConfig config = null)
         {
             var sMgmt = LdapQueryManager.Instance;
 
@@ -390,17 +390,17 @@ namespace adrapi
                 {
                     if (string.Equals(normalizedAttribute, "distinguishedName", StringComparison.OrdinalIgnoreCase) || LooksLikeDistinguishedName(lookupValue))
                     {
-                        entry = await TryGetUserEntryByDnAsync(lookupValue);
+                        entry = await TryGetUserEntryByDnAsync(lookupValue, config);
                     }
 
                     if (entry == null)
                     {
-                        entry = await FindUserEntryByAttributeAsync(lookupValue, normalizedAttribute);
+                        entry = await FindUserEntryByAttributeAsync(lookupValue, normalizedAttribute, config);
                     }
                 }
                 else
                 {
-                    entry = await ResolveUserEntryAsync(lookupValue);
+                    entry = await ResolveUserEntryAsync(lookupValue, config);
                 }
 
                 if (entry == null)
@@ -411,7 +411,7 @@ namespace adrapi
 
                 var user = ConvertfromLdap(entry);
                 var userDn = !string.IsNullOrWhiteSpace(user.DN) ? user.DN : entry.Dn;
-                var fullMemberOfDns = await GetCompleteMemberOfDnsAsync(userDn, entry);
+                var fullMemberOfDns = await GetCompleteMemberOfDnsAsync(userDn, entry, config);
                 user.MemberOf = fullMemberOfDns
                     .Select(CreateGroupFromDn)
                     .ToList();
@@ -424,7 +424,7 @@ namespace adrapi
 
         }
 
-        public async Task<UserAttributeInspectionResponse> InspectUserAttributesAsync(string lookupValue, string lookupAttribute = "sAMAccountName")
+        public async Task<UserAttributeInspectionResponse> InspectUserAttributesAsync(string lookupValue, string lookupAttribute = "sAMAccountName", LdapConfig config = null)
         {
             if (string.IsNullOrWhiteSpace(lookupValue))
             {
@@ -439,7 +439,7 @@ namespace adrapi
             {
                 try
                 {
-                    entry = await sMgmt.GetRegister(lookupValue);
+                    entry = await sMgmt.GetRegister(lookupValue, null, config);
                 }
                 catch
                 {
@@ -450,7 +450,7 @@ namespace adrapi
             if (entry == null)
             {
                 var filter = $"(&(objectClass=user)(objectCategory=person)({LdapInjectionControll.EscapeForSearchFilter(lookupAttr)}={LdapInjectionControll.EscapeForSearchFilter(lookupValue)}))";
-                var search = await sMgmt.ExecutePagedSearchAsync("", filter);
+                var search = await sMgmt.ExecutePagedSearchAsync("", filter, "", config);
                 entry = search.Entries.FirstOrDefault();
             }
 
@@ -481,7 +481,7 @@ namespace adrapi
                 response.Attributes[attr.Name] = values;
             }
 
-            var memberOf = await GetCompleteMemberOfDnsAsync(response.DistinguishedName, entry);
+            var memberOf = await GetCompleteMemberOfDnsAsync(response.DistinguishedName, entry, config);
             if (memberOf != null)
             {
                 response.MemberOfDns = memberOf;
@@ -502,12 +502,12 @@ namespace adrapi
         /// <returns> -1 Error </returns>
         /// <returns> 0 OK </returns>
         /// <param name="user">User.</param>
-        public async Task<int> CreateUserAsync(User user)
+        public async Task<int> CreateUserAsync(User user, LdapConfig config = null)
         {
 
             //Creates the List attributes of the entry and add them to attributeset
 
-            LdapAttributeSet attributeSet = GetAttributeSet(user);
+            LdapAttributeSet attributeSet = GetAttributeSet(user, config);
 
             // DN of the entry to be added
             string dn = user.DN;
@@ -519,7 +519,7 @@ namespace adrapi
 
             try
             {
-                await qMgmt.AddEntryAsync(newEntry);
+                await qMgmt.AddEntryAsync(newEntry, config);
                 return 0;
 
             }catch(Exception ex)
@@ -536,21 +536,21 @@ namespace adrapi
         /// </summary>
         /// <returns>The user. Must have DN set</returns>
         /// <param name="user">User.</param>
-        public async Task<int> SaveUserAsync(User user)
+        public async Task<int> SaveUserAsync(User user, LdapConfig config = null)
         {
 
             var qMgmt = LdapQueryManager.Instance;
 
             var modList = new List<LdapModification>();
 
-            var atributes = GetAttributeSet(user);
+            var atributes = GetAttributeSet(user, config);
 
             //Get user from the Directory
             try
             {
-                var duser = await GetUserAsync(user.DN);
+                var duser = await GetUserAsync(user.DN, "", config);
 
-                var dattrs = GetAttributeSet(duser);
+                var dattrs = GetAttributeSet(duser, config);
 
    
                 foreach (LdapAttribute attr in atributes)
@@ -587,7 +587,7 @@ namespace adrapi
                 try
                 {
                     if(modList.Count > 0)
-                        await qMgmt.SaveEntry(user.DN, modList.ToArray());
+                        await qMgmt.SaveEntry(user.DN, modList.ToArray(), config);
                     return 0;
 
                 }
@@ -608,7 +608,7 @@ namespace adrapi
 
         }
 
-        public async Task<bool> ValidateAuthenticationAsync(string login, string password)
+        public async Task<bool> ValidateAuthenticationAsync(string login, string password, LdapConfig config = null)
         {
             if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
             {
@@ -620,7 +620,7 @@ namespace adrapi
             // If caller provides a plain account name, resolve it first so bind is deterministic.
             if (!bindLogin.Contains("=") && !bindLogin.Contains("@") && !bindLogin.Contains("\\"))
             {
-                var adUser = await GetUserAsync(bindLogin, "sAMAccountName");
+                var adUser = await GetUserAsync(bindLogin, "sAMAccountName", config);
                 if (adUser != null)
                 {
                     if (!string.IsNullOrWhiteSpace(adUser.DN))
@@ -635,12 +635,12 @@ namespace adrapi
             }
 
             LdapConnectionManager lcm = LdapConnectionManager.Instance;
-            return await lcm.ValidateAuthenticationAsync(bindLogin, password);
+            return await lcm.ValidateAuthenticationAsync(bindLogin, password, config);
 
         }
 
 
-        private LdapAttributeSet GetAttributeSet(User user)
+        private LdapAttributeSet GetAttributeSet(User user, LdapConfig config = null)
         {
             LdapAttributeSet attributeSet = new LdapAttributeSet();
 
@@ -666,7 +666,7 @@ namespace adrapi
             else
             {
                 if (user.IsDisabled == null) user.IsDisabled = false;
-                var ldapCfg = new LdapConfig();
+                var ldapCfg = config ?? new LdapConfig();
                 if (ldapCfg.ssl == false)
                 {
                     throw new domain.Exceptions.SSLRequiredException();
@@ -780,7 +780,7 @@ namespace adrapi
             return group;
         }
 
-        private async Task<List<string>> GetCompleteMemberOfDnsAsync(string userDn, LdapEntry seedEntry = null)
+        private async Task<List<string>> GetCompleteMemberOfDnsAsync(string userDn, LdapEntry seedEntry = null, LdapConfig config = null)
         {
             var memberships = new List<string>();
             if (!string.IsNullOrWhiteSpace(userDn) && seedEntry != null)
@@ -810,7 +810,7 @@ namespace adrapi
                 var requestedRange = $"memberOf;range={nextRangeStart}-{nextRangeStart + MemberOfRangeWindow - 1}";
                 try
                 {
-                    currentEntry = await sMgmt.GetRegister(userDn, new[] { requestedRange });
+                    currentEntry = await sMgmt.GetRegister(userDn, new[] { requestedRange }, config);
                 }
                 catch
                 {
@@ -940,41 +940,41 @@ namespace adrapi
             return true;
         }
 
-        private async Task<LdapEntry> ResolveUserEntryAsync(string userID)
+        private async Task<LdapEntry> ResolveUserEntryAsync(string userID, LdapConfig config = null)
         {
             if (LooksLikeDistinguishedName(userID))
             {
-                var byDn = await TryGetUserEntryByDnAsync(userID);
+                var byDn = await TryGetUserEntryByDnAsync(userID, config);
                 if (byDn != null)
                 {
                     return byDn;
                 }
             }
 
-            var bySamAccountName = await FindUserEntryByAttributeAsync(userID, "sAMAccountName");
+            var bySamAccountName = await FindUserEntryByAttributeAsync(userID, "sAMAccountName", config);
             if (bySamAccountName != null)
             {
                 return bySamAccountName;
             }
 
-            return await FindUserEntryByAttributeAsync(userID, "userPrincipalName");
+            return await FindUserEntryByAttributeAsync(userID, "userPrincipalName", config);
         }
 
-        private async Task<LdapEntry> FindUserEntryByAttributeAsync(string value, string attribute)
+        private async Task<LdapEntry> FindUserEntryByAttributeAsync(string value, string attribute, LdapConfig config = null)
         {
             var sMgmt = LdapQueryManager.Instance;
             var filter = $"(&(objectClass=user)(objectCategory=person)({LdapInjectionControll.EscapeForSearchFilter(attribute)}={LdapInjectionControll.EscapeForSearchFilter(value)}))";
-            var results = await sMgmt.ExecutePagedSearchAsync("", filter);
+            var results = await sMgmt.ExecutePagedSearchAsync("", filter, "", config);
             var entry = results.Entries.FirstOrDefault();
             if (entry == null)
             {
                 return null;
             }
 
-            return await TryGetUserEntryByDnAsync(entry.Dn) ?? entry;
+            return await TryGetUserEntryByDnAsync(entry.Dn, config) ?? entry;
         }
 
-        private async Task<LdapEntry> TryGetUserEntryByDnAsync(string dn)
+        private async Task<LdapEntry> TryGetUserEntryByDnAsync(string dn, LdapConfig config = null)
         {
             if (string.IsNullOrWhiteSpace(dn))
             {
@@ -984,7 +984,7 @@ namespace adrapi
             var sMgmt = LdapQueryManager.Instance;
             try
             {
-                return await sMgmt.GetRegister(dn, userAttrs);
+                return await sMgmt.GetRegister(dn, userAttrs, config);
             }
             catch
             {
@@ -997,15 +997,15 @@ namespace adrapi
         /// </summary>
         /// <returns>0 for success -1 for error.</returns>
         /// <param name="user">User.</param>
-        public async Task<int> DeleteUser(User user)
+        public async Task<int> DeleteUser(User user, LdapConfig config = null)
         {
-        
+
 
             var qMgmt = LdapQueryManager.Instance;
 
             try
             {
-                await qMgmt.DeleteEntry(user.DN);
+                await qMgmt.DeleteEntry(user.DN, config);
                 return 0;
 
             }

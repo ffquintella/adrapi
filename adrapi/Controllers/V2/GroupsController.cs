@@ -23,6 +23,7 @@ namespace adrapi.Controllers.V2
     [Authorize(Policy = "Reading")]
     [ApiVersion( "2.0" )]
     [Route("api/[controller]")]
+    [Route("api/{domain}/[controller]")]
     [ApiController]
     public class GroupsController: BaseController
     {
@@ -39,10 +40,12 @@ namespace adrapi.Controllers.V2
         #region GET
         // GET api/groups
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<String>>> Get([FromQuery]int _start, [FromQuery]int _end)
+        public async Task<ActionResult<IEnumerable<String>>> Get([FromQuery]int _start, [FromQuery]int _end, [FromRoute] string domain = null)
         {
 
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(GetItem, "{0} listing all groups", requesterID);
 
@@ -53,20 +56,22 @@ namespace adrapi.Controllers.V2
                 return Conflict();
             }
 
-            if (_start == 0 && _end == 0) 
-            return await gManager.GetCnListAsync();
-            else return await gManager.GetCnListAsync(_start, _end);
+            if (_start == 0 && _end == 0)
+            return await gManager.GetCnListAsync(ldapConfig);
+            else return await gManager.GetCnListAsync(_start, _end, ldapConfig);
 
 
         }
 
         // GET api/groups 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<domain.Group>>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
+        public async Task<ActionResult<IEnumerable<domain.Group>>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end, [FromRoute] string domain = null)
         {
             if (_full)
             {
                 this.ProcessRequest();
+
+                if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
                 logger.LogDebug(ListItems, "{0} getting all groups objects", requesterID);
 
@@ -78,8 +83,8 @@ namespace adrapi.Controllers.V2
                 var gManager = GroupManager.Instance;
                 List<domain.Group> groups;
 
-                //if (_start == 0 && _end == 0) 
-                groups = await gManager.GetGroupsAsync();
+                //if (_start == 0 && _end == 0)
+                groups = await gManager.GetGroupsAsync(ldapConfig);
                 //else groups = gManager.GetGroups(_start, _end);
 
                 return groups;
@@ -92,9 +97,11 @@ namespace adrapi.Controllers.V2
         
         // GET api/groups/:group
         [HttpGet("{groupId}")]
-        public async Task<ActionResult<domain.Group>> Get(string groupId)
+        public async Task<ActionResult<domain.Group>> Get(string groupId, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (string.IsNullOrWhiteSpace(groupId))
             {
@@ -105,10 +112,10 @@ namespace adrapi.Controllers.V2
             try
             {
                 // Try DN first (v2 contract), then fallback to CN for backward compatibility.
-                var group = await gManager.GetGroupAsync(groupId, true);
+                var group = await gManager.GetGroupAsync(groupId, true, false, ldapConfig);
                 if (group == null)
                 {
-                    group = await gManager.GetGroupAsync(groupId, true, true);
+                    group = await gManager.GetGroupAsync(groupId, true, true, ldapConfig);
                 }
 
                 if (group == null)
@@ -131,9 +138,11 @@ namespace adrapi.Controllers.V2
 
         // GET api/groups/:group/exists
         [HttpGet("{DN}/exists")]
-        public async Task<IActionResult> GetExists(string DN)
+        public async Task<IActionResult> GetExists(string DN, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!IsValidGroupDn(DN))
             {
@@ -145,7 +154,7 @@ namespace adrapi.Controllers.V2
             try
             {
                 logger.LogDebug(ItemExists, "Group DN={dn} found", DN);
-                var group = await gManager.GetGroupAsync(DN);
+                var group = await gManager.GetGroupAsync(DN, false, false, ldapConfig);
 
                 if (group == null)
                 {
@@ -168,9 +177,11 @@ namespace adrapi.Controllers.V2
 
         // GET api/groups/:group/members
         [HttpGet("{groupId}/members")]
-        public async Task<ActionResult<List<String>>> GetMembers(string groupId, [FromQuery]Boolean _listCN = true)
+        public async Task<ActionResult<List<String>>> GetMembers(string groupId, [FromQuery]Boolean _listCN = true, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (string.IsNullOrWhiteSpace(groupId))
             {
@@ -182,10 +193,10 @@ namespace adrapi.Controllers.V2
             try
             {
                 logger.LogDebug(ListItems, "Resolving group members for groupId={groupId}", groupId);
-                var group = await gManager.GetGroupAsync(groupId, false);
+                var group = await gManager.GetGroupAsync(groupId, false, false, ldapConfig);
                 if (group == null)
                 {
-                    group = await gManager.GetGroupAsync(groupId, false, true);
+                    group = await gManager.GetGroupAsync(groupId, false, true, ldapConfig);
                 }
 
                 if (group == null)
@@ -209,9 +220,11 @@ namespace adrapi.Controllers.V2
         // POST api/groups
         [Authorize(Policy = "Writting")]
         [HttpPost]
-        public async Task<ActionResult> Post([FromBody] GroupCreateRequest request, [FromQuery] Boolean _listCN = false)
+        public async Task<ActionResult> Post([FromBody] GroupCreateRequest request, [FromQuery] Boolean _listCN = false, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!ModelState.IsValid || request == null || string.IsNullOrWhiteSpace(request.DN))
             {
@@ -235,12 +248,12 @@ namespace adrapi.Controllers.V2
             }
 
             var gManager = GroupManager.Instance;
-            if (await HasConflictingGroupAsync(request.DN, request.Name))
+            if (await HasConflictingGroupAsync(request.DN, request.Name, ldapConfig))
             {
                 return Conflict();
             }
 
-            var members = await ResolveMembersAsync(request.Members, request.DN, _listCN);
+            var members = await ResolveMembersAsync(request.Members, request.DN, _listCN, ldapConfig);
             if (members == null)
             {
                 return this.StatusCode(422);
@@ -255,7 +268,7 @@ namespace adrapi.Controllers.V2
             };
 
             LogAudit("group.create.request", request.DN, $"membersCount={members.Count}");
-            var result = await gManager.CreateGroupAsync(group);
+            var result = await gManager.CreateGroupAsync(group, ldapConfig);
             if (result == 0)
             {
                 LogAudit("group.create.success", request.DN, $"membersCount={members.Count}");
@@ -274,9 +287,11 @@ namespace adrapi.Controllers.V2
         /// <param name="_listCN">If the members are in CN format</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public async Task<ActionResult> Put(string DN, [FromBody] domain.Group group, [FromQuery] Boolean _listCN = false)
+        public async Task<ActionResult> Put(string DN, [FromBody] domain.Group group, [FromQuery] Boolean _listCN = false, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to create group:{0}", DN);
 
@@ -295,7 +310,7 @@ namespace adrapi.Controllers.V2
                 }
 
                 var gManager = GroupManager.Instance;
-                var adgroup = await gManager.GetGroupAsync(DN);
+                var adgroup = await gManager.GetGroupAsync(DN, false, false, ldapConfig);
 
                 if (!string.Equals(groupNameFromDn, group.Name, System.StringComparison.OrdinalIgnoreCase))
                 {
@@ -303,12 +318,12 @@ namespace adrapi.Controllers.V2
                     return Conflict();
                 }
 
-                if (adgroup == null && await HasConflictingGroupAsync(DN, group.Name))
+                if (adgroup == null && await HasConflictingGroupAsync(DN, group.Name, ldapConfig))
                 {
                     return Conflict();
                 }
 
-                var resolvedMembers = await ResolveMembersAsync(group.Member, DN, _listCN);
+                var resolvedMembers = await ResolveMembersAsync(group.Member, DN, _listCN, ldapConfig);
                 if (resolvedMembers == null)
                 {
                     return this.StatusCode(422);
@@ -323,7 +338,7 @@ namespace adrapi.Controllers.V2
                     logger.LogInformation(InsertItem, "Creating group DN={DN}", DN);
 
                     LogAudit("group.create.request", DN, $"membersCount={group.Member.Count}");
-                    var result = await gManager.CreateGroupAsync(group);
+                    var result = await gManager.CreateGroupAsync(group, ldapConfig);
                     if (result == 0)
                     {
                         LogAudit("group.create.success", DN, $"membersCount={group.Member.Count}");
@@ -339,7 +354,7 @@ namespace adrapi.Controllers.V2
                     logger.LogInformation(UpdateItem, "Updating group DN={DN}", DN);
 
                     LogAudit("group.update.request", DN, $"membersCount={group.Member.Count}");
-                    var result = await gManager.SaveGroupAsync(group);
+                    var result = await gManager.SaveGroupAsync(group, ldapConfig);
                     if (result == 0)
                     {
                         LogAudit("group.update.success", DN, $"membersCount={group.Member.Count}");
@@ -372,24 +387,27 @@ namespace adrapi.Controllers.V2
         // PUT api/groups/:group/members
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}/members")]
-        public async Task<ActionResult> PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false)
+        public async Task<ActionResult> PutMembers(string DN, [FromBody] String[] members, [FromQuery] Boolean _listCN = false, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
             var gManager = GroupManager.Instance;
-            
+
             if (!IsValidGroupDn(DN))
             {
                 return Conflict();
             }
 
             logger.LogDebug(ListItems, "Group DN={dn} found", DN);
-            var group = await gManager.GetGroupAsync(DN);
+            var group = await gManager.GetGroupAsync(DN, false, false, ldapConfig);
             if (group == null)
             {
                 return NotFound();
             }
 
-            var resolvedMembers = await ResolveMembersAsync(members, DN, _listCN);
+            var resolvedMembers = await ResolveMembersAsync(members, DN, _listCN, ldapConfig);
             if (resolvedMembers == null)
             {
                 return this.StatusCode(422);
@@ -400,7 +418,7 @@ namespace adrapi.Controllers.V2
             {
                 logger.LogInformation(PutItem, "Saving group members for group:{DN}", DN);
                 LogAudit("group.members.replace.request", DN, $"membersCount={group.Member.Count}");
-                await gManager.SaveGroupAsync(group);
+                await gManager.SaveGroupAsync(group, ldapConfig);
                 LogAudit("group.members.replace.success", DN, $"membersCount={group.Member.Count}");
                 return Ok();
             }
@@ -417,9 +435,12 @@ namespace adrapi.Controllers.V2
         // PATCH api/groups/:group/members
         [Authorize(Policy = "Writting")]
         [HttpPatch("{DN}/members")]
-        public async Task<ActionResult> PatchMembers(string DN, [FromBody] GroupMembersPatchRequest request, [FromQuery] Boolean _listCN = false)
+        public async Task<ActionResult> PatchMembers(string DN, [FromBody] GroupMembersPatchRequest request, [FromQuery] Boolean _listCN = false, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
             var gManager = GroupManager.Instance;
 
             if (request == null)
@@ -439,19 +460,19 @@ namespace adrapi.Controllers.V2
                 return BadRequest();
             }
 
-            var group = await gManager.GetGroupAsync(DN);
+            var group = await gManager.GetGroupAsync(DN, false, false, ldapConfig);
             if (group == null)
             {
                 return NotFound();
             }
 
-            var addDns = await ResolveMembersAsync(addList, DN, _listCN);
+            var addDns = await ResolveMembersAsync(addList, DN, _listCN, ldapConfig);
             if (addDns == null)
             {
                 return this.StatusCode(422);
             }
 
-            var removeDns = await ResolveMembersAsync(removeList, DN, _listCN);
+            var removeDns = await ResolveMembersAsync(removeList, DN, _listCN, ldapConfig);
             if (removeDns == null)
             {
                 return this.StatusCode(422);
@@ -470,7 +491,7 @@ namespace adrapi.Controllers.V2
 
             group.Member = members.ToList();
             LogAudit("group.members.patch.request", DN, $"add={addDns.Count};remove={removeDns.Count};result={group.Member.Count}");
-            var result = await gManager.SaveGroupAsync(group);
+            var result = await gManager.SaveGroupAsync(group, ldapConfig);
             if (result == 0)
             {
                 LogAudit("group.members.patch.success", DN, $"add={addDns.Count};remove={removeDns.Count};result={group.Member.Count}");
@@ -493,9 +514,11 @@ namespace adrapi.Controllers.V2
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public async Task<ActionResult> Delete(string DN)
+        public async Task<ActionResult> Delete(string DN, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to delete group:{0}", DN);
 
@@ -511,7 +534,7 @@ namespace adrapi.Controllers.V2
 
             var gManager = GroupManager.Instance;
 
-            var dgroup = await gManager.GetGroupAsync(DN);
+            var dgroup = await gManager.GetGroupAsync(DN, false, false, ldapConfig);
 
             if (dgroup == null)
             {
@@ -527,7 +550,7 @@ namespace adrapi.Controllers.V2
                 logger.LogInformation(DeleteItem, "Deleting group DN={DN}", DN);
 
                 LogAudit("group.delete.request", DN, "delete");
-                var result = await gManager.DeleteGroup(dgroup);
+                var result = await gManager.DeleteGroup(dgroup, ldapConfig);
                 if (result == 0)
                 {
                     LogAudit("group.delete.success", DN, "delete");
@@ -607,21 +630,21 @@ namespace adrapi.Controllers.V2
             return firstPart.Substring(3);
         }
 
-        private async Task<bool> HasConflictingGroupAsync(string dn, string groupName)
+        private async Task<bool> HasConflictingGroupAsync(string dn, string groupName, LdapConfig config = null)
         {
             var gManager = GroupManager.Instance;
 
-            var byDn = await gManager.GetGroupAsync(dn);
+            var byDn = await gManager.GetGroupAsync(dn, false, false, config);
             if (byDn != null)
             {
                 return true;
             }
 
-            var byCn = await gManager.GetGroupAsync(groupName, true, true);
+            var byCn = await gManager.GetGroupAsync(groupName, true, true, config);
             return byCn != null && !string.Equals(byCn.DN, dn, System.StringComparison.OrdinalIgnoreCase);
         }
 
-        private async Task<string> ResolveMemberDnAsync(string member, bool listCnHint)
+        private async Task<string> ResolveMemberDnAsync(string member, bool listCnHint, LdapConfig config = null)
         {
             var gManager = GroupManager.Instance;
             var uManager = UserManager.Instance;
@@ -635,23 +658,23 @@ namespace adrapi.Controllers.V2
 
             if (LooksLikeDistinguishedName(memberValue))
             {
-                var groupByDn = await gManager.GetGroupAsync(memberValue);
+                var groupByDn = await gManager.GetGroupAsync(memberValue, false, false, config);
                 if (groupByDn != null)
                 {
                     return groupByDn.DN;
                 }
 
-                var userByDn = await uManager.GetUserAsync(memberValue, "distinguishedName");
+                var userByDn = await uManager.GetUserAsync(memberValue, "distinguishedName", config);
                 return userByDn?.DN;
             }
 
-            var grp = await gManager.GetGroupAsync(memberValue, true, true);
+            var grp = await gManager.GetGroupAsync(memberValue, true, true, config);
             if (grp != null)
             {
                 return grp.DN;
             }
 
-            var userBySamAccountName = await uManager.GetUserAsync(memberValue, "samaccountname");
+            var userBySamAccountName = await uManager.GetUserAsync(memberValue, "samaccountname", config);
             if (userBySamAccountName != null)
             {
                 return userBySamAccountName.DN;
@@ -659,7 +682,7 @@ namespace adrapi.Controllers.V2
 
             if (!listCnHint)
             {
-                var userByCn = await uManager.GetUserAsync(memberValue, "cn");
+                var userByCn = await uManager.GetUserAsync(memberValue, "cn", config);
                 if (userByCn != null)
                 {
                     return userByCn.DN;
@@ -669,7 +692,7 @@ namespace adrapi.Controllers.V2
             return null;
         }
 
-        private async Task<List<string>> ResolveMembersAsync(IEnumerable<string> members, string groupDn, bool listCn)
+        private async Task<List<string>> ResolveMembersAsync(IEnumerable<string> members, string groupDn, bool listCn, LdapConfig config = null)
         {
             var resolved = new List<string>();
             if (members == null)
@@ -679,7 +702,7 @@ namespace adrapi.Controllers.V2
 
             foreach (var member in members)
             {
-                var dname = await ResolveMemberDnAsync(member, listCn);
+                var dname = await ResolveMemberDnAsync(member, listCn, config);
 
                 if (string.IsNullOrWhiteSpace(dname))
                 {

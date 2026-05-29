@@ -14,6 +14,7 @@ namespace adrapi.Controllers
     [ApiVersion( "2.0" )]
     [ApiVersion( "1.0", Deprecated = true )]
     [Route("api/[controller]")]
+    [Route("api/{domain}/[controller]")]
     [ApiController]
     public class InfosController : ControllerBase
     {
@@ -26,8 +27,10 @@ namespace adrapi.Controllers
         }
 
         // GET api/values
+        // Informational endpoint; the optional {domain} segment is accepted for
+        // route symmetry with the directory controllers but is not directory-bound.
         [HttpGet]
-        public ActionResult<IEnumerable<string>> Get()
+        public ActionResult<IEnumerable<string>> Get([FromRoute] string domain = null)
         {
             //_logger.LogInformation(GetItem, "Getting item test");
             return new string[] { "version", "about" };
@@ -35,7 +38,7 @@ namespace adrapi.Controllers
 
         // GET api/infos/version
         [HttpGet("{info}")]
-        public ActionResult<string> Get(string info)
+        public ActionResult<string> Get(string info, [FromRoute] string domain = null)
         {
             string resp = "";
             switch (info)

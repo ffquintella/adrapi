@@ -99,6 +99,16 @@ namespace tests.Authentication
                     ["ldap:searchFilter"] = "",
                     ["ldap:maxResults"] = "10",
                     ["ldap:adminCn"] = "",
+                    // A second directory so domain-prefixed routes (/api/lab/...) resolve.
+                    ["ldap:domains:lab:servers:0"] = "127.0.0.1:1",
+                    ["ldap:domains:lab:ssl"] = "false",
+                    ["ldap:domains:lab:poolSize"] = "1",
+                    ["ldap:domains:lab:bindDn"] = "cn=fake,dc=lab",
+                    ["ldap:domains:lab:bindCredentials"] = "fake",
+                    ["ldap:domains:lab:searchBase"] = "dc=lab",
+                    ["ldap:domains:lab:searchFilter"] = "",
+                    ["ldap:domains:lab:maxResults"] = "10",
+                    ["ldap:domains:lab:adminCn"] = "",
                     ["rateLimit:auth:permitLimit"] = "9999",
                     ["rateLimit:auth:windowSeconds"] = "60",
                 });

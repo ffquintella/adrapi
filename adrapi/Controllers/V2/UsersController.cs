@@ -21,6 +21,7 @@ namespace adrapi.Controllers.V2
     [Authorize(Policy = "Reading")]
     [ApiVersion("2.0")]
     [Route("api/users")]
+    [Route("api/{domain}/users")]
     [ApiController]
     public class UsersController : BaseController
     {
@@ -37,10 +38,12 @@ namespace adrapi.Controllers.V2
         #region GET
         // GET api/users
         [HttpGet]
-        public async Task<ActionResult<UserListResponse>> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "")
+        public async Task<ActionResult<UserListResponse>> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "", [FromRoute] string domain = null)
         {
 
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogInformation(ListItems, "{0} listing all users", requesterID);
 
@@ -66,7 +69,7 @@ namespace adrapi.Controllers.V2
             // Default mode: LDAP paged query using cookie.
             if (_start == -1 && _end == -1)
             {
-                var response = await uManager.GetListAsync(_attribute, _filter, _cookie);
+                var response = await uManager.GetListAsync(_attribute, _filter, _cookie, ldapConfig);
 
                 return response;
             }
@@ -84,17 +87,19 @@ namespace adrapi.Controllers.V2
 
             // VLV is 1-based internally; accept _start=0 from clients as first item.
             var normalizedStart = _start == 0 ? 1 : _start;
-            return await uManager.GetListAsync(normalizedStart, _end, _attribute, _filter);
+            return await uManager.GetListAsync(normalizedStart, _end, _attribute, _filter, ldapConfig);
 
         }
 
         
         // GET api/users 
         [HttpGet]
-        public async Task<ActionResult<UserListResponse>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end)
+        public async Task<ActionResult<UserListResponse>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end, [FromRoute] string domain = null)
         {
 
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogInformation(ListItems, "{0} getting all users objects", requesterID);
 
@@ -104,10 +109,10 @@ namespace adrapi.Controllers.V2
             }
 
             var uManager = UserManager.Instance;
-            UserListResponse response; 
+            UserListResponse response;
 
-            if (_start == 0 && _end == 0) response = await uManager.GetUsersAsync();
-            else response = await uManager.GetUsersAsync();
+            if (_start == 0 && _end == 0) response = await uManager.GetUsersAsync(ldapConfig);
+            else response = await uManager.GetUsersAsync(ldapConfig);
 
             return response;
 
@@ -115,14 +120,17 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user
         [HttpGet("{user}")]
-        public async Task<ActionResult<domain.User>> Get(string user, [FromQuery]string _attribute = "")
+        public async Task<ActionResult<domain.User>> Get(string user, [FromQuery]string _attribute = "", [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
             var uManager = UserManager.Instance;
 
             User usr;
 
-            usr = _attribute != "" ? await uManager.GetUserAsync(user, _attribute) : await uManager.GetUserAsync(user);
+            usr = _attribute != "" ? await uManager.GetUserAsync(user, _attribute, ldapConfig) : await uManager.GetUserAsync(user, "", ldapConfig);
 
             if (usr == null)
             {
@@ -140,9 +148,11 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user/exists
         [HttpGet("{user}/exists")]
-        public async Task<IActionResult> GetExists(string user, [FromQuery]string _attribute = "")
+        public async Task<IActionResult> GetExists(string user, [FromQuery]string _attribute = "", [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             var uManager = UserManager.Instance;
 
@@ -151,13 +161,13 @@ namespace adrapi.Controllers.V2
                 logger.LogDebug(ItemExists, "User DN={user} found with attribute={_attribute}",user,_attribute);
                 if (_attribute != "")
                 {
-                    var resp = await uManager.GetUserAsync(user, _attribute);
+                    var resp = await uManager.GetUserAsync(user, _attribute, ldapConfig);
                     if (resp == null) return NotFound();
-                    
+
                 }
                 else
                 {
-                    var resp = await uManager.GetUserAsync(user);
+                    var resp = await uManager.GetUserAsync(user, "", ldapConfig);
                     if (resp == null) return NotFound();
                 }
 
@@ -175,9 +185,11 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user/attributes
         [HttpGet("{user}/attributes")]
-        public async Task<ActionResult<UserAttributeInspectionResponse>> GetAttributes(string user, [FromQuery] string _lookupAttribute = "sAMAccountName")
+        public async Task<ActionResult<UserAttributeInspectionResponse>> GetAttributes(string user, [FromQuery] string _lookupAttribute = "sAMAccountName", [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (string.IsNullOrWhiteSpace(user))
             {
@@ -185,7 +197,7 @@ namespace adrapi.Controllers.V2
             }
 
             var uManager = UserManager.Instance;
-            var inspection = await uManager.InspectUserAttributesAsync(user, _lookupAttribute);
+            var inspection = await uManager.InspectUserAttributesAsync(user, _lookupAttribute, ldapConfig);
             if (inspection == null)
             {
                 return NotFound();
@@ -196,9 +208,11 @@ namespace adrapi.Controllers.V2
 
         // GET api/users/:user/member-of/:group
         [HttpGet("{user}/member-of/{group}")]
-        public async Task<IActionResult> IsMemberOf(string user, string group)
+        public async Task<IActionResult> IsMemberOf(string user, string group, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(group))
             {
@@ -210,7 +224,7 @@ namespace adrapi.Controllers.V2
             try
             {
                 logger.LogDebug(ItemExists, "Checking membership for user={user} group={group}", user, group);
-                var adUser = await uManager.GetUserAsync(user);
+                var adUser = await uManager.GetUserAsync(user, "", ldapConfig);
                 if (adUser == null)
                 {
                     return NotFound();
@@ -233,9 +247,11 @@ namespace adrapi.Controllers.V2
         }
 
         [HttpGet("{user}/groups")]
-        public async Task<ActionResult<UserGroupsResponse>> GetGroups(string user)
+        public async Task<ActionResult<UserGroupsResponse>> GetGroups(string user, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (string.IsNullOrWhiteSpace(user))
             {
@@ -243,7 +259,7 @@ namespace adrapi.Controllers.V2
             }
 
             var uManager = UserManager.Instance;
-            var adUser = await uManager.GetUserAsync(user);
+            var adUser = await uManager.GetUserAsync(user, "", ldapConfig);
             if (adUser == null)
             {
                 return NotFound();
@@ -279,26 +295,28 @@ namespace adrapi.Controllers.V2
         [HttpPost("{userId}/authenticate")]
         [Authorize(Policy = "Reading")]
         [EnableRateLimiting("AuthEndpoint")]
-        public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false)
+        public async Task<ActionResult> Authenticate(string userId, [FromBody] AuthenticationRequest req, [FromQuery] Boolean _useAccount = false, [FromRoute] string domain = null)
         {
             if (req == null || string.IsNullOrWhiteSpace(req.Password))
             {
                 return BadRequest();
             }
 
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
             var uManager = UserManager.Instance;
 
             User aduser;
-            
+
             if (_useAccount)
             {
-                aduser = await uManager.GetUserAsync(userId, "samaccountname");
+                aduser = await uManager.GetUserAsync(userId, "samaccountname", ldapConfig);
             }
             else
             {
-                aduser = await uManager.GetUserAsync(userId);  
+                aduser = await uManager.GetUserAsync(userId, "", ldapConfig);
             }
-            
+
 
             if (aduser == null)
             {
@@ -312,7 +330,7 @@ namespace adrapi.Controllers.V2
                 if (req.Login == null) login = aduser.Account;
                 else login = req.Login;
 
-                var success = await uManager.ValidateAuthenticationAsync(login, req.Password);
+                var success = await uManager.ValidateAuthenticationAsync(login, req.Password, ldapConfig);
 
                 if (success) return Ok();
                 return StatusCode(401);
@@ -325,8 +343,10 @@ namespace adrapi.Controllers.V2
         [HttpPost("authenticate")]
         [Authorize(Policy = "Reading")]
         [EnableRateLimiting("AuthEndpoint")]
-        public async Task<ActionResult> AuthenticateDirect([FromBody] AuthenticationRequest req)
+        public async Task<ActionResult> AuthenticateDirect([FromBody] AuthenticationRequest req, [FromRoute] string domain = null)
         {
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             var uManager = UserManager.Instance;
 
@@ -339,7 +359,7 @@ namespace adrapi.Controllers.V2
             }
             else login = req.Login;
 
-            var success = await uManager.ValidateAuthenticationAsync(login, req.Password);
+            var success = await uManager.ValidateAuthenticationAsync(login, req.Password, ldapConfig);
 
             if (success) return Ok();
             return StatusCode(401);
@@ -357,9 +377,11 @@ namespace adrapi.Controllers.V2
         /// <param name="user">User.</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public async Task<ActionResult> Put(string DN, [FromBody] User user)
+        public async Task<ActionResult> Put(string DN, [FromBody] User user, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to create user:{0}", DN);
 
@@ -387,7 +409,7 @@ namespace adrapi.Controllers.V2
 
                 var uManager = UserManager.Instance;
 
-                var aduser = await uManager.GetUserAsync(DN);
+                var aduser = await uManager.GetUserAsync(DN, "", ldapConfig);
 
 
                 if (aduser == null)
@@ -397,19 +419,19 @@ namespace adrapi.Controllers.V2
 
                     user.DN = DN;
 
-                    var result = await uManager.CreateUserAsync(user);
+                    var result = await uManager.CreateUserAsync(user, ldapConfig);
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
                 }
                 else
                 {
-                    // Update 
+                    // Update
                     logger.LogInformation(UpdateItem, "Updating user DN={DN}", DN);
 
                     user.DN = DN;
 
-                    var result = await uManager.SaveUserAsync(user);
+                    var result = await uManager.SaveUserAsync(user, ldapConfig);
                     if (result == 0) return Ok();
                     else return this.StatusCode(500);
 
@@ -440,19 +462,21 @@ namespace adrapi.Controllers.V2
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public async Task<ActionResult> Delete(string userID, [FromQuery] string _attribute = "")
+        public async Task<ActionResult> Delete(string userID, [FromQuery] string _attribute = "", [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to delete user:{0}", userID);
 
 
             User duser = null;
             var uManager = UserManager.Instance;
-            
+
             if (_attribute != "")
             {
-                duser = await uManager.GetUserAsync(userID, _attribute);
+                duser = await uManager.GetUserAsync(userID, _attribute, ldapConfig);
             }
             else
             {
@@ -469,9 +493,9 @@ namespace adrapi.Controllers.V2
 
                 //var uLogin = match.Groups["login"];
 
-                duser = await uManager.GetUserAsync(userID);
+                duser = await uManager.GetUserAsync(userID, "", ldapConfig);
             }
-            
+
 
 
             if (duser == null)
@@ -484,10 +508,10 @@ namespace adrapi.Controllers.V2
             }
             else
             {
-                // Delete 
+                // Delete
                 logger.LogInformation(DeleteItem, "Deleting user DN={DN}", userID);
 
-                var result = await uManager.DeleteUser(duser);
+                var result = await uManager.DeleteUser(duser, ldapConfig);
                 if (result == 0) return Ok();
                 else return this.StatusCode(500);
 

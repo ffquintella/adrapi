@@ -168,11 +168,44 @@ namespace adrapi
                 throw new InvalidOperationException("Invalid configuration: missing 'ldap' section.");
             }
 
-            var servers = ldap.GetSection("servers").Get<string[]>();
-            var sslEnabled = ldap.GetValue<bool>("ssl");
+            // The top-level ldap section is the default domain.
+            ValidateLdapSection("ldap", ldap, errors);
+
+            // Each named domain under ldap:domains is validated the same way.
+            var reservedNames = new[] { "users", "groups", "ous", "infos" };
+            var domains = ldap.GetSection("domains");
+            if (domains.Exists())
+            {
+                foreach (var domain in domains.GetChildren())
+                {
+                    if (reservedNames.Contains(domain.Key, StringComparer.OrdinalIgnoreCase))
+                    {
+                        errors.Add($"ldap.domains.{domain.Key} uses a reserved resource name. Domains may not be named users/groups/ous/infos.");
+                    }
+
+                    ValidateLdapSection($"ldap.domains.{domain.Key}", domain, errors);
+                }
+            }
+
+            var defaultDomain = ldap.GetValue<string>("defaultDomain");
+            if (!string.IsNullOrWhiteSpace(defaultDomain) && reservedNames.Contains(defaultDomain.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                errors.Add($"ldap.defaultDomain '{defaultDomain}' uses a reserved resource name.");
+            }
+
+            if (errors.Count > 0)
+            {
+                throw new InvalidOperationException("Invalid LDAP configuration: " + string.Join(" ", errors));
+            }
+        }
+
+        private static void ValidateLdapSection(string label, IConfigurationSection section, List<string> errors)
+        {
+            var servers = section.GetSection("servers").Get<string[]>();
+            var sslEnabled = section.GetValue<bool>("ssl");
             if (servers == null || servers.Length == 0)
             {
-                errors.Add("ldap.servers must contain at least one entry in the format 'host:port'.");
+                errors.Add($"{label}.servers must contain at least one entry in the format 'host:port'.");
             }
             else
             {
@@ -181,38 +214,33 @@ namespace adrapi
                     var server = servers[i];
                     if (string.IsNullOrWhiteSpace(server))
                     {
-                        errors.Add($"ldap.servers[{i}] is empty.");
+                        errors.Add($"{label}.servers[{i}] is empty.");
                         continue;
                     }
 
                     var parts = server.Split(':');
                     if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || !int.TryParse(parts[1], out var port))
                     {
-                        errors.Add($"ldap.servers[{i}]='{server}' is invalid. Expected 'host:port'.");
+                        errors.Add($"{label}.servers[{i}]='{server}' is invalid. Expected 'host:port'.");
                         continue;
                     }
 
                     if (port < 1 || port > 65535)
                     {
-                        errors.Add($"ldap.servers[{i}]='{server}' has invalid port {port}. Expected 1-65535.");
+                        errors.Add($"{label}.servers[{i}]='{server}' has invalid port {port}. Expected 1-65535.");
                     }
 
                     if (sslEnabled && port == 389)
                     {
-                        errors.Add($"ldap.servers[{i}]='{server}' is incompatible with ldap.ssl=true. Use LDAPS port 636 (or set ldap.ssl=false for 389).");
+                        errors.Add($"{label}.servers[{i}]='{server}' is incompatible with {label}.ssl=true. Use LDAPS port 636 (or set {label}.ssl=false for 389).");
                     }
                 }
             }
 
-            var poolSize = ldap.GetValue<short>("poolSize");
+            var poolSize = section.GetValue<short>("poolSize");
             if (poolSize <= 0)
             {
-                errors.Add($"ldap.poolSize must be greater than 0. Current value: {poolSize}.");
-            }
-
-            if (errors.Count > 0)
-            {
-                throw new InvalidOperationException("Invalid LDAP configuration: " + string.Join(" ", errors));
+                errors.Add($"{label}.poolSize must be greater than 0. Current value: {poolSize}.");
             }
         }
 

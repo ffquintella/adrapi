@@ -76,6 +76,42 @@ namespace tests.Authentication
             // ---------- Infos ----------
             new Endpoint(HttpMethod.Get,    "/api/Infos",                                "Reading",  "2.0"),
             new Endpoint(HttpMethod.Get,    "/api/Infos/sampleinfo",                     "Reading",  "2.0"),
+
+            // ---------- V2 multi-domain (domain-prefixed, /api/{domain}/...) ----------
+            // Same auth posture as the domain-less V2 routes; the {domain} segment
+            // selects which directory. V1 stays domain-less (no rows here).
+            new Endpoint(HttpMethod.Get,    "/api/lab/users?_start=0&_end=1",            "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/users?_full=true&_start=0&_end=1", "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/users/sampleuser",                 "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/users/sampleuser/exists",          "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/users/sampleuser/attributes",      "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/users/sampleuser/member-of/grp",   "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/users/sampleuser/groups",          "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Post,   "/api/lab/users/sampleuser/authenticate",    "Reading",  "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Post,   "/api/lab/users/authenticate",               "Reading",  "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Put,    "/api/lab/users/cn=x,dc=test",               "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Delete, "/api/lab/users/sampleuser",                 "Writting", "2.0"),
+
+            new Endpoint(HttpMethod.Get,    "/api/lab/Groups?_start=0&_end=1",           "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/Groups?_full=true&_start=0&_end=1","Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/Groups/grpid",                     "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/Groups/cn=x,dc=test/exists",       "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/Groups/grpid/members",             "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Post,   "/api/lab/Groups",                           "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Put,    "/api/lab/Groups/cn=x,dc=test",              "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Put,    "/api/lab/Groups/cn=x,dc=test/members",      "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Patch,  "/api/lab/Groups/cn=x,dc=test/members",      "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Delete, "/api/lab/Groups/cn=x,dc=test",              "Writting", "2.0"),
+
+            new Endpoint(HttpMethod.Get,    "/api/lab/OUs",                              "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/OUs/ou=x,dc=test",                 "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/OUs/ou=x,dc=test/exists",          "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Post,   "/api/lab/OUs",                              "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Put,    "/api/lab/OUs/ou=x,dc=test",                 "Writting", "2.0", RequiresBody: true),
+            new Endpoint(HttpMethod.Delete, "/api/lab/OUs/ou=x,dc=test",                 "Writting", "2.0"),
+
+            new Endpoint(HttpMethod.Get,    "/api/lab/Infos",                            "Reading",  "2.0"),
+            new Endpoint(HttpMethod.Get,    "/api/lab/Infos/sampleinfo",                 "Reading",  "2.0"),
         };
 
         public static IEnumerable<object[]> AllAsTheoryData()

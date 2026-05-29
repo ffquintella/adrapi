@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using System.Linq;
+using adrapi.Ldap;
 
 namespace adrapi.Controllers
 {
@@ -49,6 +50,44 @@ namespace adrapi.Controllers
             }
 
             return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+
+        /// <summary>
+        /// Resolves the LDAP directory (domain) for a request from the optional
+        /// <c>{domain}</c> route segment. A null/empty segment means the default
+        /// domain (preserving the legacy domain-less routes). Unknown domains yield
+        /// a 404 and reserved/invalid names a 400.
+        /// </summary>
+        /// <returns>True when resolution succeeded; false with <paramref name="error"/> set otherwise.</returns>
+        protected bool TryResolveDomain(string domain, out LdapConfig config, out ActionResult error)
+        {
+            config = null;
+            error = null;
+
+            var registry = LdapDomainRegistry.Instance;
+
+            if (string.IsNullOrWhiteSpace(domain))
+            {
+                config = registry.GetConfig(null);
+                return true;
+            }
+
+            if (LdapDomainRegistry.IsReservedName(domain))
+            {
+                logger.LogWarning("Rejected reserved domain name in route: {domain}", domain);
+                error = BadRequest();
+                return false;
+            }
+
+            if (!registry.IsKnownDomain(domain))
+            {
+                logger.LogWarning("Request for unknown LDAP domain: {domain}", domain);
+                error = NotFound();
+                return false;
+            }
+
+            config = registry.GetConfig(domain);
+            return true;
         }
 
         /// <summary>

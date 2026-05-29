@@ -18,25 +18,64 @@ namespace adrapi.Ldap
         public string trustedCertificatesFile { get; set; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="T:adrapi.Ldap.LdapConfig"/> class.
+        /// Stable key identifying which directory (domain) this config targets.
+        /// Used to bucket connection pools per-domain. Stamped by
+        /// <see cref="LdapDomainRegistry"/>; the parameterless ctor stamps the
+        /// default domain so legacy callers share the default pool bucket.
         /// </summary>
-        /// <param name="config">Config. (must be the Iconfigurarion based on the system)</param>
+        public string DomainKey { get; set; }
+
+        private LdapConfig(bool deferLoad)
+        {
+            // Marker ctor used by ForSection; skips automatic load so the caller
+            // controls which configuration section is read.
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="T:adrapi.Ldap.LdapConfig"/> class
+        /// from the default <c>ldap</c> configuration section (the default domain).
+        /// </summary>
         public LdapConfig()
         {
-            var cm = ConfigurationManager.Instance;
+            LoadFromSection("ldap");
+            DomainKey = LdapDomainRegistry.NormalizeKey(null);
+        }
 
-            var config = cm.Config;
+        /// <summary>
+        /// Builds an <see cref="LdapConfig"/> from an arbitrary configuration section
+        /// (e.g. <c>ldap</c> for the default domain or <c>ldap:domains:lab</c> for a
+        /// named domain), stamping the supplied domain key for pool bucketing.
+        /// </summary>
+        public static LdapConfig ForSection(string sectionPath, string domainKey)
+        {
+            var cfg = new LdapConfig(true);
+            cfg.LoadFromSection(sectionPath);
+            cfg.DomainKey = domainKey;
+            return cfg;
+        }
 
-            servers = config.GetSection("ldap").GetSection("servers").Get<string[]>();
-            ssl = config.GetSection("ldap").GetValue<bool>("ssl");
-            poolSize = config.GetSection("ldap").GetValue<short>("poolSize");
-            bindDn = config.GetSection("ldap").GetValue<string>("bindDn");
-            bindCredentials = config.GetSection("ldap").GetValue<string>("bindCredentials");
-            searchBase = config.GetSection("ldap").GetValue<string>("searchBase");
-            searchFilter = config.GetSection("ldap").GetValue<string>("searchFilter");
-            maxResults = config.GetSection("ldap").GetValue<int>("maxResults");
-            adminCn = config.GetSection("ldap").GetValue<string>("adminCn");
-            trustedCertificatesFile = config.GetSection("ldap").GetValue<string>("trustedCertificatesFile")
+        private void LoadFromSection(string sectionPath)
+        {
+            var config = ConfigurationManager.Instance.Config;
+            if (config == null)
+            {
+                // No configuration loaded (e.g. isolated unit tests). Leave defaults.
+                trustedCertificatesFile = "cfg/ldap-trusted-certs.json";
+                return;
+            }
+
+            var section = config.GetSection(sectionPath);
+
+            servers = section.GetSection("servers").Get<string[]>();
+            ssl = section.GetValue<bool>("ssl");
+            poolSize = section.GetValue<short>("poolSize");
+            bindDn = section.GetValue<string>("bindDn");
+            bindCredentials = section.GetValue<string>("bindCredentials");
+            searchBase = section.GetValue<string>("searchBase");
+            searchFilter = section.GetValue<string>("searchFilter");
+            maxResults = section.GetValue<int>("maxResults");
+            adminCn = section.GetValue<string>("adminCn");
+            trustedCertificatesFile = section.GetValue<string>("trustedCertificatesFile")
                 ?? "cfg/ldap-trusted-certs.json";
         }
 
@@ -62,6 +101,7 @@ namespace adrapi.Ldap
             this.searchBase = searchBase;
             this.searchFilter = searchFilter;
             this.adminCn = adminCn;
+            this.trustedCertificatesFile = "cfg/ldap-trusted-certs.json";
 
 
         }

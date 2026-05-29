@@ -33,7 +33,7 @@ namespace adrapi
         /// Return a string list of the groups CNs
         /// </summary>
         /// <returns>The list.</returns>
-        public async Task<List<String>> GetCnListAsync()
+        public async Task<List<String>> GetCnListAsync(LdapConfig config = null)
         {
             var groups = new List<String>();
 
@@ -42,7 +42,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group, "", config);
 
             foreach (var entry in resps)
             {
@@ -60,7 +60,7 @@ namespace adrapi
         /// Return a string list of the groups DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public async Task<List<String>> GetListAsync()
+        public async Task<List<String>> GetListAsync(LdapConfig config = null)
         {
             var groups = new List<String>();
 
@@ -69,7 +69,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group, "", config);
 
             foreach (var entry in resps)
             {
@@ -89,7 +89,7 @@ namespace adrapi
         /// <returns>The list.</returns>
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
-        public async Task<List<String>> GetCnListAsync(int start, int end)
+        public async Task<List<String>> GetCnListAsync(int start, int end, LdapConfig config = null)
         {
             var groups = new List<String>();
 
@@ -98,7 +98,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.Group, start, end);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.Group, start, end, "", config);
 
             foreach (var entry in resps)
             {
@@ -119,7 +119,7 @@ namespace adrapi
         /// <returns>The list.</returns>
         /// <param name="start">Start.</param>
         /// <param name="end">End.</param>
-        public async Task<List<String>> GetListAsync(int start, int end)
+        public async Task<List<String>> GetListAsync(int start, int end, LdapConfig config = null)
         {
             var groups = new List<String>();
 
@@ -128,7 +128,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.Group, start, end);
+            var resps = await sMgmt.ExecuteLimitedSearchAsync("", LdapSearchType.Group, start, end, "", config);
 
             foreach (var entry in resps)
             {
@@ -146,14 +146,14 @@ namespace adrapi
         /// Gets the list of all groups.
         /// </summary>
         /// <returns>The users.</returns>
-        public async Task<List<Group>> GetGroupsAsync()
+        public async Task<List<Group>> GetGroupsAsync(LdapConfig config = null)
         {
 
             var groups = new List<Group>();
 
             var sMgmt = LdapQueryManager.Instance;
 
-            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.Group, "", config);
             int results = 0;
 
             foreach (var entry in resps)
@@ -230,7 +230,7 @@ namespace adrapi
         /// <returns>The user.</returns>
         /// <param name="DN">The Disitnguesh name of the group</param>
         /// <param name="_listCN">If true the members will only contain the CN</param>
-        public async Task<Group> GetGroupAsync(string DN, Boolean _listCN = false, Boolean _searchByCN = false)
+        public async Task<Group> GetGroupAsync(string DN, Boolean _listCN = false, Boolean _searchByCN = false, LdapConfig config = null)
         {
             var sMgmt = LdapQueryManager.Instance;
 
@@ -240,11 +240,11 @@ namespace adrapi
                 LdapEntry entry;
                 if (!_searchByCN)
                 {
-                    entry = await sMgmt.GetRegister(DN); 
+                    entry = await sMgmt.GetRegister(DN, null, config);
                 }
                 else
                 {
-                    var results = await sMgmt.ExecuteSearchAsync("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))");
+                    var results = await sMgmt.ExecuteSearchAsync("", "(&(objectClass=group)(cn="+LdapInjectionControll.EscapeForSearchFilter(DN)+"))", config);
 
 
                     if (results.Count == 0)
@@ -267,7 +267,7 @@ namespace adrapi
 
         }
 
-        public async Task<int> CreateGroupAsync(Group group)
+        public async Task<int> CreateGroupAsync(Group group, LdapConfig config = null)
         {
 
             //Creates the List attributes of the entry and add them to attributeset
@@ -284,7 +284,7 @@ namespace adrapi
 
             try
             {
-                await qMgmt.AddEntryAsync(newEntry);
+                await qMgmt.AddEntryAsync(newEntry, config);
                 return 0;
 
             }
@@ -303,7 +303,7 @@ namespace adrapi
         /// <returns>The group. Must have DN set</returns>
         /// <param name="group">Group.</param>
         /// <param name="_listCN">If true the members will only contain the CN</param>
-        public async Task<int> SaveGroupAsync(Group group)
+        public async Task<int> SaveGroupAsync(Group group, LdapConfig config = null)
         {
 
             var qMgmt = LdapQueryManager.Instance;
@@ -315,7 +315,7 @@ namespace adrapi
             //Get user from the Directory
             try
             {
-                var dgroup = await GetGroupAsync(group.DN);
+                var dgroup = await GetGroupAsync(group.DN, false, false, config);
 
                 var dattrs = GetAttributeSet(dgroup);
 
@@ -371,7 +371,7 @@ namespace adrapi
 
                 try
                 {
-                    await qMgmt.SaveEntry(group.DN, modList.ToArray());
+                    await qMgmt.SaveEntry(group.DN, modList.ToArray(), config);
                     return 0;
 
                 }
@@ -416,7 +416,7 @@ namespace adrapi
         }
 
 
-        public async Task<int> DeleteGroup(Group group)
+        public async Task<int> DeleteGroup(Group group, LdapConfig config = null)
         {
 
 
@@ -424,7 +424,7 @@ namespace adrapi
 
             try
             {
-                await qMgmt.DeleteEntry(group.DN);
+                await qMgmt.DeleteEntry(group.DN, config);
                 return 0;
 
             }

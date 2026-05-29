@@ -76,6 +76,39 @@ The `AuthEndpoint` policy in `Startup.ConfigureRateLimiting` partitions by
 V1 controllers are marked `[ApiVersion("1.0", Deprecated = true)]`. Keep them
 working until a planned removal. New features go on V2.
 
+### Multi-domain (per-directory) routing
+
+adrapi can serve multiple LDAP directories. V2 controllers carry **two**
+class-level routes — the legacy domain-less one and a domain-prefixed one, e.g.
+`[Route("api/users")]` + `[Route("api/{domain}/users")]`. A missing `{domain}`
+segment means the **default** domain, so existing clients are unaffected.
+
+Rules when adding/most touching a V2 controller action:
+
+1. Add `[FromRoute] string domain = null` as the **last** action parameter, and
+   resolve it first:
+   ```csharp
+   if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+   ```
+   `TryResolveDomain` (on `BaseController`) returns the default config for a null
+   segment, a 404 for an unknown domain, and a 400 for reserved/invalid names.
+2. Thread the resolved `LdapConfig ldapConfig` into **every** manager call. The
+   manager → `LdapQueryManager` → `LdapConnectionManager` chain takes an
+   `LdapConfig config = null` parameter end-to-end; a null falls back to the
+   default domain (this is how V1 keeps working). **Never** reintroduce the
+   instance `config` field that `LdapQueryManager` used to hold — config is
+   passed explicitly per call so it is domain-correct.
+3. Add **both** the domain-less and a `/api/{domain}/...` (sample domain `lab`)
+   row to `tests/Authentication/EndpointCatalog.cs`. V1 stays domain-less — no
+   domain rows for `1.0`.
+
+Configuration: the top-level `ldap` section is the default domain; additional
+domains live under `ldap:domains:{name}` (same shape), and `ldap:defaultDomain`
+names the default. Domain names may not be `users`/`groups`/`ous`/`infos`
+(reserved to avoid route ambiguity). Connection pools are bucketed per-domain by
+`LdapConfig.DomainKey`. Header-based API versioning (`api-version` header) is
+unchanged and orthogonal to the domain segment.
+
 ### Test discipline
 
 - Don't reach into production singletons (`ApiKeyManager`, `LdapConnectionManager`)

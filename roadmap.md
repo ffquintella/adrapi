@@ -180,7 +180,7 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 ## 6. Directory Object Mapping and Abstraction
 
 - [ ] Normalize response models so v2 endpoints return consistent shapes regardless of backend.
-- [ ] Map OU operations to administrative units (or document non-support and alternatives).
+- [ ] OU operations are LDAP/AD-only and are explicitly NOT supported on Entra ID (no OU object; administrative units are a separate Graph concept). Document non-support and any alternatives.
 - [ ] Handle identifier translation (DN ↔ objectId/UPN) at the edges.
 - Deliverable: backend-agnostic API surface.
 
