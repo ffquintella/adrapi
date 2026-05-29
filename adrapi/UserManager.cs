@@ -993,6 +993,54 @@ namespace adrapi
         }
 
         /// <summary>
+        // Bit 0x2 (ACCOUNTDISABLE) of userAccountControl: set = disabled.
+        private const int AccountDisableFlag = 0x2;
+
+        /// <summary>
+        /// Enables or disables an account by flipping the ACCOUNTDISABLE bit of
+        /// <c>userAccountControl</c> in place (the general <see cref="SaveUserAsync"/>
+        /// path intentionally never touches that attribute).
+        /// </summary>
+        /// <returns>0 for success, -1 for error.</returns>
+        public async Task<int> SetAccountEnabledAsync(string dn, bool enabled, LdapConfig config = null)
+        {
+            if (string.IsNullOrWhiteSpace(dn))
+            {
+                return -1;
+            }
+
+            var qMgmt = LdapQueryManager.Instance;
+
+            try
+            {
+                var entry = await qMgmt.GetRegister(dn, new[] { "userAccountControl" }, config);
+                if (entry == null || !int.TryParse(entry.GetStringValueOrDefault("userAccountControl"), out var uac))
+                {
+                    logger.Error("Cannot read userAccountControl for {dn}", dn);
+                    return -1;
+                }
+
+                var newUac = enabled ? (uac & ~AccountDisableFlag) : (uac | AccountDisableFlag);
+                if (newUac == uac)
+                {
+                    return 0; // already in the requested state
+                }
+
+                var mod = new LdapModification(
+                    LdapModification.Replace,
+                    new LdapAttribute("userAccountControl", newUac.ToString()));
+                await qMgmt.SaveEntry(dn, new[] { mod }, config);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Error setting account enabled state");
+                logger.Log(LogLevel.Error, ex);
+                return -1;
+            }
+        }
+
+        /// <summary>
         /// Deletes the user.
         /// </summary>
         /// <returns>0 for success -1 for error.</returns>

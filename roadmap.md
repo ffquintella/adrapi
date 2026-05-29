@@ -131,8 +131,8 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 - [x] Stage 1 - Discovery and Scope Definition
 - [x] Stage 2 - Authentication and Authorization (Entra ID OAuth2/OIDC)
-- [ ] Stage 3 - Microsoft Graph Client Foundation
-- [ ] Stage 4 - User Management via Graph
+- [x] Stage 3 - Microsoft Graph Client Foundation
+- [x] Stage 4 - User Management via Graph
 - [ ] Stage 5 - Group and Membership Management via Graph
 - [ ] Stage 6 - Directory Object Mapping and Abstraction
 - [ ] Stage 7 - Security, Secrets, and Tenant Configuration
@@ -158,17 +158,17 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 ## 3. Microsoft Graph Client Foundation
 
-- [ ] Add a Graph client wrapper with retry, throttling (429) handling, and paging.
-- [ ] Abstract a directory provider interface so LDAP and Graph share a contract.
-- [ ] Configuration switch to select backend per request or per deployment.
-- Deliverable: reusable Graph client and provider abstraction.
+- [x] Add a Graph client wrapper with retry, throttling (429) handling, and paging. `GraphClient` in `adrapi/Entra/GraphClient.cs` (Retry-After-aware backoff, `@odata.nextLink` paging, bearer-token injection).
+- [x] Abstract a directory provider interface so LDAP and Graph share a contract. `IDirectoryProvider` + `LdapDirectoryProvider` (reference) + `GraphDirectoryProvider` under `adrapi/Directory/`.
+- [x] Configuration switch to select backend per request or per deployment. `DirectoryProviderFactory` selects on domain `kind` (route `{domain}` = per request, default domain = per deployment).
+- Deliverable: reusable Graph client and provider abstraction. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE3_GRAPH_CLIENT.md`.
 
 ## 4. User Management via Graph
 
-- [ ] Read user (get/list/search/exists).
-- [ ] Create/update/disable/delete user.
-- [ ] Password/credential operations where applicable.
-- Deliverable: user lifecycle parity through Graph.
+- [x] Read user (get/list/search/exists). `GraphDirectoryProvider` via `GraphClient` paging + `GraphUserMapper`; 404 → null/false.
+- [x] Create/update/disable/delete user. `POST/PATCH/DELETE /users`; disable via `accountEnabled`. LDAP parity incl. `UserManager.SetAccountEnabledAsync` (userAccountControl bit).
+- [x] Password/credential operations where applicable. Graph `PATCH passwordProfile`; LDAP `unicodePwd` via `SaveUserAsync` (LDAPS). Requires privileged grants (documented).
+- Deliverable: user lifecycle parity through Graph. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE4_USER_MANAGEMENT.md`.
 
 ## 5. Group and Membership Management via Graph
 
@@ -236,3 +236,5 @@ Use this section to record dated updates.
 - 2026-02-13: `Stage 8` completed. Notes: docs updated with v2 group/OU usage and troubleshooting in `/Users/felipe/Dev/adrapi/docs/API_REFERENCE.md` and `/Users/felipe/Dev/adrapi/docs/USAGE_GUIDE.md`; migration guide added at `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`; sample curl collection added at `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`; logging/audit traceability contract (requester + clientIp + correlationId) documented.
 - 2026-05-29: `Entra ID Stage 1` completed. Notes: scope document with capability inventory, integration-model decision (additive per-domain backend reusing the multi-domain seam), AD→Entra concept mapping, Graph API surface + app permissions, and gap list at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE1_SCOPE.md`.
 - 2026-05-29: `Entra ID Stage 2` completed. Notes: Entra auth layer added under `/Users/felipe/Dev/adrapi/adrapi/Entra/` (EntraConfig, EntraTokenProvider via MSAL client-credentials, EntraScopeMap policy→app-role mapping); domain-kind awareness + startup validation; client secret sourced from the encrypted store; 13 unit tests (full suite 466 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE2_AUTH.md`.
+- 2026-05-29: `Entra ID Stage 4` completed. Notes: full user lifecycle over Graph in `/Users/felipe/Dev/adrapi/adrapi/Directory/GraphDirectoryProvider.cs` (read/list/search/exists/create/update/disable/delete + set-password) with `/Users/felipe/Dev/adrapi/adrapi/Entra/GraphUserMapper.cs`; `IDirectoryProvider` extended (exists/search/enable/password) with LDAP parity, incl. new `UserManager.SetAccountEnabledAsync` (userAccountControl ACCOUNTDISABLE bit); 16 unit tests added; controller test suite made deterministic (parallelization disabled + `LdapDomainRegistry.ClearCache()` priming); full suite 492 passing. Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE4_USER_MANAGEMENT.md`.
+- 2026-05-29: `Entra ID Stage 3` completed. Notes: reusable Graph client (`/Users/felipe/Dev/adrapi/adrapi/Entra/GraphClient.cs`) with Retry-After-aware 429/5xx retry, `@odata.nextLink` paging, and `request-id` surfacing via `GraphException`; backend-agnostic directory abstraction under `/Users/felipe/Dev/adrapi/adrapi/Directory/` (`IDirectoryProvider`, `LdapDirectoryProvider`, `GraphDirectoryProvider`) with `DirectoryProviderFactory` selecting backend per request/deployment by domain kind; Graph CRUD deferred to Stage 4/5 and OUs explicitly unsupported on Entra ID; 13 unit tests added (full suite 479 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE3_GRAPH_CLIENT.md`.

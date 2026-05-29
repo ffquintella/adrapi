@@ -48,6 +48,14 @@ namespace adrapi.Ldap
         private readonly ConcurrentDictionary<string, LdapConfig> cache =
             new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Drops the per-domain <see cref="LdapConfig"/> cache so subsequent
+        /// resolutions re-read the current configuration. Useful after a config
+        /// reload and for test isolation (configs are otherwise cached for the
+        /// process lifetime).
+        /// </summary>
+        public void ClearCache() => cache.Clear();
+
         private static IConfiguration Config => ConfigurationManager.Instance.Config;
 
         /// <summary>
