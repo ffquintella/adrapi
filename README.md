@@ -275,8 +275,17 @@ Default Kestrel bindings are configured in code:
 - Interactive docs: `/swagger`
 - Detailed reference: `adrapi/docs/API_REFERENCE.md`
 - Usage guide: `adrapi/docs/USAGE_GUIDE.md`
+- CLI tools (`adrapi-api-keys`): `adrapi/docs/CLI_TOOLS.md`
 - Migration notes: `adrapi/docs/MIGRATION_NOTES.md`
 - Curl collection: `adrapi/docs/CURL_COLLECTION.md`
+
+The `docs/` folder is also a [docsify](https://docsify.js.org) site. Browse it
+locally with:
+
+```bash
+./serve-docs.sh           # macOS/Linux  -> http://localhost:3000
+serve-docs.bat            # Windows
+```
 
 ## Development Notes
 
