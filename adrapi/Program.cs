@@ -76,8 +76,34 @@ namespace adrapi
                         options.Listen(IPAddress.Parse(allowedHosts), 6000);
                         options.Listen(IPAddress.Parse(allowedHosts), 6001, listenOptions =>
                         {
-                            try { listenOptions.UseHttps(certificateFile, certificatePassword); }
-                            catch (Exception) { /* cert missing in tests/CI — TestServer doesn't use Kestrel anyway */ }
+                            try
+                            {
+                                listenOptions.UseHttps(certificateFile, certificatePassword);
+                            }
+                            catch (Exception ex)
+                            {
+                                // A broken certificate must NOT silently downgrade the HTTPS
+                                // listener on 6001 to cleartext. In Development (and the test
+                                // host, which runs as Development) the dev cert may be absent,
+                                // so we log and carry on. Anywhere else we fail fast - refusing
+                                // to start beats serving plaintext on a port operators trust as
+                                // TLS.
+                                var logger = LogManager.GetCurrentClassLogger();
+                                if (ctx.HostingEnvironment.IsDevelopment())
+                                {
+                                    logger.Warn(ex,
+                                        "HTTPS certificate '{0}' could not be loaded; port 6001 will not serve TLS (Development).",
+                                        certificateFile);
+                                }
+                                else
+                                {
+                                    logger.Fatal(ex,
+                                        "HTTPS certificate '{0}' could not be loaded for the listener on port 6001. " +
+                                        "Refusing to start rather than expose an unsecured HTTPS port.",
+                                        certificateFile);
+                                    throw;
+                                }
+                            }
                         });
                     });
                     webBuilder.UseStartup<Startup>();
