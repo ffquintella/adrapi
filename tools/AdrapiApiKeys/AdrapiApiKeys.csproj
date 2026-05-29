@@ -7,6 +7,14 @@
     <RootNamespace>adrapi.Tools.ApiKeys</RootNamespace>
     <AssemblyName>adrapi-api-keys</AssemblyName>
     <Nullable>disable</Nullable>
+
+    <!-- Single-file packaging options used when publishing the standalone
+         client app. RID and SelfContained are supplied at publish time
+         (see build-api-keys.sh / build-api-keys.bat), so normal `dotnet
+         build`/`dotnet run` for development is unaffected. -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>

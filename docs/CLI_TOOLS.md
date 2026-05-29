@@ -12,50 +12,72 @@ The store has two command groups:
 - **`secret`** — encrypted application secrets (ChaCha20-Poly1305), e.g. the
   LDAP bind credentials and certificate password.
 
-## Running the tool
+## Building the standalone client
 
+The recommended way to use the tool is to build it once as a **self-contained,
+single-file executable** — no `dotnet` runtime needed to run it afterwards.
 From the repository root:
+
+```bash
+./build-api-keys.sh            # macOS/Linux — auto-detects your platform
+build-api-keys.bat             # Windows (defaults to win-x64)
+```
+
+Pass a [.NET Runtime Identifier](https://learn.microsoft.com/dotnet/core/rid-catalog)
+to cross-build for another platform, e.g. `./build-api-keys.sh linux-x64`.
+
+The binary lands in `artifacts/api-keys/<rid>/` and runs directly:
+
+```bash
+./artifacts/api-keys/osx-arm64/adrapi-api-keys help
+```
+
+Copy that executable anywhere on your `PATH` (e.g. `/usr/local/bin`) to call it
+as plain `adrapi-api-keys` from any directory.
+
+> The store defaults to `cfg/api-keys.db`; the encryption seed defaults to
+> `cfg/.seed`. Override either with `--db <path>` / `--seed <path>`. Run the
+> tool from the repository root (or pass absolute `--db`/`--seed` paths) so it
+> finds the `cfg/` files.
+
+### Running from source (development)
+
+If you have the SDK and just want to run it without building a binary:
 
 ```bash
 dotnet run --project tools/AdrapiApiKeys -- <group> <command> [options]
 ```
 
-The `--` separates `dotnet run`'s own arguments from the arguments passed to the
-tool. To print the built-in help:
-
-```bash
-dotnet run --project tools/AdrapiApiKeys -- help
-```
-
-> The store defaults to `cfg/api-keys.db`; the encryption seed defaults to
-> `cfg/.seed`. Override either with `--db <path>` / `--seed <path>`.
+The `--` separates `dotnet run`'s own arguments from the tool's arguments. The
+command examples below show the `adrapi-api-keys` executable form; prefix them
+with `dotnet run --project tools/AdrapiApiKeys -- ` to run from source.
 
 ## Managing API keys (`key`)
 
 ```bash
 # Create a key — a secret is generated and printed ONCE.
-dotnet run --project tools/AdrapiApiKeys -- key add \
+adrapi-api-keys key add \
   --keyID prod-admin --ip 10.0.0.5 --claims isAdministrator
 
 # Create a key supplying your own secret (idempotent — handy for
 # config management like puppet declaring the desired value).
-dotnet run --project tools/AdrapiApiKeys -- key add \
+adrapi-api-keys key add \
   --keyID prod-monitor --ip 10.0.0.6 --claims isMonitor --secret "my-secret"
 
 # List keys (metadata only — never the secret).
-dotnet run --project tools/AdrapiApiKeys -- key list
+adrapi-api-keys key list
 
 # Rotate a secret — the previous one stops working immediately.
-dotnet run --project tools/AdrapiApiKeys -- key rotate --keyID prod-admin --yes
+adrapi-api-keys key rotate --keyID prod-admin --yes
 
 # Verify a secret against the stored hash.
-dotnet run --project tools/AdrapiApiKeys -- key verify --keyID prod-admin --secret "my-secret"
+adrapi-api-keys key verify --keyID prod-admin --secret "my-secret"
 
 # Remove a key.
-dotnet run --project tools/AdrapiApiKeys -- key remove --keyID prod-admin --yes
+adrapi-api-keys key remove --keyID prod-admin --yes
 
 # Import legacy plaintext keys from a security.json (they get hashed on import).
-dotnet run --project tools/AdrapiApiKeys -- key import --from security.json
+adrapi-api-keys key import --from security.json
 ```
 
 If you omit `--keyID`, `--ip`, `--claims`, etc., the tool prompts for them
@@ -82,20 +104,20 @@ recovered.
 
 ```bash
 # Store a secret (value is encrypted at rest).
-dotnet run --project tools/AdrapiApiKeys -- secret set --name "ldap:bindCredentials" --value "s3cr3t"
+adrapi-api-keys secret set --name "ldap:bindCredentials" --value "s3cr3t"
 
 # Decrypt and print a secret.
-dotnet run --project tools/AdrapiApiKeys -- secret get --name "ldap:bindCredentials"
+adrapi-api-keys secret get --name "ldap:bindCredentials"
 
 # List secret names (values stay encrypted).
-dotnet run --project tools/AdrapiApiKeys -- secret list
+adrapi-api-keys secret list
 
 # Remove a secret.
-dotnet run --project tools/AdrapiApiKeys -- secret remove --name "ldap:bindCredentials" --yes
+adrapi-api-keys secret remove --name "ldap:bindCredentials" --yes
 
 # One-shot import of ldap:bindDn, ldap:bindCredentials and certificate:password
 # out of a JSON file (e.g. appsettings.Development.json or user-secrets.json).
-dotnet run --project tools/AdrapiApiKeys -- secret import-ldap --from appsettings.Development.json
+adrapi-api-keys secret import-ldap --from appsettings.Development.json
 ```
 
 ### Secret command reference
@@ -130,13 +152,16 @@ dotnet run --project tools/AdrapiApiKeys -- secret import-ldap --from appsetting
 - If decryption fails, the seed file no longer matches the one used to encrypt
   (rotated seed or different host). Re-run `secret set` to recreate the values.
 
-## Installing as a global tool (optional)
+## Installing on your PATH (optional)
 
-To call `adrapi-api-keys` directly instead of `dotnet run --project ...` each
-time, publish the executable and put it on your `PATH`:
+After [building the standalone client](#building-the-standalone-client), copy the
+single-file executable somewhere on your `PATH` so you can call it from anywhere:
 
 ```bash
-dotnet publish tools/AdrapiApiKeys -c Release -o ./artifacts/api-keys
-# then add ./artifacts/api-keys to PATH, or copy the binary somewhere on it
-./artifacts/api-keys/adrapi-api-keys key list
+./build-api-keys.sh
+sudo cp artifacts/api-keys/osx-arm64/adrapi-api-keys /usr/local/bin/
+adrapi-api-keys key list
 ```
+
+The published binary is fully self-contained — the target machine does **not**
+need the .NET SDK or runtime installed.
