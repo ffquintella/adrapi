@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <Version>1.5.1</Version>
+    <Version>1.6.0</Version>
 <LangVersion>12</LangVersion>
     <TargetFramework>net10.0</TargetFramework>
     <UserSecretsId>d4df32d8-afbc-4a23-89e0-efb4f19f3eda</UserSecretsId>
