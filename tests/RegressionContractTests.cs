@@ -20,12 +20,19 @@ namespace tests
             var values = new Dictionary<string, string>
             {
                 ["ldap:searchBase"] = "DC=homologa,DC=br",
+                ["ldap:servers:0"] = "127.0.0.1:1",
                 ["ldap:protectedOUs:0"] = "OU=Protected,DC=homologa,DC=br"
             };
 
-            return new ConfigurationBuilder()
+            var config = new ConfigurationBuilder()
                 .AddInMemoryCollection(values)
                 .Build();
+
+            // Prime the global config and drop any cached default-domain config so
+            // domain resolution re-reads this test's search base deterministically.
+            adrapi.ConfigurationManager.Instance.Config = config;
+            adrapi.Ldap.LdapDomainRegistry.Instance.ClearCache();
+            return config;
         }
 
         private static void SetupContext(ControllerBase controller)
