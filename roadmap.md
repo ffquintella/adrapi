@@ -119,6 +119,103 @@ Deliverable: CI gates requiring passing tests and coverage for group/OU features
 - Deliverable: published docs + sample curl collection.
 
 
+---
+
+# Roadmap: Microsoft Entra ID Integration
+
+## Tracking Structure
+
+Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progress).
+
+### Stage Status
+
+- [ ] Stage 1 - Discovery and Scope Definition
+- [ ] Stage 2 - Authentication and Authorization (Entra ID OAuth2/OIDC)
+- [ ] Stage 3 - Microsoft Graph Client Foundation
+- [ ] Stage 4 - User Management via Graph
+- [ ] Stage 5 - Group and Membership Management via Graph
+- [ ] Stage 6 - Directory Object Mapping and Abstraction
+- [ ] Stage 7 - Security, Secrets, and Tenant Configuration
+- [ ] Stage 8 - Observability and Auditability
+- [ ] Stage 9 - Testing and Quality Gates
+- [ ] Stage 10 - Documentation and Client Usage
+
+## 1. Discovery and Scope Definition
+
+- [ ] Inventory current on-prem LDAP/AD capabilities that must have an Entra ID equivalent (users, groups, OUs, membership).
+- [ ] Decide integration model: Entra ID as an additional backend vs. replacement vs. hybrid (sync/coexistence).
+- [ ] Map Entra ID concepts to existing adrapi concepts (e.g. OUs → administrative units, security/Microsoft 365 groups, directory roles).
+- [ ] Identify Microsoft Graph API surface and required permissions (delegated vs. application).
+- Deliverable: scope document with capability mapping and gap list.
+
+## 2. Authentication and Authorization (Entra ID OAuth2/OIDC)
+
+- [ ] Implement app registration onboarding (client ID, tenant ID, client secret/certificate).
+- [ ] Support OAuth2 client-credentials flow for service-to-service Graph access.
+- [ ] Acquire and cache/refresh Graph access tokens (MSAL).
+- [ ] Map adrapi `Reading`/`Writting` policies onto required Graph scopes/app roles.
+- Deliverable: working token acquisition with secure secret handling.
+
+## 3. Microsoft Graph Client Foundation
+
+- [ ] Add a Graph client wrapper with retry, throttling (429) handling, and paging.
+- [ ] Abstract a directory provider interface so LDAP and Graph share a contract.
+- [ ] Configuration switch to select backend per request or per deployment.
+- Deliverable: reusable Graph client and provider abstraction.
+
+## 4. User Management via Graph
+
+- [ ] Read user (get/list/search/exists).
+- [ ] Create/update/disable/delete user.
+- [ ] Password/credential operations where applicable.
+- Deliverable: user lifecycle parity through Graph.
+
+## 5. Group and Membership Management via Graph
+
+- [ ] Create/update/delete group (security and Microsoft 365).
+- [ ] Add/remove members (delta) and replace full membership set.
+- [ ] List members and resolve member identifiers (UPN/objectId/DN-equivalent).
+- Deliverable: group + membership parity through Graph.
+
+## 6. Directory Object Mapping and Abstraction
+
+- [ ] Normalize response models so v2 endpoints return consistent shapes regardless of backend.
+- [ ] Map OU operations to administrative units (or document non-support and alternatives).
+- [ ] Handle identifier translation (DN ↔ objectId/UPN) at the edges.
+- Deliverable: backend-agnostic API surface.
+
+## 7. Security, Secrets, and Tenant Configuration
+
+- [ ] Secure storage for client secrets/certificates (no secrets in source/config-in-plaintext).
+- [ ] Least-privilege Graph permissions; document required admin consent.
+- [ ] Multi-tenant vs. single-tenant configuration support.
+- [ ] Input hardening and clear 4xx/5xx error mapping for Graph errors.
+- Deliverable: security review checklist for the Entra ID path.
+
+## 8. Observability and Auditability
+
+- [ ] Structured logs for Graph operations with correlation IDs, requester, target object, and client IP.
+- [ ] Surface Graph request IDs in logs for cross-correlation with Microsoft support.
+- Deliverable: actionable, auditable logs for the Entra ID backend.
+
+## 9. Testing and Quality Gates
+
+- [ ] Unit tests for token acquisition, Graph client paging/throttling, and mapping logic.
+- [ ] Integration tests against a test tenant (gated by env flag, mirroring LDAP integration gating).
+- [ ] Contract/regression tests ensuring v2 response shapes stay stable across backends.
+- [ ] CI gates: build + unit + integration must pass; coverage threshold for changed modules.
+- Deliverable: passing quality gates for the Entra ID integration.
+
+## 10. Documentation and Client Usage
+
+- [ ] App registration and admin-consent setup guide.
+- [ ] Configuration reference for selecting/enabling the Entra ID backend.
+- [ ] Usage docs and sample curl collection for the Entra ID-backed endpoints.
+- [ ] Migration/coexistence notes for clients moving from LDAP to Entra ID.
+- Deliverable: published docs + sample collection.
+
+---
+
 ## Progress Log
 
 Use this section to record dated updates.
