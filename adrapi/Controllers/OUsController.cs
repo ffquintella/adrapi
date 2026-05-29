@@ -21,6 +21,7 @@ namespace adrapi.Controllers
     [ApiVersion( "2.0" )]
     [ApiVersion("1.0",  Deprecated = true)]
     [Route("api/[controller]")]
+    [Route("api/{domain}/[controller]")]
     [ApiController]
     public class OUsController : BaseController
     {
@@ -36,10 +37,12 @@ namespace adrapi.Controllers
         #region GET
         // GET: api/ous
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<String>>> Get()
+        public async Task<ActionResult<IEnumerable<String>>> Get([FromRoute] string domain = null)
         {
 
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogInformation(GetItem, "{1} listing all ous", requesterID);
 
@@ -47,7 +50,7 @@ namespace adrapi.Controllers
 
 
             //if (_start == 0 && _end == 0)
-            return await oManager.GetListAsync();
+            return await oManager.GetListAsync(ldapConfig);
             //else return gManager.GetList(_start, _end);
 
 
@@ -55,16 +58,18 @@ namespace adrapi.Controllers
 
         // GET: api/ous/:ou
         [HttpGet("{DN}")]
-        public async Task<ActionResult<OU>> Get(string DN)
+        public async Task<ActionResult<OU>> Get(string DN, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!TryExtractOuName(DN, out _))
             {
                 return Conflict();
             }
 
-            if (!IsDnUnderSearchBase(DN))
+            if (!IsDnUnderSearchBase(DN, ldapConfig.searchBase))
             {
                 return Conflict();
             }
@@ -72,7 +77,7 @@ namespace adrapi.Controllers
             var oManager = OUManager.Instance;
             try
             {
-                var ou = await oManager.GetOUAsync(DN);
+                var ou = await oManager.GetOUAsync(DN, ldapConfig);
                 if (ou == null)
                 {
                     return NotFound();
@@ -93,16 +98,18 @@ namespace adrapi.Controllers
 
         // GET api/ous/:ou/exists
         [HttpGet("{DN}/exists")]
-        public async Task<IActionResult> GetExists(string DN)
+        public async Task<IActionResult> GetExists(string DN, [FromRoute] string domain = null)
         {
             this.ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!TryExtractOuName(DN, out _))
             {
                 return Conflict();
             }
 
-            if (!IsDnUnderSearchBase(DN))
+            if (!IsDnUnderSearchBase(DN, ldapConfig.searchBase))
             {
                 return Conflict();
             }
@@ -112,7 +119,7 @@ namespace adrapi.Controllers
             try
             {
                 logger.LogDebug(ItemExists, "OU DN={dn} found", DN);
-                var ou = await oManager.GetOUAsync(DN);
+                var ou = await oManager.GetOUAsync(DN, ldapConfig);
                 if (ou == null)
                 {
                     return NotFound();
@@ -136,9 +143,11 @@ namespace adrapi.Controllers
         [Authorize(Policy = "Writting")]
         [HttpPost]
         [MapToApiVersion("2.0")]
-        public async Task<ActionResult> Post([FromBody] OUCreateRequest request)
+        public async Task<ActionResult> Post([FromBody] OUCreateRequest request, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!ModelState.IsValid || request == null || string.IsNullOrWhiteSpace(request.DN))
             {
@@ -157,20 +166,20 @@ namespace adrapi.Controllers
                 return Conflict();
             }
 
-            if (!IsDnUnderSearchBase(request.DN))
+            if (!IsDnUnderSearchBase(request.DN, ldapConfig.searchBase))
             {
                 logger.LogError(PutItem, "OU DN out of configured search base DN={DN}", request.DN);
                 return Conflict();
             }
 
-            if (IsProtectedOuDn(request.DN))
+            if (IsProtectedOuDn(request.DN, ldapConfig.searchBase))
             {
                 logger.LogError(PutItem, "Cannot create protected/system OU DN={DN}", request.DN);
                 return Conflict();
             }
 
             var oManager = OUManager.Instance;
-            var adou = await oManager.GetOUAsync(request.DN);
+            var adou = await oManager.GetOUAsync(request.DN, ldapConfig);
             if (adou != null)
             {
                 return Conflict();
@@ -184,7 +193,7 @@ namespace adrapi.Controllers
             };
 
             LogAudit("ou.create.request", request.DN, $"name={request.Name}");
-            var result = await oManager.CreateOUAsync(ou);
+            var result = await oManager.CreateOUAsync(ou, ldapConfig);
             if (result == 0)
             {
                 LogAudit("ou.create.success", request.DN, $"name={request.Name}");
@@ -203,9 +212,11 @@ namespace adrapi.Controllers
         /// <param name="OU">ou.</param>
         [Authorize(Policy = "Writting")]
         [HttpPut("{DN}")]
-        public async Task<ActionResult> Put(string DN, [FromBody] OU ou)
+        public async Task<ActionResult> Put(string DN, [FromBody] OU ou, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to create OU:{0}", DN);
 
@@ -229,13 +240,13 @@ namespace adrapi.Controllers
                     return Conflict();
                 }
 
-                if (!IsDnUnderSearchBase(DN))
+                if (!IsDnUnderSearchBase(DN, ldapConfig.searchBase))
                 {
                     logger.LogError(PutItem, "OU DN out of configured search base DN={DN}", DN);
                     return Conflict();
                 }
 
-                if (IsProtectedOuDn(DN))
+                if (IsProtectedOuDn(DN, ldapConfig.searchBase))
                 {
                     logger.LogError(PutItem, "Cannot update protected/system OU DN={DN}", DN);
                     return Conflict();
@@ -243,7 +254,7 @@ namespace adrapi.Controllers
 
                 var oManager = OUManager.Instance;
 
-                var adou = await oManager.GetOUAsync(DN);
+                var adou = await oManager.GetOUAsync(DN, ldapConfig);
 
 
                 if (adou == null)
@@ -254,7 +265,7 @@ namespace adrapi.Controllers
                     ou.DN = DN;
 
                     LogAudit("ou.create.request", DN, $"name={ou.Name}");
-                    var result = await oManager.CreateOUAsync(ou);
+                    var result = await oManager.CreateOUAsync(ou, ldapConfig);
                     if (result == 0)
                     {
                         LogAudit("ou.create.success", DN, $"name={ou.Name}");
@@ -272,7 +283,7 @@ namespace adrapi.Controllers
                     ou.DN = DN;
 
                     LogAudit("ou.update.request", DN, $"name={ou.Name}");
-                    var result = await oManager.SaveOUAsync(ou);
+                    var result = await oManager.SaveOUAsync(ou, ldapConfig);
                     if (result == 0)
                     {
                         LogAudit("ou.update.success", DN, $"name={ou.Name}");
@@ -309,9 +320,11 @@ namespace adrapi.Controllers
         [ProducesResponseType(200)]
         [ProducesResponseType(204)]
         [ProducesResponseType(500)]
-        public async Task<ActionResult> Delete(string DN)
+        public async Task<ActionResult> Delete(string DN, [FromRoute] string domain = null)
         {
             ProcessRequest();
+
+            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to delete OU:{0}", DN);
 
@@ -321,13 +334,13 @@ namespace adrapi.Controllers
                 return Conflict();
             }
 
-            if (!IsDnUnderSearchBase(DN))
+            if (!IsDnUnderSearchBase(DN, ldapConfig.searchBase))
             {
                 logger.LogError(PutItem, "OU DN out of configured search base DN={DN}", DN);
                 return Conflict();
             }
 
-            if (IsProtectedOuDn(DN))
+            if (IsProtectedOuDn(DN, ldapConfig.searchBase))
             {
                 logger.LogError(DeleteItem, "Cannot delete protected/system OU DN={DN}", DN);
                 return Conflict();
@@ -335,7 +348,7 @@ namespace adrapi.Controllers
 
             var oManager = OUManager.Instance;
 
-            var dou = await oManager.GetOUAsync(DN);
+            var dou = await oManager.GetOUAsync(DN, ldapConfig);
 
             if (dou == null)
             {
@@ -351,7 +364,7 @@ namespace adrapi.Controllers
                 logger.LogInformation(DeleteItem, "Deleting ou DN={DN}", DN);
 
                 LogAudit("ou.delete.request", DN, "delete");
-                var result = await oManager.DeleteOUAsync(dou);
+                var result = await oManager.DeleteOUAsync(dou, ldapConfig);
                 if (result == 0)
                 {
                     LogAudit("ou.delete.success", DN, "delete");
@@ -385,14 +398,8 @@ namespace adrapi.Controllers
             return !string.IsNullOrWhiteSpace(ouName);
         }
 
-        private string GetSearchBase()
+        private bool IsDnUnderSearchBase(string dn, string searchBase)
         {
-            return configuration["ldap:searchBase"] ?? string.Empty;
-        }
-
-        private bool IsDnUnderSearchBase(string dn)
-        {
-            var searchBase = GetSearchBase();
             if (string.IsNullOrWhiteSpace(searchBase))
             {
                 return true;
@@ -401,9 +408,8 @@ namespace adrapi.Controllers
             return dn.EndsWith(searchBase, StringComparison.OrdinalIgnoreCase);
         }
 
-        private bool IsProtectedOuDn(string dn)
+        private bool IsProtectedOuDn(string dn, string searchBase)
         {
-            var searchBase = GetSearchBase();
             if (string.IsNullOrWhiteSpace(dn))
             {
                 return false;

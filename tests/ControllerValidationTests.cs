@@ -85,7 +85,8 @@ namespace tests
             var controller = new OUsController(NullLogger<V1GroupsController>.Instance, BuildConfiguration());
             SetupContext(controller);
 
-            var result = await controller.Get("invalid-dn");
+            // Named arg disambiguates the single-item Get(DN) from the list Get(domain) overload.
+            var result = await controller.Get(DN: "invalid-dn");
 
             Assert.IsType<ConflictResult>(result.Result);
         }

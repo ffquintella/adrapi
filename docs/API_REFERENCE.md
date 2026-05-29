@@ -143,6 +143,12 @@ curl -k -X PUT 'https://localhost:6001/api/groups/CN=DevOps,OU=Groups,DC=homolog
 
 ### OUs (`/api/ous`)
 
+> **Directory support:** OU operations are supported **only on on-premises
+> Active Directory / LDAP** directories. They are **not** available on Microsoft
+> Entra ID — Entra ID has no organizational-unit object (its closest concept,
+> administrative units, is managed through Microsoft Graph, not LDAP). Against an
+> Entra ID-backed domain these endpoints are unsupported.
+
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/ous` | List OUs |

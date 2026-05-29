@@ -9,6 +9,14 @@ using adrapi.Tools;
 
 namespace adrapi
 {
+    /// <summary>
+    /// Manages organizational-unit (OU) lifecycle operations.
+    ///
+    /// Supported on on-premises Active Directory / LDAP directories only.
+    /// Microsoft Entra ID has no OU object (administrative units are managed via
+    /// Microsoft Graph, not LDAP), so OU operations are NOT supported against an
+    /// Entra ID-backed domain.
+    /// </summary>
     public class OUManager: ObjectManager
     {
         #region SINGLETON
@@ -28,7 +36,7 @@ namespace adrapi
         /// Return a string list of the OUs DNs
         /// </summary>
         /// <returns>The list.</returns>
-        public async Task<List<String>> GetListAsync()
+        public async Task<List<String>> GetListAsync(LdapConfig config = null)
         {
             var ous = new List<String>();
 
@@ -37,7 +45,7 @@ namespace adrapi
             int results = 0;
 
 
-            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.OU);
+            var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.OU, "", config);
 
             foreach (var entry in resps)
             {
@@ -56,13 +64,13 @@ namespace adrapi
         /// </summary>
         /// <returns>The OU.</returns>
         /// <param name="DN">The Disitnguesh name of the OU</param>
-        public async Task<OU> GetOUAsync(string DN)
+        public async Task<OU> GetOUAsync(string DN, LdapConfig config = null)
         {
             var sMgmt = LdapQueryManager.Instance;
 
             try
             {
-                var entry = await sMgmt.GetRegister(DN);
+                var entry = await sMgmt.GetRegister(DN, null, config);
                 var ou = ConvertfromLdap(entry); ;
                 return ou;
             }
@@ -108,7 +116,7 @@ namespace adrapi
             return attributeSet;
         }
 
-        public async Task<int> CreateOUAsync(OU ou)
+        public async Task<int> CreateOUAsync(OU ou, LdapConfig config = null)
         {
 
             //Creates the List attributes of the entry and add them to attributeset
@@ -126,7 +134,7 @@ namespace adrapi
             try
             {
                 logger.Info("Saving ou={OU}", ou.DN);
-                await qMgmt.AddEntryAsync(newEntry);
+                await qMgmt.AddEntryAsync(newEntry, config);
                 return 0;
 
             }
@@ -144,7 +152,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The OU. Must have DN set</returns>
         /// <param name="ou">OU.</param>
-        public async Task<int> SaveOUAsync(OU ou)
+        public async Task<int> SaveOUAsync(OU ou, LdapConfig config = null)
         {
 
             var qMgmt = LdapQueryManager.Instance;
@@ -156,7 +164,7 @@ namespace adrapi
             //Get user from the Directory
             try
             {
-                var dou = await GetOUAsync(ou.DN);
+                var dou = await GetOUAsync(ou.DN, config);
 
                 var dattrs = GetAttributeSet(dou);
 
@@ -193,7 +201,7 @@ namespace adrapi
 
                 try
                 {
-                    await qMgmt.SaveEntry(ou.DN, modList.ToArray());
+                    await qMgmt.SaveEntry(ou.DN, modList.ToArray(), config);
                     return 0;
 
                 }
@@ -220,7 +228,7 @@ namespace adrapi
         /// </summary>
         /// <returns>The ou.</returns>
         /// <param name="ou">OU.</param>
-        public async Task<int> DeleteOUAsync(OU ou)
+        public async Task<int> DeleteOUAsync(OU ou, LdapConfig config = null)
         {
 
 
@@ -228,7 +236,7 @@ namespace adrapi
 
             try
             {
-                await qMgmt.DeleteEntry(ou.DN);
+                await qMgmt.DeleteEntry(ou.DN, config);
                 return 0;
 
             }

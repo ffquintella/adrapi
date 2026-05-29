@@ -26,6 +26,36 @@ Primary config files:
 - `true` -> use LDAPS port (typically `636`)
 - `false` -> plain LDAP port (typically `389`)
 
+### Multiple directories (domains)
+
+One adrapi instance can serve several directories. The top-level `ldap` section
+is the **default** domain. Add more under `ldap.domains.<name>` (same shape) and
+optionally name the default with `ldap.defaultDomain`:
+
+```jsonc
+"ldap": {
+  "defaultDomain": "corp",
+  "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
+  "bindDn": "...", "bindCredentials": "...", "searchBase": "DC=corp,DC=example",
+  "searchFilter": "", "maxResults": 999, "adminCn": "",
+  "domains": {
+    "lab": {
+      "servers": [ "dc-lab:636" ], "ssl": true, "poolSize": 5,
+      "bindDn": "...", "bindCredentials": "...", "searchBase": "DC=lab,DC=example",
+      "searchFilter": "", "maxResults": 999, "adminCn": ""
+    }
+  }
+}
+```
+
+Each domain keeps its own connection pool. Domain names cannot be
+`users`/`groups`/`ous`/`infos`. V2 endpoints accept an optional `{domain}`
+segment that selects the directory; V1 endpoints always use the default domain.
+
+> **Note:** OU endpoints (`/api/ous`) work only against on-premises Active
+> Directory / LDAP domains. They are not supported on Microsoft Entra ID, which
+> has no organizational-unit object.
+
 ## 3. Run locally
 
 ```bash
@@ -49,6 +79,15 @@ Use required headers:
 
 ```bash
 curl -k -X GET 'https://localhost:6001/api/users' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <keyId>:<secretKey>'
+```
+
+### Example: list users in a specific domain
+
+```bash
+# Targets the 'lab' directory configured under ldap.domains.lab
+curl -k -X GET 'https://localhost:6001/api/lab/users' \
   -H 'api-version: 2.0' \
   -H 'api-key: <keyId>:<secretKey>'
 ```

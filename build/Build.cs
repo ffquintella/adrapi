@@ -219,8 +219,23 @@ class Build : NukeBuild
         {
             Log.Write(LogEventLevel.Information, "Publishing to artifacts...");
             AppDirectory.CreateDirectory();
+            // The Docker image is always built for linux/amd64 (see Create_Docker_Image).
+            // Pin the publish RID to linux-x64 so the native apphosts — in particular the
+            // single-file adrapi-api-keys CLI — are emitted as amd64 regardless of the
+            // architecture of the build runner (e.g. an arm64 Nuke agent). Without this,
+            // an arm64 apphost lands in an amd64 image and `exec /app/adrapi-api-keys`
+            // fails with "exec format error". SelfContained stays false: the aspnet
+            // runtime image already ships the linux-x64 .NET runtime.
+            // AdrapiApiKeys.csproj turns on single-file packaging + compression for the
+            // standalone client builds (build-api-keys.sh). Those require self-contained,
+            // so disable them here: the in-container publish only needs the amd64 apphost
+            // and dlls, which the framework-dependent publish already produces.
             DotNetPublish(s => s
                 .SetConfiguration(Configuration)
+                .SetRuntime("linux-x64")
+                .SetSelfContained(false)
+                .SetProperty("PublishSingleFile", "false")
+                .SetProperty("EnableCompressionInSingleFile", "false")
                 .SetAuthors(Authors)
                 .SetVersion(BuildVersion)
                 .SetTitle("ADRAPI")

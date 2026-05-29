@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Version>1.7.0</Version>
+<OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>adrapi.Tools.LdapCertPin</RootNamespace>
+    <AssemblyName>adrapi-ldap-cert-pin</AssemblyName>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\domain\domain.csproj" />
+  </ItemGroup>
+
+</Project>

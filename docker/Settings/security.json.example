@@ -1,0 +1,14 @@
+[
+  {
+    "secretKey": "REPLACE_ME_WITH_A_LONG_RANDOM_STRING",
+    "keyID": "ReadOnly",
+    "authorizedIP": "10.0.0.0/8",
+    "claims": [ "isMonitor" ]
+  },
+  {
+    "secretKey": "REPLACE_ME_WITH_ANOTHER_LONG_RANDOM_STRING",
+    "keyID": "ReadWrite",
+    "authorizedIP": "10.0.0.0/8",
+    "claims": [ "isAdministrator" ]
+  }
+]

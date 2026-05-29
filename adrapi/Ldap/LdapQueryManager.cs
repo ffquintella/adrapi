@@ -15,8 +15,6 @@ namespace adrapi.Ldap
     {
         public NLog.Logger logger;
 
-        private LdapConfig config;
-
         #region SINGLETON
 
         private static readonly Lazy<LdapQueryManager> lazy = new Lazy<LdapQueryManager>(() => new LdapQueryManager());
@@ -26,9 +24,17 @@ namespace adrapi.Ldap
         private LdapQueryManager()
         {
             logger = NLog.LogManager.GetCurrentClassLogger();
-            config = new Ldap.LdapConfig();
         }
         #endregion
+
+        /// <summary>
+        /// Resolves the directory config for an operation. A null config (legacy /
+        /// V1 callers) falls back to the default domain.
+        /// </summary>
+        private static LdapConfig EnsureConfig(LdapConfig config)
+        {
+            return config ?? LdapDomainRegistry.Instance.GetConfig(null);
+        }
 
         #region READ
 
@@ -75,37 +81,39 @@ namespace adrapi.Ldap
             }
         }
         
-        public async Task<LdapMessageQueue> SendSearchAsync(string searchBase, LdapSearchType type, string filter = "")
+        public async Task<LdapMessageQueue> SendSearchAsync(string searchBase, LdapSearchType type, string filter = "", LdapConfig config = null)
         {
-            return await SendSearchAsync(searchBase, GetTypeFilter(type, filter));
+            return await SendSearchAsync(searchBase, GetTypeFilter(type, filter), config);
         }
 
-        public async Task<LdapMessageQueue> SendSearchAsync(string searchBase, string filter)
+        public async Task<LdapMessageQueue> SendSearchAsync(string searchBase, string filter, LdapConfig config = null)
         {
+            var cfg = EnsureConfig(config);
             var lcm = LdapConnectionManager.Instance;
-            using var con = await lcm.GetConnectionAsync();
+            using var con = await lcm.GetConnectionAsync(cfg);
 
-            var sb = searchBase + config.searchBase;
+            var sb = searchBase + cfg.searchBase;
 
-            var req = new LdapSearchRequest(sb, LdapConnection.ScopeSub, filter, null, LdapSearchConstraints.DerefNever, config.maxResults, 0, false, null);
+            var req = new LdapSearchRequest(sb, LdapConnection.ScopeSub, filter, null, LdapSearchConstraints.DerefNever, cfg.maxResults, 0, false, null);
             
             var queue = await con.SendRequestAsync(req, null);
                         
             return queue;
         }
 
-        public async Task<List<LdapEntry>> ExecuteSearchAsync(string searchBase, LdapSearchType type, string filter = "")
+        public async Task<List<LdapEntry>> ExecuteSearchAsync(string searchBase, LdapSearchType type, string filter = "", LdapConfig config = null)
         {
-            return await ExecuteSearchAsync(searchBase, GetTypeFilter(type, filter));
+            return await ExecuteSearchAsync(searchBase, GetTypeFilter(type, filter), config);
         }
 
-        public async Task<List<LdapEntry>> ExecuteSearchAsync(string searchBase, string filter = "")
+        public async Task<List<LdapEntry>> ExecuteSearchAsync(string searchBase, string filter = "", LdapConfig config = null)
         {
+            var cfg = EnsureConfig(config);
             var results = new List<LdapEntry>();
-            
+
             var lcm = LdapConnectionManager.Instance;
-            using var conn = await lcm.GetConnectionAsync();
-            var sb = searchBase + config.searchBase;
+            using var conn = await lcm.GetConnectionAsync(cfg);
+            var sb = searchBase + cfg.searchBase;
             
             LdapControl[] requestControls = new LdapControl[1];
 
@@ -176,19 +184,20 @@ namespace adrapi.Ldap
         }
         
 
-        public async Task<List<LdapEntry>> ExecuteLimitedSearchAsync(string searchBase, LdapSearchType type, int start, int end, string filter = "")
+        public async Task<List<LdapEntry>> ExecuteLimitedSearchAsync(string searchBase, LdapSearchType type, int start, int end, string filter = "", LdapConfig config = null)
         {
-            return await ExecuteLimitedSearchAsync(searchBase, GetTypeFilter(type, filter), start, end);
+            return await ExecuteLimitedSearchAsync(searchBase, GetTypeFilter(type, filter), start, end, config);
         }
 
-        private async Task<int> GetSearchSizeAsync(string searchBase, string filter)
+        private async Task<int> GetSearchSizeAsync(string searchBase, string filter, LdapConfig config)
         {
+            var cfg = EnsureConfig(config);
             var results = new List<LdapEntry>();
 
             var lcm = LdapConnectionManager.Instance;
-            using var conn = await lcm.GetConnectionAsync();
+            using var conn = await lcm.GetConnectionAsync(cfg);
 
-            var sb = searchBase + config.searchBase;
+            var sb = searchBase + cfg.searchBase;
 
             LdapControl[] requestControls = new LdapControl[2];
 
@@ -198,7 +207,7 @@ namespace adrapi.Ldap
             // Create the sort control 
             requestControls[0] = new LdapSortControl(keys, true);
 
-            requestControls[1] = new LdapVirtualListControl(1, 0, 1, config.maxResults);
+            requestControls[1] = new LdapVirtualListControl(1, 0, 1, cfg.maxResults);
             
             //requestControls[1] = new LdapVirtualListControl(sb,0, config.maxResults, null);
 
@@ -273,19 +282,20 @@ namespace adrapi.Ldap
         /// <param name="filter">Filter.</param>
         /// <param name="start">Must be 1 or greater</param>
         /// <param name="end">End.</param>
-        public async Task<List<LdapEntry>> ExecuteLimitedSearchAsync(string searchBase, string filter, int start, int end)
+        public async Task<List<LdapEntry>> ExecuteLimitedSearchAsync(string searchBase, string filter, int start, int end, LdapConfig config = null)
         {
-            
-            int sSize = await GetSearchSizeAsync(searchBase, filter);
+            var cfg = EnsureConfig(config);
+
+            int sSize = await GetSearchSizeAsync(searchBase, filter, cfg);
 
             //int sSize = 1000;
-            
+
             var results = new List<LdapEntry>();
 
             var lcm = LdapConnectionManager.Instance;
-            using var conn = await lcm.GetConnectionAsync();
+            using var conn = await lcm.GetConnectionAsync(cfg);
 
-            var sb = searchBase + config.searchBase;
+            var sb = searchBase + cfg.searchBase;
 
             LdapControl[] requestControls = new LdapControl[2];
 
@@ -317,7 +327,7 @@ namespace adrapi.Ldap
             catch (LdapException ex) when (ex.ResultCode == 12)
             {
                 logger.Warn(ex, "LDAP server does not support VLV critical extension. Falling back to standard range search.");
-                return await ExecuteLimitedSearchFallbackAsync(searchBase, filter, start, end);
+                return await ExecuteLimitedSearchFallbackAsync(searchBase, filter, start, end, cfg);
             }
 
             // Loop through the results and print them out
@@ -336,7 +346,7 @@ namespace adrapi.Ldap
                 catch (LdapException ex) when (ex.ResultCode == 12)
                 {
                     logger.Warn(ex, "LDAP server does not support VLV critical extension. Falling back to standard range search.");
-                    return await ExecuteLimitedSearchFallbackAsync(searchBase, filter, start, end);
+                    return await ExecuteLimitedSearchFallbackAsync(searchBase, filter, start, end, cfg);
                 }
                 catch (Exception e)
                 {
@@ -419,9 +429,9 @@ namespace adrapi.Ldap
             return results;
         }
 
-        private async Task<List<LdapEntry>> ExecuteLimitedSearchFallbackAsync(string searchBase, string filter, int start, int end)
+        private async Task<List<LdapEntry>> ExecuteLimitedSearchFallbackAsync(string searchBase, string filter, int start, int end, LdapConfig config = null)
         {
-            var all = await ExecuteSearchAsync(searchBase, filter);
+            var all = await ExecuteSearchAsync(searchBase, filter, config);
             if (all.Count == 0)
             {
                 return all;
@@ -447,11 +457,11 @@ namespace adrapi.Ldap
             return all.Skip(skip).Take(take).ToList();
         }
 
-        public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, LdapSearchType type, string filter = "", string cookie = "")
+        public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, LdapSearchType type, string filter = "", string cookie = "", LdapConfig config = null)
         {
-            
-            return await ExecutePagedSearchAsync(searchBase, GetTypeFilter(type,filter), cookie);
-            
+
+            return await ExecutePagedSearchAsync(searchBase, GetTypeFilter(type,filter), cookie, config);
+
         }
 
 
@@ -462,14 +472,15 @@ namespace adrapi.Ldap
         /// <param name="searchBase">Search base.</param>
         /// <param name="filter">Filter.</param>
         /// <param name="cookie">Cookie to restore last search.</param>
-        public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, string filter, string cookie = "")
+        public async Task<LdapPagedResponse> ExecutePagedSearchAsync(string searchBase, string filter, string cookie = "", LdapConfig config = null)
         {
+            var cfg = EnsureConfig(config);
             var results = new List<LdapEntry>();
 
             var lcm = LdapConnectionManager.Instance;
-            using var conn = await lcm.GetConnectionAsync();
+            using var conn = await lcm.GetConnectionAsync(cfg);
 
-            var sb = searchBase + config.searchBase;
+            var sb = searchBase + cfg.searchBase;
 
 
             // We will be sending two controls to the server 
@@ -505,7 +516,7 @@ namespace adrapi.Ldap
             }
             
             
-            requestControls[1] = new LdapPagedResultsControl(config.maxResults, cookie);
+            requestControls[1] = new LdapPagedResultsControl(cfg.maxResults, cookie);
             
             // Set the controls to be sent as part of search request
             LdapSearchConstraints cons = conn.SearchConstraints;
@@ -602,10 +613,10 @@ namespace adrapi.Ldap
             return response; 
         }
 
-        public async Task<LdapEntry> GetRegister(string DN, string[] attrs = null)
+        public async Task<LdapEntry> GetRegister(string DN, string[] attrs = null, LdapConfig config = null)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = await lcm.GetConnectionAsync(true);
+            var con = await lcm.GetConnectionAsync(EnsureConfig(config), true);
 
             LdapEntry res;
             if (attrs == null)
@@ -621,29 +632,29 @@ namespace adrapi.Ldap
 
         #region WRITE
 
-        public async Task AddEntryAsync(LdapEntry entry)
+        public async Task AddEntryAsync(LdapEntry entry, LdapConfig config = null)
         {
             var lcm = LdapConnectionManager.Instance;
-            using var con = await lcm.GetConnectionAsync(true);
+            using var con = await lcm.GetConnectionAsync(EnsureConfig(config), true);
 
             //Add the entry to the directory
             await con.AddAsync(entry);
-            
+
         }
 
-        public async Task DeleteEntry(String dn)
+        public async Task DeleteEntry(String dn, LdapConfig config = null)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = await lcm.GetConnectionAsync(true);
+            var con = await lcm.GetConnectionAsync(EnsureConfig(config), true);
 
             await con.DeleteAsync(dn);
 
         }
 
-        public async Task SaveEntry(String dn, LdapModification[] modList)
+        public async Task SaveEntry(String dn, LdapModification[] modList, LdapConfig config = null)
         {
             var lcm = LdapConnectionManager.Instance;
-            var con = await lcm.GetConnectionAsync(true);
+            var con = await lcm.GetConnectionAsync(EnsureConfig(config), true);
 
             //Add the entry to the directory
             await con.ModifyAsync(dn, modList);

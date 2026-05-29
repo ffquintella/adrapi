@@ -1,7 +1,10 @@
 ﻿using System;
 using Novell.Directory.Ldap;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using adrapi.domain.Exceptions;
+using adrapi.domain.Security;
+using adrapi.Ldap.Security;
 using NLog;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Security;
@@ -30,13 +33,15 @@ namespace adrapi.Ldap
 
         #endregion
 
-        private List<LdapConnection> ConnectionPool;
-        private List<LdapConnection> CleanConnectionPool;
-        private readonly SemaphoreSlim poolInitSemaphore = new SemaphoreSlim(1, 1);
+        // Connection pools are bucketed per-domain (keyed by LdapConfig.DomainKey)
+        // so requests to different directories never share a bound connection.
+        private readonly ConcurrentDictionary<string, List<LdapConnection>> connectionPools = new();
+        private readonly ConcurrentDictionary<string, List<LdapConnection>> cleanConnectionPools = new();
+        private readonly ConcurrentDictionary<string, SemaphoreSlim> poolInitSemaphores = new();
 
         public async Task<LdapConnection> GetConnectionAsync(bool clean = false)
         {
-            var ldapConf = new Ldap.LdapConfig();
+            var ldapConf = LdapDomainRegistry.Instance.GetConfig(null);
             return await this.GetConnectionAsync(ldapConf, clean);
         }
 
@@ -56,12 +61,16 @@ namespace adrapi.Ldap
                 config.poolSize = 1;
             }
 
-            await EnsureConnectionPoolsAsync(config, LdapVersion);
+            var domainKey = LdapDomainRegistry.NormalizeKey(config.DomainKey);
+
+            await EnsureConnectionPoolsAsync(domainKey, config, LdapVersion);
 
             // GET a Random open Connection
             var rnd = new Random();
 
-            var pool = clean ? CleanConnectionPool : ConnectionPool;
+            var pool = clean
+                ? cleanConnectionPools.GetValueOrDefault(domainKey)
+                : connectionPools.GetValueOrDefault(domainKey);
             if (pool == null || pool.Count == 0)
                 throw new WrongParameterException("LDAP connection pool is empty. Check ldap.poolSize and ldap.servers settings.");
 
@@ -106,19 +115,20 @@ namespace adrapi.Ldap
             return con;
         }
 
-        private async Task EnsureConnectionPoolsAsync(LdapConfig config, int ldapVersion)
+        private async Task EnsureConnectionPoolsAsync(string domainKey, LdapConfig config, int ldapVersion)
         {
-            if (ConnectionPool != null && CleanConnectionPool != null
-                && ConnectionPool.Count > 0 && CleanConnectionPool.Count > 0)
+            if (connectionPools.TryGetValue(domainKey, out var existing) && existing.Count > 0
+                && cleanConnectionPools.TryGetValue(domainKey, out var existingClean) && existingClean.Count > 0)
             {
                 return;
             }
 
-            await poolInitSemaphore.WaitAsync();
+            var semaphore = poolInitSemaphores.GetOrAdd(domainKey, _ => new SemaphoreSlim(1, 1));
+            await semaphore.WaitAsync();
             try
             {
-                if (ConnectionPool != null && CleanConnectionPool != null
-                    && ConnectionPool.Count > 0 && CleanConnectionPool.Count > 0)
+                if (connectionPools.TryGetValue(domainKey, out var ready) && ready.Count > 0
+                    && cleanConnectionPools.TryGetValue(domainKey, out var readyClean) && readyClean.Count > 0)
                 {
                     return;
                 }
@@ -128,26 +138,19 @@ namespace adrapi.Ldap
 
                 try
                 {
+                    // Pin store is only needed when SSL is enabled; constructing it
+                    // requires a non-empty path which plain-LDAP configs don't set.
+                    var pinStore = config.ssl
+                        ? new LdapCertificatePinStore(config.trustedCertificatesFile ?? "cfg/ldap-trusted-certs.json")
+                        : null;
+
                     for (short openConn = 0; openConn < config.poolSize; openConn++)
                     {
-                        LdapConnectionOptions options;
-                        if (config.ssl)
-                        {
-                            options = new LdapConnectionOptions()
-                                .ConfigureRemoteCertificateValidationCallback(
-                                    new RemoteCertificateValidationCallback((a, b, c, d) => true))
-                                .UseSsl();
-                        }
-                        else
-                        {
-                            options = new LdapConnectionOptions();
-                        }
-
-                        var cn = new LdapConnection(options);
-                        var cnClean = new LdapConnection(options);
-
                         var server = GetOptimalSever(config.servers);
                         var server2 = GetOptimalSever(config.servers);
+
+                        var cn = new LdapConnection(BuildOptions(config, pinStore, server.FQDN));
+                        var cnClean = new LdapConnection(BuildOptions(config, pinStore, server2.FQDN));
 
                         try
                         {
@@ -180,61 +183,49 @@ namespace adrapi.Ldap
                         cleanPool.Add(cnClean);
                     }
 
-                    ConnectionPool = pool;
-                    CleanConnectionPool = cleanPool;
-                    logger.Info("LDAP connection pool initialized with {poolSize} connections.", pool.Count);
+                    connectionPools[domainKey] = pool;
+                    cleanConnectionPools[domainKey] = cleanPool;
+                    logger.Info("LDAP connection pool for domain '{domain}' initialized with {poolSize} connections.", domainKey, pool.Count);
                 }
                 catch
                 {
                     foreach (var c in pool) c.Dispose();
                     foreach (var c in cleanPool) c.Dispose();
-                    ConnectionPool = null;
-                    CleanConnectionPool = null;
+                    connectionPools.TryRemove(domainKey, out _);
+                    cleanConnectionPools.TryRemove(domainKey, out _);
                     throw;
                 }
             }
             finally
             {
-                poolInitSemaphore.Release();
+                semaphore.Release();
             }
         }
 
 
-        public async Task<bool> ValidateAuthenticationAsync(string login, string password)
+        public async Task<bool> ValidateAuthenticationAsync(string login, string password, LdapConfig config = null)
         {
             int LdapVersion = LdapConnection.LdapV3;
 
-            var ldapConf = new Ldap.LdapConfig();
+            var ldapConf = config ?? LdapDomainRegistry.Instance.GetConfig(null);
 
             var server = GetOptimalSever(ldapConf.servers);
 
             logger.Debug("Authenticating user: {login} on server: {server}", login, server);
 
 
-            LdapConnectionOptions options;
-            if (ldapConf.ssl)
-            {
-                options = new LdapConnectionOptions()
-                    .ConfigureRemoteCertificateValidationCallback(
-                        new RemoteCertificateValidationCallback((a, b, c, d) => true))
-                    .UseSsl();
-            }
-            else
-            {
-                options = new LdapConnectionOptions();
-            }
-
-            using var cn = new LdapConnection(options);
+            var pinStore = ldapConf.ssl
+                ? new LdapCertificatePinStore(ldapConf.trustedCertificatesFile ?? "cfg/ldap-trusted-certs.json")
+                : null;
+            using var cn = new LdapConnection(BuildOptions(ldapConf, pinStore, server.FQDN));
 
             await cn.ConnectAsync(server.FQDN, server.Port);
 
-            ldapConf.bindDn = login;
-            ldapConf.bindCredentials = password;
-
-
+            // Bind with the supplied credentials directly; never mutate the
+            // (possibly cached) domain config with caller credentials.
             try
             {
-                await cn.BindAsync(LdapVersion, ldapConf.bindDn, ldapConf.bindCredentials);
+                await cn.BindAsync(LdapVersion, login, password);
                 cn.Disconnect();
                 return true;
             }
@@ -247,6 +238,22 @@ namespace adrapi.Ldap
         }
 
 
+
+        /// <summary>
+        /// Builds connection options with strict TLS validation when SSL is enabled.
+        /// The validator accepts certificates trusted by the system CA store, or
+        /// those pinned (by SHA-256) for the target host in the pin store.
+        /// </summary>
+        private static LdapConnectionOptions BuildOptions(LdapConfig config, LdapCertificatePinStore pinStore, string targetHost)
+        {
+            if (!config.ssl) return new LdapConnectionOptions();
+
+            var validator = new LdapCertificateValidator(pinStore, targetHost);
+            return new LdapConnectionOptions()
+                .ConfigureRemoteCertificateValidationCallback(
+                    new RemoteCertificateValidationCallback(validator.Validate))
+                .UseSsl();
+        }
 
         private LdapServer GetOptimalSever(string[] servers)
         {
