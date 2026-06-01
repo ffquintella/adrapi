@@ -118,6 +118,22 @@ namespace adrapi.Controllers
         }
 
         /// <summary>
+        /// Opens an ambient <see cref="Directory.DirectoryOperationContext"/> scope
+        /// carrying the requester, correlation id, and client IP, so directory
+        /// backends (e.g. the Graph client) stamp the same audit fields on their
+        /// operation logs. Dispose the returned scope when the request completes
+        /// (e.g. <c>using (BeginDirectoryScope()) { ... }</c>). Call
+        /// <see cref="ProcessRequest"/> first so the requester is populated.
+        /// </summary>
+        protected IDisposable BeginDirectoryScope()
+            => Directory.DirectoryOperationContext.BeginScope(new Directory.DirectoryOperationContext
+            {
+                Requester = string.IsNullOrWhiteSpace(requesterID) ? "unknown" : requesterID,
+                CorrelationId = GetCorrelationId(),
+                ClientIp = GetClientIp(),
+            });
+
+        /// <summary>
         /// Emits a structured audit log record with correlation and requester metadata.
         /// </summary>
         protected void LogAudit(string action, string targetDn, string changeSummary)
