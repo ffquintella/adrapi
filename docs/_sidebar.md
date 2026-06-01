@@ -13,6 +13,7 @@
 
 - Microsoft Entra ID
   - [Entra ID Guide](ENTRA_ID_GUIDE.md)
+  - [Setup (step by step)](ENTRA_ID_SETUP.md)
   - [1 — Scope](ENTRA_STAGE1_SCOPE.md)
   - [2 — Authentication](ENTRA_STAGE2_AUTH.md)
   - [3 — Graph Client](ENTRA_STAGE3_GRAPH_CLIENT.md)
