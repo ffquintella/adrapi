@@ -91,6 +91,33 @@ namespace adrapi.Controllers
         }
 
         /// <summary>
+        /// Resolves the directory for an OU operation. Behaves like
+        /// <see cref="TryResolveDomain"/> but additionally rejects Entra ID-backed
+        /// domains: Entra ID has no OU object (administrative units are a separate
+        /// Microsoft Graph concept), so OU endpoints are LDAP/AD-only.
+        /// </summary>
+        protected bool TryResolveLdapDomain(string domain, out LdapConfig config, out ActionResult error)
+        {
+            if (!TryResolveDomain(domain, out config, out error))
+            {
+                return false;
+            }
+
+            if (LdapDomainRegistry.Instance.IsEntraDomain(domain))
+            {
+                logger.LogWarning("Rejected OU operation on Entra ID-backed domain: {domain}", domain);
+                config = null;
+                error = BadRequest(
+                    "Organizational unit operations are not supported on Entra ID-backed domains. " +
+                    "Entra ID has no OU object; administrative units are a separate Microsoft Graph concept. " +
+                    "Use an LDAP/AD-backed domain for OU operations.");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Emits a structured audit log record with correlation and requester metadata.
         /// </summary>
         protected void LogAudit(string action, string targetDn, string changeSummary)

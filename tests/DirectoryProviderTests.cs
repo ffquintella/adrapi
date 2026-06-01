@@ -70,14 +70,6 @@ namespace tests
         }
 
         [Fact]
-        public async Task GraphProvider_GroupOps_ThrowNotSupportedUntilStage5()
-        {
-            var p = GraphProvider();
-            await Assert.ThrowsAsync<NotSupportedException>(() => p.GetGroupsAsync());
-            await Assert.ThrowsAsync<NotSupportedException>(() => p.CreateGroupAsync(new Group()));
-        }
-
-        [Fact]
         public async Task GraphProvider_OuOps_AlwaysThrowNotSupported()
         {
             var p = GraphProvider();

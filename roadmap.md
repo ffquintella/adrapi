@@ -133,8 +133,8 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 - [x] Stage 2 - Authentication and Authorization (Entra ID OAuth2/OIDC)
 - [x] Stage 3 - Microsoft Graph Client Foundation
 - [x] Stage 4 - User Management via Graph
-- [ ] Stage 5 - Group and Membership Management via Graph
-- [ ] Stage 6 - Directory Object Mapping and Abstraction
+- [x] Stage 5 - Group and Membership Management via Graph
+- [x] Stage 6 - Directory Object Mapping and Abstraction
 - [ ] Stage 7 - Security, Secrets, and Tenant Configuration
 - [ ] Stage 8 - Observability and Auditability
 - [ ] Stage 9 - Testing and Quality Gates
@@ -172,17 +172,17 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 ## 5. Group and Membership Management via Graph
 
-- [ ] Create/update/delete group (security and Microsoft 365).
-- [ ] Add/remove members (delta) and replace full membership set.
-- [ ] List members and resolve member identifiers (UPN/objectId/DN-equivalent).
-- Deliverable: group + membership parity through Graph.
+- [x] Create/update/delete group (security and Microsoft 365). `GraphGroupMapper` maps `Group.GroupType` onto the Graph `groupTypes`/`mailEnabled`/`securityEnabled` trio; immutable `groupTypes` sent on create only.
+- [x] Add/remove members (delta) and replace full membership set. Idempotent `members/$ref` add/remove and a diff-based replace in `GraphDirectoryProvider`.
+- [x] List members and resolve member identifiers (UPN/objectId/DN-equivalent). Groups resolved by objectId or displayName; members by objectId or UPN; member listing prefers UPN, falls back to objectId.
+- Deliverable: group + membership parity through Graph. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE5_GROUP_MANAGEMENT.md`.
 
 ## 6. Directory Object Mapping and Abstraction
 
-- [ ] Normalize response models so v2 endpoints return consistent shapes regardless of backend.
-- [ ] OU operations are LDAP/AD-only and are explicitly NOT supported on Entra ID (no OU object; administrative units are a separate Graph concept). Document non-support and any alternatives.
-- [ ] Handle identifier translation (DN ↔ objectId/UPN) at the edges.
-- Deliverable: backend-agnostic API surface.
+- [x] Normalize response models so v2 endpoints return consistent shapes regardless of backend. `DirectoryObjectNormalizer` (trim/blank→null, Entra DN→null, default `GroupType`) applied on every provider read.
+- [x] OU operations are LDAP/AD-only and are explicitly NOT supported on Entra ID (no OU object; administrative units are a separate Graph concept). `BaseController.TryResolveLdapDomain` rejects Entra domains with a 400; documented alternative (administrative units).
+- [x] Handle identifier translation (DN ↔ objectId/UPN) at the edges. `DirectoryIdentifiers` classifies objectId/DN/UPN/Name; Graph edge rejects DNs (`EnsureGraphAddressable`); group/member identifiers resolved per backend.
+- Deliverable: backend-agnostic API surface. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE6_MAPPING_ABSTRACTION.md`.
 
 ## 7. Security, Secrets, and Tenant Configuration
 
@@ -237,4 +237,6 @@ Use this section to record dated updates.
 - 2026-05-29: `Entra ID Stage 1` completed. Notes: scope document with capability inventory, integration-model decision (additive per-domain backend reusing the multi-domain seam), AD→Entra concept mapping, Graph API surface + app permissions, and gap list at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE1_SCOPE.md`.
 - 2026-05-29: `Entra ID Stage 2` completed. Notes: Entra auth layer added under `/Users/felipe/Dev/adrapi/adrapi/Entra/` (EntraConfig, EntraTokenProvider via MSAL client-credentials, EntraScopeMap policy→app-role mapping); domain-kind awareness + startup validation; client secret sourced from the encrypted store; 13 unit tests (full suite 466 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE2_AUTH.md`.
 - 2026-05-29: `Entra ID Stage 4` completed. Notes: full user lifecycle over Graph in `/Users/felipe/Dev/adrapi/adrapi/Directory/GraphDirectoryProvider.cs` (read/list/search/exists/create/update/disable/delete + set-password) with `/Users/felipe/Dev/adrapi/adrapi/Entra/GraphUserMapper.cs`; `IDirectoryProvider` extended (exists/search/enable/password) with LDAP parity, incl. new `UserManager.SetAccountEnabledAsync` (userAccountControl ACCOUNTDISABLE bit); 16 unit tests added; controller test suite made deterministic (parallelization disabled + `LdapDomainRegistry.ClearCache()` priming); full suite 492 passing. Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE4_USER_MANAGEMENT.md`.
+- 2026-06-01: `Entra ID Stage 6` completed. Notes: backend-agnostic surface — `DirectoryObjectNormalizer` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryObjectNormalizer.cs`) gives consistent User/Group shapes (trim, blank→null, Entra DN→null, default `GroupType`), applied on every Ldap/Graph provider read; `DirectoryIdentifiers` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryIdentifiers.cs`) classifies objectId/DN/UPN/Name and the Graph provider rejects DN identifiers at the edge; OU operations rejected on Entra-backed domains via `BaseController.TryResolveLdapDomain` (wired into `OUsController`); 9 unit tests added (full suite 515 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE6_MAPPING_ABSTRACTION.md`.
+- 2026-06-01: `Entra ID Stage 5` completed. Notes: group + membership parity through Graph — `GraphGroupMapper` (`/Users/felipe/Dev/adrapi/adrapi/Entra/GraphGroupMapper.cs`) maps security vs Microsoft 365 groups; `GraphDirectoryProvider` implements group CRUD and idempotent `members/$ref` add/remove plus diff-based replace, with group (objectId/displayName) and member (objectId/UPN) identifier resolution; `IDirectoryProvider` extended with `GroupExists`/membership ops and LDAP parity; `Group.GroupType` added to the shared model; 19 unit tests added (full suite 506 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE5_GROUP_MANAGEMENT.md`.
 - 2026-05-29: `Entra ID Stage 3` completed. Notes: reusable Graph client (`/Users/felipe/Dev/adrapi/adrapi/Entra/GraphClient.cs`) with Retry-After-aware 429/5xx retry, `@odata.nextLink` paging, and `request-id` surfacing via `GraphException`; backend-agnostic directory abstraction under `/Users/felipe/Dev/adrapi/adrapi/Directory/` (`IDirectoryProvider`, `LdapDirectoryProvider`, `GraphDirectoryProvider`) with `DirectoryProviderFactory` selecting backend per request/deployment by domain kind; Graph CRUD deferred to Stage 4/5 and OUs explicitly unsupported on Entra ID; 13 unit tests added (full suite 479 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE3_GRAPH_CLIENT.md`.

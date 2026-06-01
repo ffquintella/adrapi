@@ -65,9 +65,27 @@ namespace adrapi.Directory
         // ---- Groups ----
         Task<List<Group>> GetGroupsAsync(CancellationToken cancellationToken = default);
         Task<Group> GetGroupAsync(string identifier, CancellationToken cancellationToken = default);
+
+        /// <summary>True when a group with the given identifier exists.</summary>
+        Task<bool> GroupExistsAsync(string identifier, CancellationToken cancellationToken = default);
+
         Task<bool> CreateGroupAsync(Group group, CancellationToken cancellationToken = default);
         Task<bool> UpdateGroupAsync(Group group, CancellationToken cancellationToken = default);
         Task<bool> DeleteGroupAsync(Group group, CancellationToken cancellationToken = default);
+
+        // ---- Group membership ----
+
+        /// <summary>Lists the group's direct members (backend-relative identifiers).</summary>
+        Task<List<string>> GetGroupMembersAsync(string groupId, CancellationToken cancellationToken = default);
+
+        /// <summary>Adds members to a group (idempotent — already-present members are a no-op).</summary>
+        Task<bool> AddGroupMembersAsync(string groupId, IEnumerable<string> memberIdentifiers, CancellationToken cancellationToken = default);
+
+        /// <summary>Removes members from a group (idempotent — absent members are a no-op).</summary>
+        Task<bool> RemoveGroupMembersAsync(string groupId, IEnumerable<string> memberIdentifiers, CancellationToken cancellationToken = default);
+
+        /// <summary>Replaces the full membership set with exactly the supplied members.</summary>
+        Task<bool> ReplaceGroupMembersAsync(string groupId, IEnumerable<string> memberIdentifiers, CancellationToken cancellationToken = default);
 
         // ---- Organizational Units (LDAP/AD only) ----
         Task<List<OU>> GetOrganizationalUnitsAsync(CancellationToken cancellationToken = default);

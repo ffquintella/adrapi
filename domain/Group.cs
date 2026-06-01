@@ -18,6 +18,13 @@ namespace adrapi.domain
         public string DN { get; set; }
         public string ID { get; set; }
 
+        /// <summary>
+        /// Backend-agnostic group kind. Null/"Security" is a security group;
+        /// "Microsoft365" (aka "Unified"/"Office365") is a Microsoft 365 group.
+        /// Meaningful for the Entra ID/Graph backend; ignored by LDAP/AD.
+        /// </summary>
+        public string GroupType { get; set; }
+
         private List<String> _member;
         public List<String> Member
         {

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using adrapi.domain;
@@ -26,18 +28,22 @@ namespace adrapi.Directory
         public DirectoryBackend Backend => DirectoryBackend.Ldap;
         public bool SupportsOrganizationalUnits => true;
 
+        private static User Normalize(User user) => DirectoryObjectNormalizer.Normalize(user, DirectoryBackend.Ldap);
+        private static Group Normalize(Group group) => DirectoryObjectNormalizer.Normalize(group, DirectoryBackend.Ldap);
+
         // ---- Users ----
         public async Task<List<User>> GetUsersAsync(CancellationToken cancellationToken = default)
-            => (await UserManager.Instance.GetUsersAsync(config)).Users;
+            => (await UserManager.Instance.GetUsersAsync(config)).Users.Select(Normalize).ToList();
 
-        public Task<User> GetUserAsync(string identifier, CancellationToken cancellationToken = default)
-            => UserManager.Instance.GetUserAsync(identifier, "", config);
+        public async Task<User> GetUserAsync(string identifier, CancellationToken cancellationToken = default)
+            => Normalize(await UserManager.Instance.GetUserAsync(identifier, "", config));
 
         public async Task<bool> UserExistsAsync(string identifier, CancellationToken cancellationToken = default)
             => await UserManager.Instance.GetUserAsync(identifier, "", config) != null;
 
         public async Task<List<User>> SearchUsersAsync(string query, CancellationToken cancellationToken = default)
-            => (await UserManager.Instance.GetListAsync("", query, "", config)).Users ?? new List<User>();
+            => ((await UserManager.Instance.GetListAsync("", query, "", config)).Users ?? new List<User>())
+                .Select(Normalize).ToList();
 
         public async Task<bool> CreateUserAsync(User user, CancellationToken cancellationToken = default)
             => await UserManager.Instance.CreateUserAsync(user, config) == 0;
@@ -74,11 +80,14 @@ namespace adrapi.Directory
         }
 
         // ---- Groups ----
-        public Task<List<Group>> GetGroupsAsync(CancellationToken cancellationToken = default)
-            => GroupManager.Instance.GetGroupsAsync(config);
+        public async Task<List<Group>> GetGroupsAsync(CancellationToken cancellationToken = default)
+            => (await GroupManager.Instance.GetGroupsAsync(config)).Select(Normalize).ToList();
 
-        public Task<Group> GetGroupAsync(string identifier, CancellationToken cancellationToken = default)
-            => GroupManager.Instance.GetGroupAsync(identifier, config: config);
+        public async Task<Group> GetGroupAsync(string identifier, CancellationToken cancellationToken = default)
+            => Normalize(await GroupManager.Instance.GetGroupAsync(identifier, config: config));
+
+        public async Task<bool> GroupExistsAsync(string identifier, CancellationToken cancellationToken = default)
+            => await GroupManager.Instance.GetGroupAsync(identifier, config: config) != null;
 
         public async Task<bool> CreateGroupAsync(Group group, CancellationToken cancellationToken = default)
             => await GroupManager.Instance.CreateGroupAsync(group, config) == 0;
@@ -88,6 +97,51 @@ namespace adrapi.Directory
 
         public async Task<bool> DeleteGroupAsync(Group group, CancellationToken cancellationToken = default)
             => await GroupManager.Instance.DeleteGroup(group, config) == 0;
+
+        // ---- Group membership ----
+        // Member identifiers are member DNs (the controller resolves account/CN→DN
+        // up front). SaveGroupAsync rewrites the full member set, so the delta
+        // operations read-modify-write the current membership.
+
+        public async Task<List<string>> GetGroupMembersAsync(string groupId, CancellationToken cancellationToken = default)
+        {
+            var group = await GroupManager.Instance.GetGroupAsync(groupId, config: config);
+            return group?.Member ?? new List<string>();
+        }
+
+        public Task<bool> AddGroupMembersAsync(string groupId, IEnumerable<string> memberIdentifiers, CancellationToken cancellationToken = default)
+            => MutateMembersAsync(groupId, current =>
+            {
+                foreach (var m in memberIdentifiers ?? Enumerable.Empty<string>()) current.Add(m);
+            });
+
+        public Task<bool> RemoveGroupMembersAsync(string groupId, IEnumerable<string> memberIdentifiers, CancellationToken cancellationToken = default)
+            => MutateMembersAsync(groupId, current =>
+            {
+                foreach (var m in memberIdentifiers ?? Enumerable.Empty<string>()) current.Remove(m);
+            });
+
+        public Task<bool> ReplaceGroupMembersAsync(string groupId, IEnumerable<string> memberIdentifiers, CancellationToken cancellationToken = default)
+            => MutateMembersAsync(groupId, current =>
+            {
+                current.Clear();
+                foreach (var m in memberIdentifiers ?? Enumerable.Empty<string>()) current.Add(m);
+            });
+
+        private async Task<bool> MutateMembersAsync(string groupId, Action<HashSet<string>> mutate)
+        {
+            var group = await GroupManager.Instance.GetGroupAsync(groupId, config: config);
+            if (group == null)
+            {
+                return false;
+            }
+
+            var members = new HashSet<string>(group.Member, StringComparer.OrdinalIgnoreCase);
+            mutate(members);
+            group.Member = members.ToList();
+
+            return await GroupManager.Instance.SaveGroupAsync(group, config) == 0;
+        }
 
         // ---- Organizational Units ----
         public async Task<List<OU>> GetOrganizationalUnitsAsync(CancellationToken cancellationToken = default)
