@@ -5,15 +5,14 @@ directory backend, alongside on-premises LDAP/AD, using the same multi-domain
 routing. This guide covers app registration, configuration, capabilities, usage,
 and migration.
 
-> **Integration status.** The Entra building blocks are implemented and tested:
-> token acquisition (MSAL client-credentials), the Graph client (retry/throttling/
-> paging), the user and group/membership operations, response normalization,
-> identifier translation, security/error mapping, and audit logging — all behind
-> the `IDirectoryProvider` abstraction (`DirectoryProviderFactory`). **Startup
-> validation, secret handling, and OU-on-Entra rejection are live on the REST
-> surface today.** Wiring the user/group v2 controllers to *dispatch* to the Graph
-> provider is the final integration step; the routes and payloads documented below
-> are the stable target contract and are unchanged by that wiring.
+> **Integration status — live.** The v2 user and group endpoints **dispatch to
+> the Graph backend** for Entra ID-backed domains: list/get/search/exists/create/
+> update/delete users and groups, plus membership add/remove (delta), replace, and
+> list. Token acquisition, the Graph client (retry/throttling/paging), response
+> normalization, identifier translation, security/error mapping, audit logging,
+> startup validation, and OU-on-Entra rejection are all in effect. The LDAP/AD
+> path is unchanged. (User authentication, attribute inspection, and the
+> `member-of`/`groups` helper endpoints remain LDAP-only.)
 
 ---
 
@@ -136,7 +135,7 @@ multi-tenant app registration, configure **one ADRAPI domain per customer tenant
 each with that tenant's GUID/verified domain and its own admin consent. There is
 no `common` authority for app-only flows (ADRAPI rejects it at startup).
 
-## 5. Usage (target REST contract)
+## 5. Usage
 
 Entra-backed directories use the same domain-scoped v2 routes as LDAP; the
 `{domain}` segment selects the directory:

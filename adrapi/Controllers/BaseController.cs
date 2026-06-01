@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using System.Linq;
+using adrapi.Directory;
 using adrapi.Ldap;
 
 namespace adrapi.Controllers
@@ -132,6 +133,38 @@ namespace adrapi.Controllers
                 CorrelationId = GetCorrelationId(),
                 ClientIp = GetClientIp(),
             });
+
+        /// <summary>True when the request's domain is backed by Entra ID (Microsoft Graph).</summary>
+        protected bool IsEntraDomain(string domain) => LdapDomainRegistry.Instance.IsEntraDomain(domain);
+
+        /// <summary>
+        /// Resolves the directory provider for a domain. Virtual so tests can
+        /// substitute a fake without a live backend.
+        /// </summary>
+        protected virtual IDirectoryProvider ResolveProvider(string domain)
+            => DirectoryProviderFactory.ForDomain(domain);
+
+        /// <summary>
+        /// Runs an operation against the domain's directory provider inside an audit
+        /// scope, mapping any provider/Graph exception to a clear 4xx/5xx
+        /// <see cref="ProblemDetails"/> via <see cref="DirectoryErrorMapper"/>.
+        /// </summary>
+        protected async System.Threading.Tasks.Task<ActionResult> RunWithProviderAsync(
+            string domain, Func<IDirectoryProvider, System.Threading.Tasks.Task<ActionResult>> operation)
+        {
+            using (BeginDirectoryScope())
+            {
+                try
+                {
+                    return await operation(ResolveProvider(domain));
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Directory provider operation failed on domain {domain}", domain ?? "<default>");
+                    return DirectoryErrorMapper.ToProblem(ex);
+                }
+            }
+        }
 
         /// <summary>
         /// Emits a structured audit log record with correlation and requester metadata.

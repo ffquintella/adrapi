@@ -1,5 +1,22 @@
 ﻿# RELEASE NOTES
 
+## 1.9.0
+
+### Added — Entra ID REST surface (controller dispatch)
+
+- The v2 **user and group endpoints now dispatch to the Graph backend** for
+  Entra ID-backed domains (the final integration step noted in 1.8.0). Covered:
+  users — list/get/search/exists/create/update/delete; groups — list/get/exists/
+  create/update/delete; membership — list, add/remove (delta), replace.
+  Dispatch is selected per domain via `BaseController.ResolveProvider` +
+  `IsEntraDomain`, runs inside the audit scope, and maps provider/Graph errors
+  through `DirectoryErrorMapper`. The LDAP/AD path is unchanged; user
+  authentication, attribute inspection, and `member-of`/`groups` helpers remain
+  LDAP-only.
+- `GroupCreateRequest` gains an optional `GroupType` (Security/Microsoft365) for
+  Entra group creation; `DN` is no longer a model-level `[Required]` (it stays
+  mandatory for LDAP, validated explicitly in the controller).
+
 ## 1.8.0
 
 ### Added — Microsoft Entra ID integration

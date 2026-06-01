@@ -47,6 +47,16 @@ namespace adrapi.Controllers.V2
 
             logger.LogInformation(ListItems, "{0} listing all users", requesterID);
 
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var users = string.IsNullOrWhiteSpace(_filter)
+                        ? await provider.GetUsersAsync()
+                        : await provider.SearchUsersAsync(_filter);
+                    return Ok(BuildUserList(users));
+                });
+            }
 
             var uManager = UserManager.Instance;
 
@@ -103,6 +113,12 @@ namespace adrapi.Controllers.V2
 
             logger.LogInformation(ListItems, "{0} getting all users objects", requesterID);
 
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                    Ok(BuildUserList(await provider.GetUsersAsync())));
+            }
+
             if (_start == 0 && _end != 0)
             {
                 return Conflict();
@@ -125,6 +141,15 @@ namespace adrapi.Controllers.V2
             this.ProcessRequest();
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var found = await provider.GetUserAsync(user);
+                    return found == null ? (ActionResult)NotFound() : Ok(found);
+                });
+            }
 
             var uManager = UserManager.Instance;
 
@@ -153,6 +178,12 @@ namespace adrapi.Controllers.V2
             this.ProcessRequest();
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                    await provider.UserExistsAsync(user) ? (ActionResult)Ok() : NotFound());
+            }
 
             var uManager = UserManager.Instance;
 
@@ -385,6 +416,29 @@ namespace adrapi.Controllers.V2
 
             logger.LogDebug(PutItem, "Tring to create user:{0}", DN);
 
+            if (IsEntraDomain(domain))
+            {
+                if (!ModelState.IsValid) return BadRequest();
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var existing = await provider.GetUserAsync(DN);
+                    if (existing == null)
+                    {
+                        if (string.IsNullOrWhiteSpace(user.Login)) user.Login = DN; // path segment is the UPN
+                        LogAudit("entra.user.create.request", DN, $"account={user.Account}");
+                        var created = await provider.CreateUserAsync(user);
+                        if (created) LogAudit("entra.user.create.success", user.ID ?? DN, $"account={user.Account}");
+                        return created ? (ActionResult)Ok() : StatusCode(500);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(user.ID)) user.ID = existing.ID;
+                    LogAudit("entra.user.update.request", user.ID ?? DN, $"account={user.Account}");
+                    var updated = await provider.UpdateUserAsync(user);
+                    if (updated) LogAudit("entra.user.update.success", user.ID ?? DN, $"account={user.Account}");
+                    return updated ? (ActionResult)Ok() : StatusCode(500);
+                });
+            }
+
             if (ModelState.IsValid)
             {
                 if (user.DN != null && user.DN != DN)
@@ -470,6 +524,18 @@ namespace adrapi.Controllers.V2
 
             logger.LogDebug(PutItem, "Tring to delete user:{0}", userID);
 
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var existing = await provider.GetUserAsync(userID);
+                    if (existing == null) return (ActionResult)NotFound();
+                    LogAudit("entra.user.delete.request", existing.ID ?? userID, "delete");
+                    var deleted = await provider.DeleteUserAsync(existing);
+                    if (deleted) LogAudit("entra.user.delete.success", existing.ID ?? userID, "delete");
+                    return deleted ? (ActionResult)Ok() : StatusCode(500);
+                });
+            }
 
             User duser = null;
             var uManager = UserManager.Instance;
@@ -521,6 +587,22 @@ namespace adrapi.Controllers.V2
         }
 
         #endregion
+
+        // Builds a v2 UserListResponse from provider results (backend-agnostic).
+        private static UserListResponse BuildUserList(List<User> users)
+        {
+            users ??= new List<User>();
+            return new UserListResponse
+            {
+                Users = users,
+                UserNames = users
+                    .Select(u => u.Login ?? u.Account ?? u.ID)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .ToList(),
+                SearchType = "User",
+                SearchMethod = "Graph",
+            };
+        }
 
         private static bool IsMembershipMatch(User user, string group)
         {

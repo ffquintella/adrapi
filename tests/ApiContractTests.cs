@@ -12,11 +12,16 @@ namespace tests
         [Fact]
         public void GroupCreateRequest_HasRequiredContractFields()
         {
-            var dn = typeof(GroupCreateRequest).GetProperty(nameof(GroupCreateRequest.DN));
             var name = typeof(GroupCreateRequest).GetProperty(nameof(GroupCreateRequest.Name));
 
-            Assert.NotNull(dn.GetCustomAttributes(typeof(RequiredAttribute), true).FirstOrDefault());
+            // Name is required for every backend.
             Assert.NotNull(name.GetCustomAttributes(typeof(RequiredAttribute), true).FirstOrDefault());
+
+            // DN is intentionally NOT a model-level [Required]: it is mandatory for
+            // the LDAP/AD backend (validated explicitly in the controller) but not
+            // used by the Entra ID backend, which addresses groups by name/objectId.
+            var dn = typeof(GroupCreateRequest).GetProperty(nameof(GroupCreateRequest.DN));
+            Assert.Null(dn.GetCustomAttributes(typeof(RequiredAttribute), true).FirstOrDefault());
         }
 
         [Fact]

@@ -49,6 +49,15 @@ namespace adrapi.Controllers.V2
 
             logger.LogDebug(GetItem, "{0} listing all groups", requesterID);
 
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var groups = await provider.GetGroupsAsync();
+                    return Ok(groups.Select(g => g.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList());
+                });
+            }
+
             var gManager = GroupManager.Instance;
 
             if (_start == 0 && _end != 0)
@@ -74,6 +83,11 @@ namespace adrapi.Controllers.V2
                 if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
                 logger.LogDebug(ListItems, "{0} getting all groups objects", requesterID);
+
+                if (IsEntraDomain(domain))
+                {
+                    return await RunWithProviderAsync(domain, async provider => Ok(await provider.GetGroupsAsync()));
+                }
 
                 if (_start == 0 && _end != 0)
                 {
@@ -106,6 +120,15 @@ namespace adrapi.Controllers.V2
             if (string.IsNullOrWhiteSpace(groupId))
             {
                 return BadRequest();
+            }
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var found = await provider.GetGroupAsync(groupId);
+                    return found == null ? (ActionResult)NotFound() : Ok(found);
+                });
             }
 
             var gManager = GroupManager.Instance;
@@ -143,6 +166,12 @@ namespace adrapi.Controllers.V2
             this.ProcessRequest();
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                    await provider.GroupExistsAsync(DN) ? (ActionResult)Ok() : NotFound());
+            }
 
             if (!IsValidGroupDn(DN))
             {
@@ -188,6 +217,12 @@ namespace adrapi.Controllers.V2
                 return BadRequest();
             }
 
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                    Ok(await provider.GetGroupMembersAsync(groupId)));
+            }
+
             var gManager = GroupManager.Instance;
 
             try
@@ -226,7 +261,30 @@ namespace adrapi.Controllers.V2
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
-            if (!ModelState.IsValid || request == null || string.IsNullOrWhiteSpace(request.DN))
+            if (!ModelState.IsValid || request == null)
+            {
+                return BadRequest();
+            }
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var group = new domain.Group
+                    {
+                        Name = request.Name,
+                        Description = request.Description,
+                        GroupType = request.GroupType,
+                        Member = request.Members ?? new List<string>(),
+                    };
+                    LogAudit("entra.group.create.request", request.Name, $"type={request.GroupType};membersCount={group.Member.Count}");
+                    var ok = await provider.CreateGroupAsync(group);
+                    if (ok) LogAudit("entra.group.create.success", group.ID ?? request.Name, $"type={group.GroupType}");
+                    return ok ? (ActionResult)Ok() : StatusCode(500);
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.DN))
             {
                 return BadRequest();
             }
@@ -294,6 +352,38 @@ namespace adrapi.Controllers.V2
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to create group:{0}", DN);
+
+            if (IsEntraDomain(domain))
+            {
+                if (!ModelState.IsValid || group == null) return BadRequest();
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var existing = await provider.GetGroupAsync(DN);
+                    if (existing == null)
+                    {
+                        if (string.IsNullOrWhiteSpace(group.Name)) group.Name = DN;
+                        LogAudit("entra.group.create.request", group.Name, $"type={group.GroupType}");
+                        var created = await provider.CreateGroupAsync(group);
+                        if (!created) return (ActionResult)StatusCode(500);
+                        if (group.Member is { Count: > 0 })
+                        {
+                            await provider.ReplaceGroupMembersAsync(group.ID ?? group.Name, group.Member);
+                        }
+                        LogAudit("entra.group.create.success", group.ID ?? group.Name, $"membersCount={group.Member.Count}");
+                        return Ok();
+                    }
+
+                    if (string.IsNullOrWhiteSpace(group.ID)) group.ID = existing.ID;
+                    LogAudit("entra.group.update.request", group.ID, "update");
+                    var updated = await provider.UpdateGroupAsync(group);
+                    if (updated && group.Member != null)
+                    {
+                        await provider.ReplaceGroupMembersAsync(group.ID, group.Member);
+                    }
+                    if (updated) LogAudit("entra.group.update.success", group.ID, "update");
+                    return updated ? (ActionResult)Ok() : StatusCode(500);
+                });
+            }
 
             if (ModelState.IsValid && group != null)
             {
@@ -393,6 +483,17 @@ namespace adrapi.Controllers.V2
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    LogAudit("entra.group.members.replace.request", DN, $"membersCount={members?.Length ?? 0}");
+                    var ok = await provider.ReplaceGroupMembersAsync(DN, members ?? Array.Empty<string>());
+                    if (ok) LogAudit("entra.group.members.replace.success", DN, $"membersCount={members?.Length ?? 0}");
+                    return ok ? (ActionResult)Ok() : StatusCode(500);
+                });
+            }
+
             var gManager = GroupManager.Instance;
 
             if (!IsValidGroupDn(DN))
@@ -448,16 +549,28 @@ namespace adrapi.Controllers.V2
                 return BadRequest();
             }
 
-            if (!IsValidGroupDn(DN))
-            {
-                return Conflict();
-            }
-
             var addList = request.Add ?? new List<string>();
             var removeList = request.Remove ?? new List<string>();
             if (addList.Count == 0 && removeList.Count == 0)
             {
                 return BadRequest();
+            }
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    LogAudit("entra.group.members.patch.request", DN, $"add={addList.Count};remove={removeList.Count}");
+                    if (removeList.Count > 0) await provider.RemoveGroupMembersAsync(DN, removeList);
+                    if (addList.Count > 0) await provider.AddGroupMembersAsync(DN, addList);
+                    LogAudit("entra.group.members.patch.success", DN, $"add={addList.Count};remove={removeList.Count}");
+                    return Ok();
+                });
+            }
+
+            if (!IsValidGroupDn(DN))
+            {
+                return Conflict();
             }
 
             var group = await gManager.GetGroupAsync(DN, false, false, ldapConfig);
@@ -521,6 +634,19 @@ namespace adrapi.Controllers.V2
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to delete group:{0}", DN);
+
+            if (IsEntraDomain(domain))
+            {
+                return await RunWithProviderAsync(domain, async provider =>
+                {
+                    var existing = await provider.GetGroupAsync(DN);
+                    if (existing == null) return (ActionResult)NotFound();
+                    LogAudit("entra.group.delete.request", existing.ID ?? DN, "delete");
+                    var deleted = await provider.DeleteGroupAsync(existing);
+                    if (deleted) LogAudit("entra.group.delete.success", existing.ID ?? DN, "delete");
+                    return deleted ? (ActionResult)Ok() : StatusCode(500);
+                });
+            }
 
             Regex regex = new Regex(@"\Acn=(?<login>[^,]+?),", RegexOptions.IgnoreCase);
 
