@@ -1,6 +1,6 @@
 ﻿# RELEASE NOTES
 
-## Unreleased
+## 1.9.0
 
 ### Added — Entra ID REST surface (controller dispatch)
 
