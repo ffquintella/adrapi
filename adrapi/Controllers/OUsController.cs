@@ -42,7 +42,7 @@ namespace adrapi.Controllers
 
             this.ProcessRequest();
 
-            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+            if (!TryResolveLdapDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogInformation(GetItem, "{1} listing all ous", requesterID);
 
@@ -62,7 +62,7 @@ namespace adrapi.Controllers
         {
             this.ProcessRequest();
 
-            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+            if (!TryResolveLdapDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!TryExtractOuName(DN, out _))
             {
@@ -102,7 +102,7 @@ namespace adrapi.Controllers
         {
             this.ProcessRequest();
 
-            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+            if (!TryResolveLdapDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!TryExtractOuName(DN, out _))
             {
@@ -147,7 +147,7 @@ namespace adrapi.Controllers
         {
             ProcessRequest();
 
-            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+            if (!TryResolveLdapDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             if (!ModelState.IsValid || request == null || string.IsNullOrWhiteSpace(request.DN))
             {
@@ -216,7 +216,7 @@ namespace adrapi.Controllers
         {
             ProcessRequest();
 
-            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+            if (!TryResolveLdapDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to create OU:{0}", DN);
 
@@ -324,7 +324,7 @@ namespace adrapi.Controllers
         {
             ProcessRequest();
 
-            if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
+            if (!TryResolveLdapDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
             logger.LogDebug(PutItem, "Tring to delete OU:{0}", DN);
 

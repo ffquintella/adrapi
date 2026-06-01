@@ -21,6 +21,13 @@ namespace adrapi.Entra
         public const string DefaultGraphBaseUrl = "https://graph.microsoft.com/v1.0";
         public const string DefaultScope = "https://graph.microsoft.com/.default";
 
+        /// <summary>
+        /// Authority placeholders that select a multi-tenant/consumer endpoint.
+        /// These are invalid for the OAuth2 client-credentials (app-only) flow,
+        /// which requires a tenant-specific authority.
+        /// </summary>
+        private static readonly string[] MultiTenantPlaceholders = { "common", "organizations", "consumers" };
+
         /// <summary>Stable per-domain key (matches <see cref="LdapConfig.DomainKey"/>).</summary>
         public string DomainKey { get; set; }
         public string TenantId { get; set; }
@@ -97,6 +104,19 @@ namespace adrapi.Entra
                 errors.Add("entra has both clientSecret and certificatePath; configure exactly one.");
             if (Scopes == null || Scopes.Length == 0)
                 errors.Add("entra.scopes must contain at least one scope (default 'https://graph.microsoft.com/.default').");
+
+            // Client-credentials (app-only) requires a tenant-specific authority.
+            // A multi-tenant app registration is supported by configuring one
+            // adrapi domain per customer tenant, each with that tenant's GUID or
+            // verified domain — never 'common'/'organizations'/'consumers'.
+            if (!string.IsNullOrWhiteSpace(TenantId)
+                && MultiTenantPlaceholders.Contains(TenantId.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                errors.Add(
+                    $"entra.tenantId '{TenantId}' is invalid for the client-credentials flow. " +
+                    "Use a specific tenant GUID or verified domain; for a multi-tenant app, configure one domain per tenant.");
+            }
+
             return errors;
         }
     }

@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using adrapi.Directory;
 using adrapi.domain.Exceptions;
 
 namespace adrapi.Entra
@@ -80,18 +81,21 @@ namespace adrapi.Entra
         private readonly IEntraTokenProvider tokenProvider;
         private readonly EntraConfig config;
         private readonly GraphClientOptions options;
+        private readonly IDirectoryAuditSink auditSink;
         private readonly NLog.Logger logger = NLog.LogManager.GetCurrentClassLogger();
 
         public GraphClient(
             EntraConfig config,
             IEntraTokenProvider tokenProvider,
             HttpClient httpClient,
-            GraphClientOptions options = null)
+            GraphClientOptions options = null,
+            IDirectoryAuditSink auditSink = null)
         {
             this.config = config ?? throw new NullException("Entra config cannot be null");
             this.tokenProvider = tokenProvider ?? throw new NullException("Token provider cannot be null");
             this.httpClient = httpClient ?? throw new NullException("HttpClient cannot be null");
             this.options = options ?? new GraphClientOptions();
+            this.auditSink = auditSink ?? NLogDirectoryAuditSink.Instance;
         }
 
         public Task<GraphResult> GetAsync(string relativeUrl, CancellationToken cancellationToken = default)
@@ -189,6 +193,7 @@ namespace adrapi.Entra
 
                     if (response.IsSuccessStatusCode)
                     {
+                        Audit(method, absoluteUrl, (int)response.StatusCode, "success", requestId, clientRequestId);
                         return new GraphResult(response.StatusCode, ParseBody(content), requestId, clientRequestId);
                     }
 
@@ -205,6 +210,7 @@ namespace adrapi.Entra
                         continue;
                     }
 
+                    Audit(method, absoluteUrl, (int)response.StatusCode, "error", requestId, clientRequestId);
                     throw new GraphException(
                         $"Graph {method} {absoluteUrl} failed with {(int)response.StatusCode} {response.ReasonPhrase}.",
                         response.StatusCode,
@@ -215,11 +221,38 @@ namespace adrapi.Entra
             }
 
             // Retries exhausted on transport errors.
+            Audit(method, absoluteUrl, 0, "error", null, null);
             throw new GraphException(
                 $"Graph {method} {absoluteUrl} failed after {options.MaxRetries} retries.",
                 statusCode: 0,
                 inner: lastError);
         }
+
+        /// <summary>
+        /// Emits a structured audit record for a completed Graph operation,
+        /// enriched with the ambient <see cref="DirectoryOperationContext"/>. The
+        /// path (target object) is logged without its query string so search/
+        /// filter values are not recorded.
+        /// </summary>
+        private void Audit(HttpMethod method, string absoluteUrl, int status, string outcome, string requestId, string clientRequestId)
+        {
+            var ctx = DirectoryOperationContext.Current;
+            auditSink.Write(new GraphOperationLog(
+                method.Method,
+                PathOf(absoluteUrl),
+                status,
+                outcome,
+                requestId,
+                clientRequestId,
+                ctx.Requester,
+                ctx.CorrelationId,
+                ctx.ClientIp));
+        }
+
+        private static string PathOf(string absoluteUrl)
+            => Uri.TryCreate(absoluteUrl, UriKind.Absolute, out var uri)
+                ? uri.GetComponents(UriComponents.Path, UriFormat.UriEscaped)
+                : absoluteUrl;
 
         private string ResolveUrl(string url)
         {

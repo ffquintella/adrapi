@@ -91,6 +91,49 @@ namespace adrapi.Controllers
         }
 
         /// <summary>
+        /// Resolves the directory for an OU operation. Behaves like
+        /// <see cref="TryResolveDomain"/> but additionally rejects Entra ID-backed
+        /// domains: Entra ID has no OU object (administrative units are a separate
+        /// Microsoft Graph concept), so OU endpoints are LDAP/AD-only.
+        /// </summary>
+        protected bool TryResolveLdapDomain(string domain, out LdapConfig config, out ActionResult error)
+        {
+            if (!TryResolveDomain(domain, out config, out error))
+            {
+                return false;
+            }
+
+            if (LdapDomainRegistry.Instance.IsEntraDomain(domain))
+            {
+                logger.LogWarning("Rejected OU operation on Entra ID-backed domain: {domain}", domain);
+                config = null;
+                error = BadRequest(
+                    "Organizational unit operations are not supported on Entra ID-backed domains. " +
+                    "Entra ID has no OU object; administrative units are a separate Microsoft Graph concept. " +
+                    "Use an LDAP/AD-backed domain for OU operations.");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Opens an ambient <see cref="Directory.DirectoryOperationContext"/> scope
+        /// carrying the requester, correlation id, and client IP, so directory
+        /// backends (e.g. the Graph client) stamp the same audit fields on their
+        /// operation logs. Dispose the returned scope when the request completes
+        /// (e.g. <c>using (BeginDirectoryScope()) { ... }</c>). Call
+        /// <see cref="ProcessRequest"/> first so the requester is populated.
+        /// </summary>
+        protected IDisposable BeginDirectoryScope()
+            => Directory.DirectoryOperationContext.BeginScope(new Directory.DirectoryOperationContext
+            {
+                Requester = string.IsNullOrWhiteSpace(requesterID) ? "unknown" : requesterID,
+                CorrelationId = GetCorrelationId(),
+                ClientIp = GetClientIp(),
+            });
+
+        /// <summary>
         /// Emits a structured audit log record with correlation and requester metadata.
         /// </summary>
         protected void LogAudit(string action, string targetDn, string changeSummary)

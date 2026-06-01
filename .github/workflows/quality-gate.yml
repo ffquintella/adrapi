@@ -53,3 +53,29 @@ jobs:
 
       - name: Run integration target
         run: dotnet run --project build/_build.csproj -- Integration_Test --configuration Release
+
+  entra-integration:
+    name: Entra ID (Graph) integration tests
+    if: ${{ vars.ADRAPI_RUN_ENTRA_INTEGRATION == '1' }}
+    runs-on: ubuntu-latest
+    env:
+      ADRAPI_RUN_ENTRA_INTEGRATION: "1"
+      ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID }}
+      ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID }}
+      ENTRA_CLIENT_SECRET: ${{ secrets.ENTRA_CLIENT_SECRET }}
+      ENTRA_TEST_UPN_DOMAIN: ${{ vars.ENTRA_TEST_UPN_DOMAIN }}
+      GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run Entra integration target
+        run: dotnet run --project build/_build.csproj -- Entra_Integration_Test --configuration Release

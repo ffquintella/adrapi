@@ -1,5 +1,57 @@
 ﻿# RELEASE NOTES
 
+## 1.8.0
+
+### Added — Microsoft Entra ID integration
+
+Adds Microsoft Entra ID (via Microsoft Graph) as an **additive per-domain
+directory backend** alongside on-premises LDAP/AD, reusing the multi-domain
+routing seam. Implemented across roadmap stages 1–10; see `roadmap.md` and the
+`docs/ENTRA_*` documents.
+
+- **Authentication (`adrapi/Entra/`).** OAuth2 client-credentials token
+  acquisition via MSAL (`EntraTokenProvider`), per-domain token caching, app-only
+  config (`EntraConfig`) with secret sourced from the encrypted secret store or a
+  client certificate, and policy→Graph app-role mapping (`EntraScopeMap`).
+- **Graph client foundation.** `GraphClient` with bearer-token injection,
+  `Retry-After`-aware 429/5xx retry, and `@odata.nextLink` paging; `GraphException`
+  carrying HTTP status + Graph `request-id`.
+- **Directory provider abstraction (`adrapi/Directory/`).** `IDirectoryProvider`
+  with `LdapDirectoryProvider` (delegates to existing managers) and
+  `GraphDirectoryProvider`; `DirectoryProviderFactory` selects the backend per
+  request (route `{domain}`) or per deployment (default domain `kind`).
+- **User management via Graph.** get/list/search/exists/create/update/disable/
+  delete + set-password, with `GraphUserMapper`. LDAP parity incl.
+  `UserManager.SetAccountEnabledAsync` (userAccountControl ACCOUNTDISABLE bit).
+- **Group + membership via Graph.** Security and Microsoft 365 group CRUD
+  (`GraphGroupMapper`, new `Group.GroupType`), idempotent `members/$ref`
+  add/remove and diff-based replace, member listing and identifier resolution.
+- **Mapping & abstraction.** `DirectoryObjectNormalizer` for consistent response
+  shapes across backends (Entra `DN`→null, default `GroupType`); identifier
+  translation/validation (`DirectoryIdentifiers`); OU operations explicitly
+  rejected on Entra domains (`BaseController.TryResolveLdapDomain`, `400`).
+- **Security.** `DirectoryErrorMapper` (deterministic 4xx/5xx `ProblemDetails`,
+  no upstream leak on 5xx, Graph `request-id` surfaced); tenant-mode validation
+  (rejects `common`/`organizations`/`consumers`); startup least-privilege /
+  admin-consent warning; OData input hardening (`GraphQuery.EscapeODataLiteral`).
+- **Observability.** Ambient `DirectoryOperationContext` (requester/correlation/
+  client IP) and structured per-operation Graph audit logs surfacing the Graph
+  `request-id` (`NLogDirectoryAuditSink`).
+- **Testing & quality gates.** Unit tests for token/paging/throttling/mapping;
+  gated real-tenant integration tests (`ADRAPI_RUN_ENTRA_INTEGRATION`, mirroring
+  LDAP gating) wired into the NUKE `Quality_Gate` and a CI `entra-integration`
+  job; cross-backend response-shape contract tests.
+- **Documentation.** `docs/ENTRA_ID_GUIDE.md` (app registration + admin consent,
+  configuration reference, usage, single vs multi-tenant, troubleshooting), Entra
+  curl collection, and LDAP↔Entra coexistence/migration notes.
+
+### Note
+
+The Entra provider layer, auth, secret handling, startup validation, and
+OU-on-Entra rejection are live; wiring the user/group v2 controllers to dispatch
+to the Graph provider is the remaining integration step (documented routes/payloads
+are the stable target contract).
+
 ## 1.5.1
 
 ### Added

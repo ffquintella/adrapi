@@ -149,7 +149,7 @@ class Build : NukeBuild
                 .SetProjectFile(Solution)
                 .SetConfiguration(Configuration)
                 .EnableNoRestore()
-                .SetFilter("FullyQualifiedName!~LdapIntegrationTests.Integration_&FullyQualifiedName!~RegressionContractTests&FullyQualifiedName!~ApiContractTests&FullyQualifiedName!~NegativePathTests"));
+                .SetFilter("FullyQualifiedName!~LdapIntegrationTests.Integration_&FullyQualifiedName!~EntraGraphIntegrationTests&FullyQualifiedName!~EntraAuthTests.Integration_&FullyQualifiedName!~RegressionContractTests&FullyQualifiedName!~ApiContractTests&FullyQualifiedName!~NegativePathTests"));
         });
 
     Target Regression_Test => _ => _
@@ -186,6 +186,19 @@ class Build : NukeBuild
                 .SetFilter("FullyQualifiedName~LdapIntegrationTests.Integration_"));
         });
 
+    Target Entra_Integration_Test => _ => _
+        .DependsOn(Compile)
+        .OnlyWhenDynamic(() => Environment.GetEnvironmentVariable("ADRAPI_RUN_ENTRA_INTEGRATION") == "1")
+        .Executes(() =>
+        {
+            Log.Write(LogEventLevel.Information, "Running Entra ID (Graph)-backed integration tests...");
+            DotNetTest(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration)
+                .EnableNoRestore()
+                .SetFilter("FullyQualifiedName~EntraGraphIntegrationTests"));
+        });
+
     Target Coverage_Threshold => _ => _
         .DependsOn(Coverage)
         .Executes(() =>
@@ -207,10 +220,10 @@ class Build : NukeBuild
         });
 
     Target Quality_Gate => _ => _
-        .DependsOn(Unit_Test, Regression_Test, Integration_Test, Coverage_Threshold)
+        .DependsOn(Unit_Test, Regression_Test, Integration_Test, Entra_Integration_Test, Coverage_Threshold)
         .Executes(() =>
         {
-            Log.Write(LogEventLevel.Information, "Quality gate passed (build + unit + regression + conditional integration + changed-module coverage).");
+            Log.Write(LogEventLevel.Information, "Quality gate passed (build + unit + regression + conditional LDAP/Entra integration + changed-module coverage).");
         });
 
     private Target Local_Publish => _ => _
