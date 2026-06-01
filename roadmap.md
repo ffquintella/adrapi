@@ -135,7 +135,7 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 - [x] Stage 4 - User Management via Graph
 - [x] Stage 5 - Group and Membership Management via Graph
 - [x] Stage 6 - Directory Object Mapping and Abstraction
-- [ ] Stage 7 - Security, Secrets, and Tenant Configuration
+- [x] Stage 7 - Security, Secrets, and Tenant Configuration
 - [ ] Stage 8 - Observability and Auditability
 - [ ] Stage 9 - Testing and Quality Gates
 - [ ] Stage 10 - Documentation and Client Usage
@@ -186,11 +186,11 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 ## 7. Security, Secrets, and Tenant Configuration
 
-- [ ] Secure storage for client secrets/certificates (no secrets in source/config-in-plaintext).
-- [ ] Least-privilege Graph permissions; document required admin consent.
-- [ ] Multi-tenant vs. single-tenant configuration support.
-- [ ] Input hardening and clear 4xx/5xx error mapping for Graph errors.
-- Deliverable: security review checklist for the Entra ID path.
+- [x] Secure storage for client secrets/certificates (no secrets in source/config-in-plaintext). Encrypted SQLite secret store overlay (Stage 2) + certificate alternative; gitignored config; documented in the checklist.
+- [x] Least-privilege Graph permissions; document required admin consent. `EntraScopeMap` policy→app-role mapping; startup warns when `grantedPermissions` miss the read baseline; checklist documents required roles + consent.
+- [x] Multi-tenant vs. single-tenant configuration support. `EntraConfig.Validate` rejects `common`/`organizations`/`consumers` (invalid for app-only); multi-tenant via one domain per customer tenant.
+- [x] Input hardening and clear 4xx/5xx error mapping for Graph errors. `GraphQuery.EscapeODataLiteral` (OData injection) + `DirectoryErrorMapper` (deterministic 4xx/5xx ProblemDetails, no upstream leak, request-id surfaced).
+- Deliverable: security review checklist for the Entra ID path. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE7_SECURITY.md`.
 
 ## 8. Observability and Auditability
 
@@ -237,6 +237,7 @@ Use this section to record dated updates.
 - 2026-05-29: `Entra ID Stage 1` completed. Notes: scope document with capability inventory, integration-model decision (additive per-domain backend reusing the multi-domain seam), AD→Entra concept mapping, Graph API surface + app permissions, and gap list at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE1_SCOPE.md`.
 - 2026-05-29: `Entra ID Stage 2` completed. Notes: Entra auth layer added under `/Users/felipe/Dev/adrapi/adrapi/Entra/` (EntraConfig, EntraTokenProvider via MSAL client-credentials, EntraScopeMap policy→app-role mapping); domain-kind awareness + startup validation; client secret sourced from the encrypted store; 13 unit tests (full suite 466 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE2_AUTH.md`.
 - 2026-05-29: `Entra ID Stage 4` completed. Notes: full user lifecycle over Graph in `/Users/felipe/Dev/adrapi/adrapi/Directory/GraphDirectoryProvider.cs` (read/list/search/exists/create/update/disable/delete + set-password) with `/Users/felipe/Dev/adrapi/adrapi/Entra/GraphUserMapper.cs`; `IDirectoryProvider` extended (exists/search/enable/password) with LDAP parity, incl. new `UserManager.SetAccountEnabledAsync` (userAccountControl ACCOUNTDISABLE bit); 16 unit tests added; controller test suite made deterministic (parallelization disabled + `LdapDomainRegistry.ClearCache()` priming); full suite 492 passing. Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE4_USER_MANAGEMENT.md`.
+- 2026-06-01: `Entra ID Stage 7` completed. Notes: security checklist for the Entra path at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE7_SECURITY.md`; `DirectoryErrorMapper` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryErrorMapper.cs`) maps Graph/provider exceptions to deterministic 4xx/5xx `ProblemDetails` (no upstream leak on 5xx, Graph request-id surfaced); `EntraConfig.Validate` rejects `common`/`organizations`/`consumers` tenant placeholders (single vs multi-tenant); startup warns on missing read-baseline grants (least-privilege/admin-consent); `GraphQuery.EscapeODataLiteral` hardens OData `$filter` inputs; 21 unit tests added (full suite 536 passing).
 - 2026-06-01: `Entra ID Stage 6` completed. Notes: backend-agnostic surface — `DirectoryObjectNormalizer` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryObjectNormalizer.cs`) gives consistent User/Group shapes (trim, blank→null, Entra DN→null, default `GroupType`), applied on every Ldap/Graph provider read; `DirectoryIdentifiers` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryIdentifiers.cs`) classifies objectId/DN/UPN/Name and the Graph provider rejects DN identifiers at the edge; OU operations rejected on Entra-backed domains via `BaseController.TryResolveLdapDomain` (wired into `OUsController`); 9 unit tests added (full suite 515 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE6_MAPPING_ABSTRACTION.md`.
 - 2026-06-01: `Entra ID Stage 5` completed. Notes: group + membership parity through Graph — `GraphGroupMapper` (`/Users/felipe/Dev/adrapi/adrapi/Entra/GraphGroupMapper.cs`) maps security vs Microsoft 365 groups; `GraphDirectoryProvider` implements group CRUD and idempotent `members/$ref` add/remove plus diff-based replace, with group (objectId/displayName) and member (objectId/UPN) identifier resolution; `IDirectoryProvider` extended with `GroupExists`/membership ops and LDAP parity; `Group.GroupType` added to the shared model; 19 unit tests added (full suite 506 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE5_GROUP_MANAGEMENT.md`.
 - 2026-05-29: `Entra ID Stage 3` completed. Notes: reusable Graph client (`/Users/felipe/Dev/adrapi/adrapi/Entra/GraphClient.cs`) with Retry-After-aware 429/5xx retry, `@odata.nextLink` paging, and `request-id` surfacing via `GraphException`; backend-agnostic directory abstraction under `/Users/felipe/Dev/adrapi/adrapi/Directory/` (`IDirectoryProvider`, `LdapDirectoryProvider`, `GraphDirectoryProvider`) with `DirectoryProviderFactory` selecting backend per request/deployment by domain kind; Graph CRUD deferred to Stage 4/5 and OUs explicitly unsupported on Entra ID; 13 unit tests added (full suite 479 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE3_GRAPH_CLIENT.md`.

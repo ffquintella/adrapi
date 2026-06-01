@@ -192,6 +192,18 @@ namespace adrapi
                         {
                             errors.Add($"ldap.domains.{domain.Key}.{e}");
                         }
+
+                        // Least-privilege check (non-fatal): warn when the declared
+                        // granted permissions don't cover the read baseline, so a
+                        // missing admin-consent is visible at startup rather than as
+                        // an opaque 403 at request time.
+                        var missingRead = Entra.EntraScopeMap.MissingRoles(entra.GrantedPermissions, Entra.EntraScopeMap.Reading);
+                        if (missingRead.Count > 0)
+                        {
+                            NLog.LogManager.GetCurrentClassLogger().Warn(
+                                "Entra domain '{domain}' is missing granted Graph app roles for the Reading policy: {roles}. Grant admin consent and list them under entra.grantedPermissions.",
+                                domain.Key, string.Join(", ", missingRead));
+                        }
                     }
                     else
                     {

@@ -78,7 +78,7 @@ namespace adrapi.Directory
 
         public async Task<List<User>> SearchUsersAsync(string query, CancellationToken cancellationToken = default)
         {
-            var escaped = (query ?? string.Empty).Replace("'", "''");
+            var escaped = GraphQuery.EscapeODataLiteral(query);
             var filter =
                 $"startswith(displayName,'{escaped}') or startswith(userPrincipalName,'{escaped}') or startswith(mailNickname,'{escaped}')";
             var url = $"users?$filter={Uri.EscapeDataString(filter)}&$select={GraphUserMapper.SelectFields}";
@@ -334,7 +334,7 @@ namespace adrapi.Directory
                 return identifier;
             }
 
-            var escaped = identifier.Replace("'", "''");
+            var escaped = GraphQuery.EscapeODataLiteral(identifier);
             var filter = $"displayName eq '{escaped}'";
             var url = $"groups?$filter={Uri.EscapeDataString(filter)}&$select=id";
             var matches = await Graph.GetPagedAsync(url, cancellationToken);
