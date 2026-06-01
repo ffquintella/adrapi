@@ -138,7 +138,7 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 - [x] Stage 7 - Security, Secrets, and Tenant Configuration
 - [x] Stage 8 - Observability and Auditability
 - [x] Stage 9 - Testing and Quality Gates
-- [ ] Stage 10 - Documentation and Client Usage
+- [x] Stage 10 - Documentation and Client Usage
 
 ## 1. Discovery and Scope Definition
 
@@ -208,11 +208,11 @@ Status legend is the same as above (`[x]` done, `[ ]` not done, `[-]` in progres
 
 ## 10. Documentation and Client Usage
 
-- [ ] App registration and admin-consent setup guide.
-- [ ] Configuration reference for selecting/enabling the Entra ID backend.
-- [ ] Usage docs and sample curl collection for the Entra ID-backed endpoints.
-- [ ] Migration/coexistence notes for clients moving from LDAP to Entra ID.
-- Deliverable: published docs + sample collection.
+- [x] App registration and admin-consent setup guide. `docs/ENTRA_ID_GUIDE.md` §1 (registration, per-policy Graph app permissions, admin consent, secret/cert).
+- [x] Configuration reference for selecting/enabling the Entra ID backend. `docs/ENTRA_ID_GUIDE.md` §2 (`kind: entraid` + `entra` block, keyed table, secret-store commands).
+- [x] Usage docs and sample curl collection for the Entra ID-backed endpoints. `docs/ENTRA_ID_GUIDE.md` §5 + `docs/CURL_COLLECTION.md` "Microsoft Entra ID-backed endpoints".
+- [x] Migration/coexistence notes for clients moving from LDAP to Entra ID. `docs/MIGRATION_NOTES.md` "LDAP to Entra ID (coexistence)".
+- Deliverable: published docs + sample collection. See `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE10_DOCS.md`.
 
 ---
 
@@ -237,6 +237,7 @@ Use this section to record dated updates.
 - 2026-05-29: `Entra ID Stage 1` completed. Notes: scope document with capability inventory, integration-model decision (additive per-domain backend reusing the multi-domain seam), AD→Entra concept mapping, Graph API surface + app permissions, and gap list at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE1_SCOPE.md`.
 - 2026-05-29: `Entra ID Stage 2` completed. Notes: Entra auth layer added under `/Users/felipe/Dev/adrapi/adrapi/Entra/` (EntraConfig, EntraTokenProvider via MSAL client-credentials, EntraScopeMap policy→app-role mapping); domain-kind awareness + startup validation; client secret sourced from the encrypted store; 13 unit tests (full suite 466 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE2_AUTH.md`.
 - 2026-05-29: `Entra ID Stage 4` completed. Notes: full user lifecycle over Graph in `/Users/felipe/Dev/adrapi/adrapi/Directory/GraphDirectoryProvider.cs` (read/list/search/exists/create/update/disable/delete + set-password) with `/Users/felipe/Dev/adrapi/adrapi/Entra/GraphUserMapper.cs`; `IDirectoryProvider` extended (exists/search/enable/password) with LDAP parity, incl. new `UserManager.SetAccountEnabledAsync` (userAccountControl ACCOUNTDISABLE bit); 16 unit tests added; controller test suite made deterministic (parallelization disabled + `LdapDomainRegistry.ClearCache()` priming); full suite 492 passing. Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE4_USER_MANAGEMENT.md`.
+- 2026-06-01: `Entra ID Stage 10` completed. Notes: published Entra docs — setup/config/usage guide at `/Users/felipe/Dev/adrapi/docs/ENTRA_ID_GUIDE.md` (app registration + admin consent, configuration reference, capabilities/addressing, single vs multi-tenant, troubleshooting), Entra curl collection appended to `/Users/felipe/Dev/adrapi/docs/CURL_COLLECTION.md`, LDAP↔Entra coexistence/migration section in `/Users/felipe/Dev/adrapi/docs/MIGRATION_NOTES.md`, and docs navigation updated in `/Users/felipe/Dev/adrapi/docs/_sidebar.md`. Doc tracker at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE10_DOCS.md`. **All 10 Entra ID stages complete.**
 - 2026-06-01: `Entra ID Stage 9` completed. Notes: quality gates for the Entra path — cross-backend response-shape contract tests (`/Users/felipe/Dev/adrapi/tests/BackendContractTests.cs`), gated real-tenant integration tests (`/Users/felipe/Dev/adrapi/tests/EntraGraphIntegrationTests.cs`, `ADRAPI_RUN_ENTRA_INTEGRATION` + tenant/app env vars, mirroring LDAP gating), new NUKE `Entra_Integration_Test` target wired into `Quality_Gate`, and an `entra-integration` CI job in `/Users/felipe/Dev/adrapi/.github/workflows/quality-gate.yml`; unit coverage for token/paging/throttling/mapping confirmed across Stages 2–8 suites; 7 unit tests added (full suite 547 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE9_TESTING_QUALITY.md`.
 - 2026-06-01: `Entra ID Stage 8` completed. Notes: auditable Graph logs — `DirectoryOperationContext` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryOperationContext.cs`) ambient requester/correlation/clientIp scope; `GraphClient` emits a structured `GraphOperationLog` per operation (success & failure) via `IDirectoryAuditSink`/`NLogDirectoryAuditSink` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryAudit.cs`), surfacing the Graph `request-id`/`client-request-id` and logging the target path without query strings; `BaseController.BeginDirectoryScope()` opens the scope from request metadata; 4 unit tests added (full suite 540 passing). Doc at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE8_OBSERVABILITY.md`.
 - 2026-06-01: `Entra ID Stage 7` completed. Notes: security checklist for the Entra path at `/Users/felipe/Dev/adrapi/docs/ENTRA_STAGE7_SECURITY.md`; `DirectoryErrorMapper` (`/Users/felipe/Dev/adrapi/adrapi/Directory/DirectoryErrorMapper.cs`) maps Graph/provider exceptions to deterministic 4xx/5xx `ProblemDetails` (no upstream leak on 5xx, Graph request-id surfaced); `EntraConfig.Validate` rejects `common`/`organizations`/`consumers` tenant placeholders (single vs multi-tenant); startup warns on missing read-baseline grants (least-privilege/admin-consent); `GraphQuery.EscapeODataLiteral` hardens OData `$filter` inputs; 21 unit tests added (full suite 536 passing).
