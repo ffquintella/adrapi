@@ -18,6 +18,10 @@ and migration.
 
 ## 1. App registration and admin consent
 
+> For a click-by-click walkthrough (portal **and** Azure CLI / PowerShell), with
+> the exact permission GUIDs and verification steps, see
+> **[Microsoft Entra ID — Step-by-Step Setup](ENTRA_ID_SETUP.md)**.
+
 In the [Entra admin center](https://entra.microsoft.com) → **App registrations** →
 **New registration**:
 
