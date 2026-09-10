@@ -84,7 +84,7 @@ not migrate off LDAP to adopt it. Both coexist behind the same v2 routes.
 
 - Keep your existing LDAP/AD domain(s) exactly as they are (the default domain is
   unchanged; V1 routes keep working).
-- Add an Entra ID domain under `ldap:domains:<name>` with `kind: entraid` (see the
+- Add an Entra ID domain under `directories:domains:<name>` with `kind: entraid` (see the
   [Entra ID Guide](ENTRA_ID_GUIDE.md)). Clients select it with the `{domain}`
   route segment; clients that omit the segment continue to hit the default LDAP
   domain unaffected.

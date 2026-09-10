@@ -57,14 +57,20 @@ or **certificate**.
 ## 2. Configuration reference — enabling an Entra ID domain
 
 An Entra-backed directory is a domain with `kind: entraid` and an `entra` block
-under `ldap:domains:<name>`:
+under `directories:domains:<name>` (full schema:
+[Directory configuration reference](DIRECTORIES_CONFIG.md)):
 
 ```jsonc
-"ldap": {
+"directories": {
   "defaultDomain": "corp",
-  "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
-  "bindDn": "...", "searchBase": "DC=corp,DC=example", "maxResults": 999,
   "domains": {
+    "corp": {
+      "kind": "ldap",
+      "ldap": {
+        "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
+        "bindDn": "...", "searchBase": "DC=corp,DC=example", "maxResults": 999
+      }
+    },
     "cloud": {
       "kind": "entraid",
       "entra": {
@@ -102,9 +108,9 @@ pipeline that protects `ldap:bindCredentials`. The secret name is the verbatim
 config path:
 
 ```bash
-adrapi-api-keys secret set ldap:domains:cloud:entra:clientSecret '<the-secret>'
+adrapi-api-keys secret set directories:domains:cloud:entra:clientSecret '<the-secret>'
 # or, for a certificate:
-adrapi-api-keys secret set ldap:domains:cloud:entra:certificatePassword '<pfx-password>'
+adrapi-api-keys secret set directories:domains:cloud:entra:certificatePassword '<pfx-password>'
 ```
 
 Startup fails fast with a clear message if a `kind: entraid` domain is missing

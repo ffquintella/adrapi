@@ -226,6 +226,7 @@ namespace adrapi.Tools.ApiKeys
                 "list"        => SecretList(store),
                 "remove"      => SecretRemove(store, o),
                 "import-ldap" => SecretImportLdap(store, o),
+                "migrate-directories" => SecretMigrateDirectories(store, o),
                 _ => Unknown($"secret {sub}"),
             };
         }
@@ -279,6 +280,88 @@ namespace adrapi.Tools.ApiKeys
             { Console.WriteLine("aborted."); return 1; }
             Console.WriteLine(store.Remove(o.Name) ? $"removed '{o.Name}'." : "not found.");
             return 0;
+        }
+
+        /// <summary>
+        /// Re-keys secrets from the deprecated `ldap:*` configuration paths to the
+        /// backend-neutral `directories:*` ones introduced in adrapi 1.10.0.
+        /// adrapi reads both until 2.0.0, so running this is safe at any time and
+        /// is idempotent.
+        /// </summary>
+        private static int SecretMigrateDirectories(AppSecretsStore store, Opts o)
+        {
+            const string legacyDomains = "ldap:domains:";
+            const string newDomains = "directories:domains:";
+
+            var names = store.List().Select(s => s.Name).ToList();
+            var moves = new List<(string From, string To)>();
+
+            foreach (var name in names.Where(n => n.StartsWith(legacyDomains, StringComparison.OrdinalIgnoreCase)))
+            {
+                moves.Add((name, newDomains + name.Substring(legacyDomains.Length)));
+            }
+
+            // The top-level ldap section had no domain name of its own; the operator
+            // has to say which domain it became in the new layout.
+            if (!string.IsNullOrWhiteSpace(o.Domain))
+            {
+                foreach (var leaf in new[] { "bindDn", "bindCredentials" })
+                {
+                    if (names.Contains($"ldap:{leaf}", StringComparer.OrdinalIgnoreCase))
+                    {
+                        moves.Add(($"ldap:{leaf}", $"{newDomains}{o.Domain.Trim()}:ldap:{leaf}"));
+                    }
+                }
+            }
+
+            if (moves.Count == 0)
+            {
+                Ok("no secrets stored under the deprecated 'ldap:' paths — nothing to migrate.");
+                if (string.IsNullOrWhiteSpace(o.Domain))
+                {
+                    Console.WriteLine("  (pass --domain <default-domain> to also move top-level ldap:bindDn/bindCredentials)");
+                }
+                return 0;
+            }
+
+            int migrated = 0, skipped = 0;
+            foreach (var (from, to) in moves)
+            {
+                var value = store.Get(from);
+                if (value == null) continue;
+
+                var existing = store.Get(to);
+                if (existing != null && existing != value)
+                {
+                    Err($"  conflict: '{to}' already holds a different value — leaving '{from}' alone.");
+                    skipped++;
+                    continue;
+                }
+
+                if (existing == null)
+                {
+                    store.Set(to, value);
+                    Console.WriteLine($"  {from}  ->  {to}");
+                    migrated++;
+                }
+                else
+                {
+                    Console.WriteLine($"  {to} already up to date");
+                }
+
+                if (o.AssumeYes)
+                {
+                    store.Remove(from);
+                    Console.WriteLine($"  removed legacy {from}");
+                }
+            }
+
+            Ok($"migrated {migrated} secret(s), {skipped} skipped.");
+            if (!o.AssumeYes)
+            {
+                Console.WriteLine("  Legacy entries were kept. Re-run with --yes to delete them once adrapi has restarted cleanly.");
+            }
+            return skipped > 0 ? 1 : 0;
         }
 
         private static int SecretImportLdap(AppSecretsStore store, Opts o)
@@ -446,6 +529,13 @@ SECRET COMMANDS
   secret import-ldap --from <appsettings-or-secrets.json>
                  one-shot: pulls ldap:bindDn, ldap:bindCredentials, and
                  certificate:password out of a JSON file into the store
+  secret migrate-directories [--domain <default-domain>] [--yes]
+                 one-shot: re-keys secrets from the deprecated
+                 `ldap:domains:<name>:...` paths to `directories:domains:<name>:...`
+                 (and, with --domain, the top-level `ldap:bindDn`/`bindCredentials`
+                 to that domain's `directories:domains:<name>:ldap:...`).
+                 Copies by default; --yes also deletes the legacy entries.
+                 The legacy paths stop being read in adrapi 2.0.0.
 
 COMMON OPTIONS
   --db <path>     SQLite database (default: cfg/api-keys.db)
@@ -476,6 +566,7 @@ NOTES
                     case "--db":     o.Db = args[++i]; break;
                     case "--seed":   o.Seed = args[++i]; break;
                     case "--from":   o.From = args[++i]; break;
+                    case "--domain": o.Domain = args[++i]; break;
                     case "--yes":
                     case "-y":       o.AssumeYes = true; break;
                     default: throw new ArgumentException($"unknown option: {args[i]}");
@@ -495,6 +586,7 @@ NOTES
             public string Db;
             public string Seed;
             public string From;
+            public string Domain;
             public bool AssumeYes;
         }
     }

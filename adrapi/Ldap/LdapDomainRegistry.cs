@@ -3,28 +3,31 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
+using adrapi.Directory;
 using adrapi.domain.Exceptions;
 
 namespace adrapi.Ldap
 {
     /// <summary>
-    /// Resolves and caches one <see cref="LdapConfig"/> per directory (domain).
+    /// Resolves and caches one directory configuration per domain.
     ///
-    /// The legacy top-level <c>ldap</c> configuration section is the default
-    /// domain. Additional domains live under <c>ldap:domains:{name}</c> with the
-    /// same shape. <c>ldap:defaultDomain</c> names the default domain (for explicit
-    /// selection); when absent it is <see cref="FallbackDefaultDomain"/>.
+    /// Where a domain's settings live in the configuration tree — and which of
+    /// the new <c>directories</c> / deprecated <c>ldap</c> layouts they came from
+    /// — is decided by <see cref="DirectorySchema"/>; this registry only turns a
+    /// route domain value into a typed, cached config and answers the routing
+    /// questions the controllers ask.
     ///
-    /// Mirrors the singleton style of the other managers so it can be reached from
-    /// the static manager chain without DI wiring.
+    /// The name is historical (LDAP was the only backend): a domain may be backed
+    /// by any <c>kind</c>. Mirrors the singleton style of the other managers so it
+    /// can be reached from the static manager chain without DI wiring.
     /// </summary>
     public class LdapDomainRegistry
     {
-        public const string FallbackDefaultDomain = "default";
+        public const string FallbackDefaultDomain = DirectorySchema.FallbackDefaultDomain;
 
         /// <summary>Directory backend kinds a domain can declare via <c>kind</c>.</summary>
-        public const string KindLdap = "ldap";
-        public const string KindEntraId = "entraid";
+        public const string KindLdap = DirectorySchema.KindLdap;
+        public const string KindEntraId = DirectorySchema.KindEntraId;
 
         /// <summary>
         /// Resource names that may not double as domain names — they would make
@@ -56,22 +59,11 @@ namespace adrapi.Ldap
         /// </summary>
         public void ClearCache() => cache.Clear();
 
-        private static IConfiguration Config => ConfigurationManager.Instance.Config;
-
         /// <summary>
-        /// Name of the default domain, from <c>ldap:defaultDomain</c> or
-        /// <see cref="FallbackDefaultDomain"/>.
+        /// Name of the default domain, from <c>directories:defaultDomain</c> (or the
+        /// deprecated <c>ldap:defaultDomain</c>), else <see cref="FallbackDefaultDomain"/>.
         /// </summary>
-        public static string DefaultDomainName
-        {
-            get
-            {
-                var configured = Config?.GetValue<string>("ldap:defaultDomain");
-                return string.IsNullOrWhiteSpace(configured)
-                    ? FallbackDefaultDomain
-                    : configured.Trim();
-            }
-        }
+        public static string DefaultDomainName => DirectorySchema.DefaultDomainName;
 
         /// <summary>
         /// Normalizes a route domain value to the stable key used for config
@@ -87,53 +79,21 @@ namespace adrapi.Ldap
             return domain.Trim().ToLowerInvariant();
         }
 
-        private static bool IsDefault(string domain)
-        {
-            return string.IsNullOrWhiteSpace(domain)
-                || string.Equals(domain.Trim(), DefaultDomainName, StringComparison.OrdinalIgnoreCase);
-        }
-
         public static bool IsReservedName(string domain)
         {
             return !string.IsNullOrWhiteSpace(domain) && ReservedNames.Contains(domain.Trim());
         }
 
-        /// <summary>
-        /// All configured domain names: the default plus any under <c>ldap:domains</c>.
-        /// </summary>
-        public IEnumerable<string> EnumerateDomains()
-        {
-            var names = new List<string> { DefaultDomainName };
-
-            var domains = Config?.GetSection("ldap:domains");
-            if (domains != null && domains.Exists())
-            {
-                foreach (var child in domains.GetChildren())
-                {
-                    if (!string.Equals(child.Key, DefaultDomainName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        names.Add(child.Key);
-                    }
-                }
-            }
-
-            return names;
-        }
+        /// <summary>All configured domain names: the default plus every named domain.</summary>
+        public IEnumerable<string> EnumerateDomains() => DirectorySchema.EnumerateDomains();
 
         /// <summary>
         /// Backend kind for a domain (<see cref="KindLdap"/> or <see cref="KindEntraId"/>),
-        /// from <c>ldap:domains:{name}:kind</c>. The default domain is always LDAP.
+        /// from the domain's <c>kind</c> discriminator. Unknown domains — and the
+        /// legacy top-level <c>ldap</c> default — are LDAP.
         /// </summary>
         public string GetDomainKind(string domain)
-        {
-            if (IsDefault(domain))
-            {
-                return KindLdap;
-            }
-
-            var kind = Config?.GetValue<string>($"ldap:domains:{domain.Trim()}:kind");
-            return string.IsNullOrWhiteSpace(kind) ? KindLdap : kind.Trim().ToLowerInvariant();
-        }
+            => DirectorySchema.Describe(domain)?.Kind ?? KindLdap;
 
         /// <summary>True when the domain is backed by Entra ID rather than LDAP.</summary>
         public bool IsEntraDomain(string domain)
@@ -141,17 +101,11 @@ namespace adrapi.Ldap
 
         /// <summary>
         /// True when <paramref name="domain"/> is null/empty (default), the default
-        /// domain name, or a key present under <c>ldap:domains</c>.
+        /// domain name, or a configured named domain in either layout.
         /// </summary>
         public bool IsKnownDomain(string domain)
         {
-            if (IsDefault(domain))
-            {
-                return true;
-            }
-
-            var section = Config?.GetSection($"ldap:domains:{domain.Trim()}");
-            return section != null && section.Exists();
+            return DirectorySchema.IsDefaultDomain(domain) || DirectorySchema.Describe(domain) != null;
         }
 
         /// <summary>
@@ -164,17 +118,25 @@ namespace adrapi.Ldap
 
             return cache.GetOrAdd(key, _ =>
             {
-                if (IsDefault(domain))
+                var descriptor = DirectorySchema.Describe(domain);
+
+                if (descriptor == null)
                 {
-                    return LdapConfig.ForSection("ldap", key);
+                    // No configuration at all (isolated unit tests) still yields a
+                    // defaulted config for the default domain, as it always has.
+                    if (DirectorySchema.IsDefaultDomain(domain))
+                    {
+                        return LdapConfig.ForSection(DirectorySchema.LegacySectionName, key);
+                    }
+
+                    throw new WrongParameterException($"Unknown directory domain '{domain}'.");
                 }
 
-                if (!IsKnownDomain(domain))
-                {
-                    throw new WrongParameterException($"Unknown LDAP domain '{domain}'.");
-                }
-
-                return LdapConfig.ForSection($"ldap:domains:{domain.Trim()}", key);
+                // Non-LDAP domains still hand back a (stamped, mostly empty)
+                // LdapConfig: controllers resolve the domain before they know the
+                // backend, and only then branch to the Graph provider.
+                return LdapConfig.ForSection(
+                    descriptor.LdapPath ?? descriptor.BasePath, key, descriptor.LegacyLdapPath);
             });
         }
     }

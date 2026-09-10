@@ -90,16 +90,21 @@ namespace tests.Authentication
                     ["security:databaseFile"] = DbPath,
                     ["security:seedFile"] = SeedPath,
                     ["security:legacyJsonFile"] = Path.Combine(TempDir, "no-such-legacy.json"),
-                    ["ldap:servers:0"] = "127.0.0.1:1",
-                    ["ldap:ssl"] = "false",
-                    ["ldap:poolSize"] = "1",
-                    ["ldap:bindDn"] = "cn=fake,dc=test",
-                    ["ldap:bindCredentials"] = "fake",
-                    ["ldap:searchBase"] = "dc=test",
-                    ["ldap:searchFilter"] = "",
-                    ["ldap:maxResults"] = "10",
-                    ["ldap:adminCn"] = "",
-                    // A second directory so domain-prefixed routes (/api/lab/...) resolve.
+                    // Default domain on the current `directories` schema.
+                    ["directories:defaultDomain"] = "default",
+                    ["directories:domains:default:kind"] = "ldap",
+                    ["directories:domains:default:ldap:servers:0"] = "127.0.0.1:1",
+                    ["directories:domains:default:ldap:ssl"] = "false",
+                    ["directories:domains:default:ldap:poolSize"] = "1",
+                    ["directories:domains:default:ldap:bindDn"] = "cn=fake,dc=test",
+                    ["directories:domains:default:ldap:bindCredentials"] = "fake",
+                    ["directories:domains:default:ldap:searchBase"] = "dc=test",
+                    ["directories:domains:default:ldap:searchFilter"] = "",
+                    ["directories:domains:default:ldap:maxResults"] = "10",
+                    ["directories:domains:default:ldap:adminCn"] = "",
+                    // A second directory so domain-prefixed routes (/api/lab/...)
+                    // resolve — deliberately left on the deprecated `ldap:domains`
+                    // layout so the host exercises both schemas side by side.
                     ["ldap:domains:lab:servers:0"] = "127.0.0.1:1",
                     ["ldap:domains:lab:ssl"] = "false",
                     ["ldap:domains:lab:poolSize"] = "1",

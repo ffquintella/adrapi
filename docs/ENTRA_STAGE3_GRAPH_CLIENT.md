@@ -95,7 +95,7 @@ Selection is driven by the domain's configured `kind`
 
 - **Per request** — the `{domain}` route segment picks the domain, and thus its
   backend, for that call.
-- **Per deployment** — the default domain's `kind` (and `ldap:defaultDomain`)
+- **Per deployment** — the default domain's `kind` (and `directories:defaultDomain`)
   decides the backend used by the legacy domain-less routes.
 
 An `entraid` domain yields a `GraphDirectoryProvider` (with a `GraphClient` wired

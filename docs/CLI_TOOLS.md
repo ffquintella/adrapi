@@ -118,6 +118,10 @@ adrapi-api-keys secret remove --name "ldap:bindCredentials" --yes
 # One-shot import of ldap:bindDn, ldap:bindCredentials and certificate:password
 # out of a JSON file (e.g. appsettings.Development.json or user-secrets.json).
 adrapi-api-keys secret import-ldap --from appsettings.Development.json
+
+# One-shot re-key of `ldap:...` secret names to the `directories:...` names
+# introduced in 1.10.0. Copies by default; --yes also deletes the old entries.
+adrapi-api-keys secret migrate-directories --domain corp
 ```
 
 ### Secret command reference
@@ -129,6 +133,7 @@ adrapi-api-keys secret import-ldap --from appsettings.Development.json
 | `secret list` | — | List secret names (values stay encrypted). |
 | `secret remove` | `[--name k] [--yes]` | Delete a secret. |
 | `secret import-ldap` | `--from <json>` | Pull `ldap:bindDn`, `ldap:bindCredentials`, `certificate:password` from a JSON file. |
+| `secret migrate-directories` | `[--domain <default-domain>] [--yes]` | Re-key deprecated `ldap:domains:<name>:...` secrets to `directories:domains:<name>:...` (idempotent). `--domain` also moves the top-level `ldap:bindDn`/`bindCredentials`; `--yes` deletes the legacy entries. See [Directory Configuration](DIRECTORIES_CONFIG.md). |
 
 ## Common options
 
