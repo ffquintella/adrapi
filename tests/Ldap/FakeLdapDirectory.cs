@@ -276,7 +276,9 @@ namespace tests.Ldap
             string mail = null,
             string sid = "S-1-5-21-1",
             IEnumerable<string> memberOf = null,
-            IDictionary<string, string> extra = null)
+            IDictionary<string, string> extra = null,
+            string userPrincipalName = null,
+            string givenName = null)
         {
             var attrs = new LdapAttributeSet
             {
@@ -291,6 +293,10 @@ namespace tests.Ldap
             };
 
             if (mail != null) attrs.Add(new LdapAttribute("mail", mail));
+            if (userPrincipalName != null) attrs.Add(new LdapAttribute("userPrincipalName", userPrincipalName));
+            // Defaults to cn so existing callers keep the old (buggy-equivalent)
+            // shape unless a test deliberately asks for a distinct givenName.
+            attrs.Add(new LdapAttribute("givenName", givenName ?? Cn(dn)));
 
             if (memberOf != null)
             {

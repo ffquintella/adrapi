@@ -626,8 +626,11 @@ namespace adrapi.Controllers.V2
             return new UserListResponse
             {
                 Users = users,
+                // Account first: an account-style name (sAMAccountName on AD,
+                // mailNickname on Entra) is the backend-neutral list contract --
+                // the UPN/login is still available per-item via Users[].login.
                 UserNames = users
-                    .Select(u => u.Login ?? u.Account ?? u.ID)
+                    .Select(u => u.Account ?? u.Login ?? u.ID)
                     .Where(n => !string.IsNullOrWhiteSpace(n))
                     .ToList(),
                 SearchType = "User",

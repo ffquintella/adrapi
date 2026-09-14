@@ -1,5 +1,32 @@
 ﻿# RELEASE NOTES
 
+## 1.13.0
+
+### Fixed - LDAP list projection mislabeled givenName
+
+- `UserManager.GetListAsync`'s lightweight list projection
+  (`attributes.Count == 0`, used by `GET /api/users` with no `_attribute`)
+  filled `user.GivenName` from the `cn` LDAP attribute (the full name), while
+  `GET /api/users/{id}` (`ConvertfromLdap`) already mapped `givenName`
+  correctly from the real `givenName` attribute. The same field meant two
+  different things depending on which endpoint returned it. The list
+  projection now reads `givenName`, and also populates `Name` and `Login`
+  (from `name` and `userPrincipalName`) so an LDAP list result is not poorer
+  than an Entra ID one.
+
+### Changed - `userNames` contract on `GET /api/users` (v2)
+
+- `UsersController.BuildUserList` (used by the Entra ID-backed v2 path) built
+  `userNames` from `login ?? account ?? id`, so an Entra domain's list
+  returned the UPN while an LDAP/AD domain's list returned `sAMAccountName` --
+  two different kinds of identifier under the same field name. `userNames`
+  now prefers `account ?? login ?? id` on both backends, so it always holds
+  an account-style name (`sAMAccountName` on AD, `mailNickname` on Entra); the
+  UPN remains available per item via `users[].login`.
+  **Breaking for clients reading the UPN out of `userNames` on an Entra
+  domain** -- they must switch to reading `login` from the per-item user
+  objects instead.
+
 ## 1.12.0
 
 ### Fixed — LDAP writes and group membership

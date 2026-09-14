@@ -128,6 +128,28 @@ namespace tests
             Assert.Equal("Admins", Assert.Single(user.MemberOf).Name);
         }
 
+        [Fact]
+        public async Task GetListAsync_NoAttribute_GivenNameComesFromGivenNameNotCn()
+        {
+            using var scope = new LdapFakeScope();
+            // cn and givenName deliberately differ: under the old (buggy) code
+            // GivenName was read from cn, so this would fail if the bug regressed.
+            scope.Query.Add(LdapEntries.User(
+                "CN=Ada Lovelace,OU=Users,DC=homologa,DC=br",
+                account: "ada",
+                name: "Ada Lovelace",
+                givenName: "Ada",
+                userPrincipalName: "ada@homologa.br"));
+
+            var page = await UserManager.Instance.GetListAsync("", "", "", Config);
+
+            var user = Assert.Single(page.Users);
+            Assert.Equal("Ada", user.GivenName);
+            Assert.Equal("Ada Lovelace", user.Name);
+            Assert.Equal("ada@homologa.br", user.Login);
+            Assert.Equal("ada", user.Account);
+        }
+
         // ---- Listing: range mode ----
 
         [Fact]

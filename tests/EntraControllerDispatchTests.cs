@@ -193,6 +193,28 @@ namespace tests
         }
 
         [Fact]
+        public async Task Users_List_UserNamesPrefersAccountOverLogin_FallsBackToLogin()
+        {
+            EntraConfigured();
+            var fake = new FakeProvider
+            {
+                Users =
+                {
+                    new User { Login = "ada@contoso.com", Account = "ada", ID = "u1" },
+                    new User { Login = "grace@contoso.com", Account = null, ID = "u2" },
+                },
+            };
+            var c = new TestUsersController(fake); Wire(c);
+
+            var result = await c.Get(all: true, domain: "cloud");
+
+            var list = Assert.IsType<UserListResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+            // Account-style name wins when present (backend-neutral list contract);
+            // the UPN is the fallback, not the primary, so it stays out of the way here.
+            Assert.Equal(new[] { "ada", "grace@contoso.com" }, list.UserNames);
+        }
+
+        [Fact]
         public async Task Users_GraphError_MapsToProblemStatus()
         {
             EntraConfigured();
