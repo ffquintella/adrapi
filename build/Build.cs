@@ -263,7 +263,7 @@ class Build : NukeBuild
                 if (!(AppDirectory / "appsettings.json").FileExists())
                     throw new Exception("Release publish is missing appsettings.json.");
             }
-            (RootDirectory / "adrapi/nLog.prod.config")
+            (RootDirectory / "adrapi/nlog.prod.config")
                 .Copy(AppDirectory / "nlog.config", ExistsPolicy.FileOverwriteIfNewer);
 
             string fileName = AppDirectory + "/version.txt";

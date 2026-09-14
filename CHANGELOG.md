@@ -1,5 +1,37 @@
 ﻿# RELEASE NOTES
 
+## 1.10.1
+
+### Fixed — build path casing that broke the Linux/CI publish
+
+- `Local_Publish` copied the production NLog config from
+  `adrapi/nLog.prod.config`, but the file tracked in git is
+  `adrapi/nlog.prod.config` (lowercase `nlog`). The two names are the same file
+  on the case-insensitive filesystems used for development (macOS, Windows) and
+  two different paths on a case-sensitive one, so on Linux CI the publish failed
+  with `ArgumentException: Expected condition to be true (Parameter
+  'source.DirectoryExists() || source.FileExists()')`, aborting
+  `Create_Docker_Image` and blocking the `ffquintella/adrapi` image build. The
+  reference in `build/Build.cs` now matches the real filename; the file itself is
+  deliberately not renamed.
+- `adrapi/adrapi.csproj` declared `<Content Update="NLog.config">` for the
+  tracked `adrapi/nlog.config`. An MSBuild `Update` that matches no item is
+  silently a no-op, so on a case-sensitive filesystem the intended
+  `CopyToOutputDirectory=Always` never applied. Same defect class, quieter
+  symptom; also corrected.
+- Every remaining path literal in `build/Build.cs`, the `build.*` entry scripts,
+  `scripts/check_changed_coverage.py`, `adrapi.sln`, the project files and the
+  `COPY` sources in `Dockerfile` / `DockerfileDev` was audited character-for-
+  character against `git ls-files`; no other mismatches remain.
+- Regenerated `.nuke/build.schema.json`, which was missing the
+  `Entra_Integration_Test` target added in 1.8.0.
+
+### Known issues
+
+- The restore reports `NU1903` for `SQLitePCLRaw.lib.e_sqlite3` 2.1.11 (known
+  high-severity vulnerability, GHSA-2m69-gcr7-jv3q) across all projects, and the
+  package ships in the image. Not addressed in this release.
+
 ## 1.10.0
 
 ### Changed — backend-neutral `directories` configuration section

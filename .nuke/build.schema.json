@@ -43,6 +43,7 @@
         "Coverage_Threshold",
         "Create_Docker_Image",
         "Deploy_Docker_Image",
+        "Entra_Integration_Test",
         "Integration_Test",
         "ListCommands",
         "Local_Publish",
