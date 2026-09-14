@@ -1,5 +1,27 @@
 ﻿# RELEASE NOTES
 
+## 1.11.0
+
+### Changed — `GET /api/users` (v2) is paginated by default
+
+- `GET /api/users` now returns **one page** per call on every path, including
+  `?_full=true` and Entra ID-backed domains, which previously walked the whole
+  directory on each request. The response's `cookie` fetches the next page;
+  an empty cookie means the last page. Page size is `maxResults` (LDAP/AD) or
+  the new `entra:pageSize` (default 100).
+- `all=true` restores the previous unpaged behaviour for callers that really
+  want the whole directory in one response (exports, reconciliation).
+- `?_full=true` with `_start`/`_end` now honours the requested range; it used
+  to ignore both and return every user.
+- V1 (`api-version: 1.0`) is unchanged.
+- New: `IDirectoryProvider.GetUsersPageAsync` (default implementation returns a
+  single unpaged page, so third-party providers keep compiling), implemented
+  server-side for LDAP (paged-results cookie) and Graph (`$top`/`$skiptoken`).
+  Only the skiptoken travels to the client — never the full `@odata.nextLink`,
+  which would let a caller steer an authenticated Graph request.
+- Docs: `docs/API_REFERENCE.md` (*Pagination (v2)*), `docs/USAGE_GUIDE.md`,
+  `docs/CURL_COLLECTION.md`, `docs/DIRECTORIES_CONFIG.md`.
+
 ## 1.10.1
 
 ### Fixed — build path casing that broke the Linux/CI publish
