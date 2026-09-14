@@ -28,7 +28,7 @@ notably the Puppet module `ffquintella/puppet-dockerapp_adrapi`.
         "bindCredentials": "",        // leave empty here — see §3
         "searchBase": "DC=corp,DC=example",
         "searchFilter": "",
-        "maxResults": 999,
+        "maxResults": 999,             // also the /api/users page size
         "adminCn": "",
         "trustedCertificatesFile": "cfg/ldap-trusted-certs.json"
       }
@@ -46,6 +46,7 @@ notably the Puppet module `ffquintella/puppet-dockerapp_adrapi`.
         "authorityHost": "https://login.microsoftonline.com",
         "graphBaseUrl": "https://graph.microsoft.com/v1.0",
         "scopes": [ "https://graph.microsoft.com/.default" ],
+        "pageSize": 100,                         // /api/users page size ($top); Graph caps it at 999
         "grantedPermissions": [ "User.Read.All", "Group.Read.All" ]
       }
     }
@@ -67,6 +68,9 @@ notably the Puppet module `ffquintella/puppet-dockerapp_adrapi`.
   block can be moved across verbatim. The `ldap` sub-object is the documented
   shape — prefer it.
 - OU endpoints are LDAP-only; they return 400 on an `entraid` domain.
+- **Page size** for the paginated list endpoints comes from the backend block:
+  `ldap:maxResults` or `entra:pageSize` (default 100). See
+  [API_REFERENCE.md](API_REFERENCE.md) — *Pagination (v2)*.
 
 ---
 

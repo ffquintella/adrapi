@@ -38,23 +38,31 @@ namespace adrapi.Controllers.V2
         #region GET
         // GET api/users
         [HttpGet]
-        public async Task<ActionResult<UserListResponse>> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "", [FromRoute] string domain = null)
+        public async Task<ActionResult<UserListResponse>> Get([FromQuery]int _start = -1, [FromQuery]int _end = -1, [FromQuery]string _cookie = "", [FromQuery] string _attribute = "", [FromQuery] string _filter = "", [FromQuery] bool all = false, [FromRoute] string domain = null)
         {
 
             this.ProcessRequest();
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
-            logger.LogInformation(ListItems, "{0} listing all users", requesterID);
+            logger.LogInformation(ListItems, "{0} listing users (all={all})", requesterID, all);
 
             if (IsEntraDomain(domain))
             {
                 return await RunWithProviderAsync(domain, async provider =>
                 {
-                    var users = string.IsNullOrWhiteSpace(_filter)
-                        ? await provider.GetUsersAsync()
-                        : await provider.SearchUsersAsync(_filter);
-                    return Ok(BuildUserList(users));
+                    if (all)
+                    {
+                        var users = string.IsNullOrWhiteSpace(_filter)
+                            ? await provider.GetUsersAsync()
+                            : await provider.SearchUsersAsync(_filter);
+                        return Ok(BuildUserList(users));
+                    }
+
+                    var page = await provider.GetUsersPageAsync(_filter, _cookie);
+                    var response = BuildUserList(page.Users);
+                    response.Cookie = page.Cookie;
+                    return Ok(response);
                 });
             }
 
@@ -76,9 +84,15 @@ namespace adrapi.Controllers.V2
                 return uManager.GetList(_attribute, "", _cookie);
             }*/
 
-            // Default mode: LDAP paged query using cookie.
+            // Default mode: one LDAP page, continued with the returned cookie.
+            // Only an explicit all=true walks every page.
             if (_start == -1 && _end == -1)
             {
+                if (all)
+                {
+                    return await uManager.GetListAllAsync(_attribute, _filter, ldapConfig);
+                }
+
                 var response = await uManager.GetListAsync(_attribute, _filter, _cookie, ldapConfig);
 
                 return response;
@@ -104,19 +118,29 @@ namespace adrapi.Controllers.V2
         
         // GET api/users 
         [HttpGet]
-        public async Task<ActionResult<UserListResponse>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end, [FromRoute] string domain = null)
+        public async Task<ActionResult<UserListResponse>> Get([RequiredFromQuery]bool _full, [FromQuery]int _start, [FromQuery]int _end, [FromQuery]string _cookie = "", [FromQuery] bool all = false, [FromRoute] string domain = null)
         {
 
             this.ProcessRequest();
 
             if (!TryResolveDomain(domain, out var ldapConfig, out var domainError)) return domainError;
 
-            logger.LogInformation(ListItems, "{0} getting all users objects", requesterID);
+            logger.LogInformation(ListItems, "{0} getting full user objects (all={all})", requesterID, all);
 
             if (IsEntraDomain(domain))
             {
                 return await RunWithProviderAsync(domain, async provider =>
-                    Ok(BuildUserList(await provider.GetUsersAsync())));
+                {
+                    if (all)
+                    {
+                        return Ok(BuildUserList(await provider.GetUsersAsync()));
+                    }
+
+                    var page = await provider.GetUsersPageAsync("", _cookie);
+                    var paged = BuildUserList(page.Users);
+                    paged.Cookie = page.Cookie;
+                    return Ok(paged);
+                });
             }
 
             if (_start == 0 && _end != 0)
@@ -125,12 +149,19 @@ namespace adrapi.Controllers.V2
             }
 
             var uManager = UserManager.Instance;
-            UserListResponse response;
 
-            if (_start == 0 && _end == 0) response = await uManager.GetUsersAsync(ldapConfig);
-            else response = await uManager.GetUsersAsync(ldapConfig);
+            // Range mode takes precedence; otherwise one page unless all=true.
+            if (_start != 0 || _end != 0)
+            {
+                return await uManager.GetUsers(_start, _end, ldapConfig);
+            }
 
-            return response;
+            if (all)
+            {
+                return await uManager.GetUsersAsync(ldapConfig);
+            }
+
+            return await uManager.GetUsersPagedAsync("", _cookie, ldapConfig);
 
         }
 

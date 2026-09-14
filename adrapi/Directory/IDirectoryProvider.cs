@@ -52,6 +52,25 @@ namespace adrapi.Directory
         /// <summary>Prefix/substring search across a backend's natural name fields.</summary>
         Task<List<User>> SearchUsersAsync(string query, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// One page of users, optionally narrowed by <paramref name="filter"/>
+        /// (same matching as <see cref="SearchUsersAsync"/>). Pass the previous
+        /// page's <see cref="UserPage.Cookie"/> to continue; an empty cookie on
+        /// the result means the last page was reached.
+        ///
+        /// The default implementation returns everything in a single page, so a
+        /// backend that cannot page server-side stays correct (if not cheap);
+        /// LDAP and Graph both override it.
+        /// </summary>
+        async Task<UserPage> GetUsersPageAsync(string filter = "", string pageToken = "", CancellationToken cancellationToken = default)
+        {
+            var users = string.IsNullOrWhiteSpace(filter)
+                ? await GetUsersAsync(cancellationToken)
+                : await SearchUsersAsync(filter, cancellationToken);
+
+            return new UserPage { Users = users ?? new List<User>(), Cookie = "" };
+        }
+
         Task<bool> CreateUserAsync(User user, CancellationToken cancellationToken = default);
         Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default);
         Task<bool> DeleteUserAsync(User user, CancellationToken cancellationToken = default);

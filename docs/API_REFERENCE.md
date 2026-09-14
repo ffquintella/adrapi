@@ -55,8 +55,9 @@ Special legacy code:
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/users` | List users (paged LDAP response with cookie support) |
-| GET | `/api/users?_full=true` | List full user objects |
+| GET | `/api/users` | List users — **one page** per call, continue with the returned cookie |
+| GET | `/api/users?_full=true` | List full user objects — also **one page** per call |
+| GET | `/api/users?all=true` | List every user in one response (unpaged, expensive) |
 | GET | `/api/users/{user}` | Get user by DN or attribute value |
 | GET | `/api/users/{user}/exists` | Check if user exists |
 | GET | `/api/users/{dn}/member-of/{group}` | Check group membership |
@@ -69,11 +70,61 @@ Query parameters (GET `/api/users`):
 
 - `_start` (int, default `-1`)
 - `_end` (int, default `-1`)
-- `_cookie` (string, default empty)
+- `_cookie` (string, default empty) — continuation token from the previous page
 - `_attribute` (string, default empty)
 - `_filter` (string, default empty)
+- `all` (bool, default `false`) — opt out of pagination and return the whole directory
+- `_full` (bool) — return complete user objects instead of the name list
 
-When `_start` and `_end` are both `-1`, LDAP paged mode is used and response includes `Cookie`.
+#### Pagination (v2)
+
+`GET /api/users` is **paginated by default**: one call returns one page plus a
+`Cookie`. Feed that cookie back as `_cookie` to get the next page; an empty or
+absent `Cookie` means you reached the last page. This holds for both the name
+list and `_full=true`, and for both backends:
+
+| Backend | Page size | Cookie contents |
+|---|---|---|
+| LDAP/AD | `directories:domains:{name}:ldap:maxResults` (`999` in the shipped config) | LDAP paged-results cookie (base64) |
+| Entra ID | `directories:domains:{name}:entra:pageSize` (default `100`, Graph caps `$top` at 999) | Graph `$skiptoken` |
+
+Treat the cookie as **opaque** — its content is backend-specific and may change.
+Pass it back verbatim (URL-encoded); don't parse, store, or construct one.
+
+Response fields relevant to paging (serialized camelCase):
+
+- `cookie` — token for the next page, empty on the last page
+- `searchMethod` — `Paged` (LDAP page), `Simple` (unpaged LDAP walk), `Graph` (Entra)
+
+Example page walk:
+
+```bash
+# first page
+curl -k "$ADRAPI_BASE_URL/api/users" -H "api-version: 2.0" -H "api-key: $ADRAPI_KEY"
+# -> { "cookie": "abc123==", "userNames": [...], ... }
+
+# next page
+curl -k --get "$ADRAPI_BASE_URL/api/users" --data-urlencode "_cookie=abc123==" \
+  -H "api-version: 2.0" -H "api-key: $ADRAPI_KEY"
+```
+
+Opting out with `all=true` walks every page server-side and returns one
+response. On a large directory that is many round trips to the backend and a
+large payload — use it for exports and one-off reconciliation, not for
+interactive calls:
+
+```bash
+curl -k "$ADRAPI_BASE_URL/api/users?all=true" -H "api-version: 2.0" -H "api-key: $ADRAPI_KEY"
+```
+
+`_start`/`_end` still select an absolute range (1-based; `_start=0` is treated
+as the first item) and ignore `_cookie`. With `_full=true`, `_start`/`_end` now
+honour the requested range instead of silently returning everything.
+
+**Behaviour change (v2 only):** before this release `?_full=true` and the Entra
+ID list path returned the entire directory in one response. They now return a
+single page; add `all=true` to restore the old response. V1
+(`api-version: 1.0`) is unchanged.
 
 ### Groups (`/api/groups`)
 

@@ -301,6 +301,79 @@ namespace adrapi
         }
 
         /// <summary>
+        /// Walks every LDAP page and returns the complete user list. Only for
+        /// callers that explicitly opted out of pagination (<c>all=true</c>) —
+        /// on a large directory this is many round trips.
+        /// </summary>
+        public async Task<UserListResponse> GetListAllAsync(string attribute = "", string filter = "", LdapConfig config = null)
+        {
+            var aggregate = new UserListResponse
+            {
+                UserNames = new List<string>(),
+                Users = new List<User>(),
+                SearchType = "User",
+                SearchMethod = LdapSearchMethod.Simple,
+                Cookie = ""
+            };
+
+            string cookie = "";
+            string previousCookie = null;
+
+            while (true)
+            {
+                var page = await GetListAsync(attribute, filter, cookie, config);
+
+                if (page.UserNames != null) aggregate.UserNames.AddRange(page.UserNames);
+                if (page.Users != null) aggregate.Users.AddRange(page.Users);
+
+                cookie = page.Cookie ?? "";
+                if (string.IsNullOrWhiteSpace(cookie) || string.Equals(previousCookie, cookie, StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                previousCookie = cookie;
+            }
+
+            return aggregate;
+        }
+
+        /// <summary>
+        /// Returns a single LDAP page of complete user objects. The returned
+        /// <see cref="UserListResponse.Cookie"/> fetches the next page; an empty
+        /// cookie means the last page was reached.
+        /// </summary>
+        public async Task<UserListResponse> GetUsersPagedAsync(string filter = "", string cookie = "", LdapConfig config = null)
+        {
+            var response = new UserListResponse();
+            var users = new List<User>();
+
+            var sMgmt = LdapQueryManager.Instance;
+
+            var formatedFilter = string.IsNullOrWhiteSpace(filter) ? "" : "cn=" + filter;
+
+            var presp = await sMgmt.ExecutePagedSearchAsync("", LdapSearchType.User, formatedFilter, cookie, config);
+
+            response.Cookie = presp.Cookie;
+            response.UserNames = new List<string>();
+
+            foreach (var entry in presp.Entries)
+            {
+                var u = ConvertfromLdap(entry);
+                response.UserNames.Add(u.Name);
+                users.Add(u);
+            }
+
+            logger.Debug("User paged search executed results:{result}", users.Count);
+
+            response.Users = users;
+            response.SearchType = "User";
+            response.SearchMethod = LdapSearchMethod.Paged;
+
+            return response;
+        }
+
+        /// <summary>
         /// Gets the list of all users.
         /// </summary>
         /// <returns>The users.</returns>

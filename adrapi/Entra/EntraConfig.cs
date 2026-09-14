@@ -22,6 +22,7 @@ namespace adrapi.Entra
         public const string DefaultAuthorityHost = "https://login.microsoftonline.com";
         public const string DefaultGraphBaseUrl = "https://graph.microsoft.com/v1.0";
         public const string DefaultScope = "https://graph.microsoft.com/.default";
+        public const int DefaultPageSize = 100;
 
         /// <summary>
         /// Authority placeholders that select a multi-tenant/consumer endpoint.
@@ -40,6 +41,12 @@ namespace adrapi.Entra
         public string AuthorityHost { get; set; } = DefaultAuthorityHost;
         public string GraphBaseUrl { get; set; } = DefaultGraphBaseUrl;
         public string[] Scopes { get; set; } = { DefaultScope };
+
+        /// <summary>
+        /// Page size (<c>$top</c>) used when listing users/groups a page at a
+        /// time. Graph caps <c>$top</c> at 999 for the users collection.
+        /// </summary>
+        public int PageSize { get; set; } = DefaultPageSize;
 
         /// <summary>
         /// Application permissions (app roles) that have been granted admin consent
@@ -72,6 +79,9 @@ namespace adrapi.Entra
 
             var graph = section.GetValue<string>("graphBaseUrl");
             if (!string.IsNullOrWhiteSpace(graph)) cfg.GraphBaseUrl = graph;
+
+            var pageSize = section.GetValue<int?>("pageSize");
+            if (pageSize is > 0) cfg.PageSize = pageSize.Value;
 
             var scopes = section.GetSection("scopes").Get<string[]>();
             if (scopes != null && scopes.Length > 0) cfg.Scopes = scopes;
