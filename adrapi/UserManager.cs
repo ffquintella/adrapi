@@ -90,7 +90,14 @@ namespace adrapi
                     var user = new User();
                     user.Account = entry.GetStringValueOrDefault("samaccountname");
                     user.ID = entry.GetStringValueOrDefault("objectSid");
-                    user.GivenName = entry.GetStringValueOrDefault("cn");
+                    // givenName, not cn (full name) -- ConvertfromLdap maps the same
+                    // field this way for GET /api/users/{id}; the list projection
+                    // must agree so the field means the same thing everywhere.
+                    user.GivenName = entry.GetStringValueOrDefault("givenName");
+                    // Populate Name/Login here too so the LDAP list is not poorer
+                    // than the Entra ID list, which already has both populated.
+                    user.Name = entry.GetStringValueOrDefault("name");
+                    user.Login = entry.GetStringValueOrDefault("userPrincipalName");
 
 
                     var memberOfDns = GetAttributeStringValues(entry, "memberOf");

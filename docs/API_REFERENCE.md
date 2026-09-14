@@ -76,6 +76,11 @@ Query parameters (GET `/api/users`):
 - `all` (bool, default `false`) — opt out of pagination and return the whole directory
 - `_full` (bool) — return complete user objects instead of the name list
 
+`userNames` always contains an account-style name on both backends
+(`sAMAccountName` on LDAP/AD, `mailNickname` on Entra ID) -- it is not the
+UPN/login. The UPN is available per item as `login` in `users[]` (`_full=true`
+or the object-shaped list endpoints) on both backends.
+
 #### Pagination (v2)
 
 `GET /api/users` is **paginated by default**: one call returns one page plus a
