@@ -19,7 +19,8 @@ namespace tests
 
         private static object InvokeNonPublicStatic(Type type, string methodName, params object[] args)
         {
-            var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
+            // FlattenHierarchy: helpers shared by the managers live on ObjectManager.
+            var method = type.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
             Assert.NotNull(method);
             return method.Invoke(null, args);
         }

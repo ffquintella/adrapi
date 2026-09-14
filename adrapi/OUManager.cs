@@ -40,7 +40,7 @@ namespace adrapi
         {
             var ous = new List<String>();
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             int results = 0;
 
@@ -66,7 +66,7 @@ namespace adrapi
         /// <param name="DN">The Disitnguesh name of the OU</param>
         public async Task<OU> GetOUAsync(string DN, LdapConfig config = null)
         {
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             try
             {
@@ -129,7 +129,7 @@ namespace adrapi
             LdapEntry newEntry = new LdapEntry(dn, attributeSet);
 
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             try
             {
@@ -155,7 +155,7 @@ namespace adrapi
         public async Task<int> SaveOUAsync(OU ou, LdapConfig config = null)
         {
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             var modList = new List<LdapModification>();
 
@@ -179,7 +179,10 @@ namespace adrapi
 
                         var b1 = attr.ByteValue;
 
-                        var attribute = dattrs.GetAttribute(attr.Name);
+                        // LdapAttributeSet.GetAttribute throws KeyNotFoundException when the
+                        // attribute is absent instead of returning null, so a plain lookup
+                        // must go through TryGetValue.
+                        dattrs.TryGetValue(attr.Name, out var attribute);
 
                         bool equal = true;
 
@@ -232,7 +235,7 @@ namespace adrapi
         {
 
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             try
             {

@@ -57,7 +57,7 @@ namespace adrapi
             var users = new List<User>();
             var attributes = ParseRequestedAttributes(attribute);
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             int results = 0;
 
@@ -144,7 +144,7 @@ namespace adrapi
             var projectedUsers = new List<User>();
             var attributes = ParseRequestedAttributes(attribute);
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             int results = 0;
             if (start < 1) start = 1;
@@ -348,7 +348,7 @@ namespace adrapi
             var response = new UserListResponse();
             var users = new List<User>();
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             var formatedFilter = string.IsNullOrWhiteSpace(filter) ? "" : "cn=" + filter;
 
@@ -384,7 +384,7 @@ namespace adrapi
 
             var users = new List<User>();
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             var resps = await sMgmt.ExecuteSearchAsync("", LdapSearchType.User, "", config);
             int results = 0;
@@ -415,7 +415,7 @@ namespace adrapi
             var response = new UserListResponse();
             var users = new List<User>();
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             int results = 0;
 
@@ -446,7 +446,7 @@ namespace adrapi
         /// <<param name="attribute">Optional attribute to use as search base</param>
         public async Task<User> GetUserAsync (string userID, string attribute = "", LdapConfig config = null)
         {
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
 
             try
             {
@@ -504,7 +504,7 @@ namespace adrapi
                 return null;
             }
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
             var lookupAttr = string.IsNullOrWhiteSpace(lookupAttribute) ? "sAMAccountName" : lookupAttribute;
 
             LdapEntry entry = null;
@@ -588,7 +588,7 @@ namespace adrapi
             LdapEntry newEntry = new LdapEntry(dn, attributeSet);
 
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             try
             {
@@ -612,7 +612,7 @@ namespace adrapi
         public async Task<int> SaveUserAsync(User user, LdapConfig config = null)
         {
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             var modList = new List<LdapModification>();
 
@@ -637,9 +637,12 @@ namespace adrapi
                     {
 
                         var b1 = attr.ByteValue;
-                        if (dattrs.GetAttribute(attr.Name) != null)
+                        // LdapAttributeSet.GetAttribute throws KeyNotFoundException when the
+                        // attribute is absent instead of returning null, so a plain lookup
+                        // must go through TryGetValue.
+                        if (dattrs.TryGetValue(attr.Name, out var existingAttr))
                         {
-                            var b2 = dattrs.GetAttribute(attr.Name).ByteValue;
+                            var b2 = existingAttr.ByteValue;
 
                             var equal = ByteTools.Equality(b1, b2);
 
@@ -707,7 +710,7 @@ namespace adrapi
                 }
             }
 
-            LdapConnectionManager lcm = LdapConnectionManager.Instance;
+            ILdapAuthenticator lcm = Authenticator;
             return await lcm.ValidateAuthenticationAsync(bindLogin, password, config);
 
         }
@@ -800,43 +803,6 @@ namespace adrapi
             return !string.IsNullOrWhiteSpace(value) && value.Contains("=");
         }
 
-        private static List<string> GetAttributeStringValues(LdapEntry entry, string attributeName)
-        {
-            if (entry == null || string.IsNullOrWhiteSpace(attributeName))
-            {
-                return new List<string>();
-            }
-
-            var values = new List<string>();
-            foreach (LdapAttribute attribute in entry.GetAttributeSet())
-            {
-                var key = attribute.Name;
-                if (attribute == null || string.IsNullOrWhiteSpace(key))
-                {
-                    continue;
-                }
-
-                if (!string.Equals(key, attributeName, StringComparison.OrdinalIgnoreCase)
-                    && !TryParseRangeAttributeName(key, attributeName, out _, out _, out _))
-                {
-                    continue;
-                }
-
-                if (attribute.StringValueArray != null && attribute.StringValueArray.Length > 0)
-                {
-                    values.AddRange(attribute.StringValueArray.Where(v => !string.IsNullOrWhiteSpace(v)));
-                }
-                else if (!string.IsNullOrWhiteSpace(attribute.StringValue))
-                {
-                    values.Add(attribute.StringValue);
-                }
-            }
-
-            return values
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
         private static Group CreateGroupFromDn(string groupDn)
         {
             var group = new Group
@@ -877,7 +843,7 @@ namespace adrapi
                     .ToList();
             }
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
             while (nextRangeStart >= 0)
             {
                 var requestedRange = $"memberOf;range={nextRangeStart}-{nextRangeStart + MemberOfRangeWindow - 1}";
@@ -966,53 +932,6 @@ namespace adrapi
             return hasRange ? highestEnd + 1 : -1;
         }
 
-        private static bool TryParseRangeAttributeName(string attributeKey, string baseAttributeName, out int start, out int end, out bool terminal)
-        {
-            start = -1;
-            end = -1;
-            terminal = false;
-
-            if (string.IsNullOrWhiteSpace(attributeKey) || string.IsNullOrWhiteSpace(baseAttributeName))
-            {
-                return false;
-            }
-
-            var prefix = $"{baseAttributeName};range=";
-            if (!attributeKey.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var rangePart = attributeKey.Substring(prefix.Length);
-            var separatorIndex = rangePart.IndexOf('-');
-            if (separatorIndex <= 0 || separatorIndex >= rangePart.Length - 1)
-            {
-                return false;
-            }
-
-            var startPart = rangePart.Substring(0, separatorIndex);
-            var endPart = rangePart.Substring(separatorIndex + 1);
-
-            if (!int.TryParse(startPart, out start))
-            {
-                return false;
-            }
-
-            if (endPart == "*")
-            {
-                terminal = true;
-                end = int.MaxValue;
-                return true;
-            }
-
-            if (!int.TryParse(endPart, out end))
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         private async Task<LdapEntry> ResolveUserEntryAsync(string userID, LdapConfig config = null)
         {
             if (LooksLikeDistinguishedName(userID))
@@ -1035,7 +954,7 @@ namespace adrapi
 
         private async Task<LdapEntry> FindUserEntryByAttributeAsync(string value, string attribute, LdapConfig config = null)
         {
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
             var filter = $"(&(objectClass=user)(objectCategory=person)({LdapInjectionControll.EscapeForSearchFilter(attribute)}={LdapInjectionControll.EscapeForSearchFilter(value)}))";
             var results = await sMgmt.ExecutePagedSearchAsync("", filter, "", config);
             var entry = results.Entries.FirstOrDefault();
@@ -1054,7 +973,7 @@ namespace adrapi
                 return null;
             }
 
-            var sMgmt = LdapQueryManager.Instance;
+            var sMgmt = Query;
             try
             {
                 return await sMgmt.GetRegister(dn, userAttrs, config);
@@ -1082,7 +1001,7 @@ namespace adrapi
                 return -1;
             }
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             try
             {
@@ -1122,7 +1041,7 @@ namespace adrapi
         {
 
 
-            var qMgmt = LdapQueryManager.Instance;
+            var qMgmt = Query;
 
             try
             {

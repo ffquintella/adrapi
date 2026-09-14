@@ -128,6 +128,16 @@ the domain segment. Full schema + secret key paths: `docs/DIRECTORIES_CONFIG.md`
 - Don't reach into production singletons (`ApiKeyManager`, `LdapConnectionManager`)
   from tests — use the fixture pattern (`Authentication/AuthEndpointFixture`)
   with isolated temp SQLite files instead.
+- Directory-backed code is tested against the in-memory LDAP fake, not a live
+  server: `tests/Ldap/FakeLdapDirectory.cs` provides `LdapFakeScope` (installs
+  `FakeLdapQueryManager` / `FakeLdapAuthenticator` into the `ObjectManager` seam
+  and restores the singletons on dispose) plus `LdapEntries` builders. Managers
+  reach the directory through `ObjectManager.Query` / `ObjectManager.Authenticator`
+  — never `LdapQueryManager.Instance` directly, or the code becomes untestable
+  and the coverage gate will reject the change.
+- CI enforces **70% line coverage across every file you touch** under `adrapi/`
+  or `domain/` (`scripts/check_changed_coverage.py`, whole file, not just the
+  changed lines). Editing a large, thinly covered legacy file means covering it.
 - Tests must clean up temp files in `Dispose` / `DisposeAsync`.
 - A flaky test is a broken test. If you can't fix it, mark it `Skip = "..."`
   with an issue link, don't silently delete.
