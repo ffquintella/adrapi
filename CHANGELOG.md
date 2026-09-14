@@ -1,5 +1,33 @@
 ﻿# RELEASE NOTES
 
+## 1.12.0
+
+### Fixed — LDAP writes and group membership
+
+- `UserManager.SaveUserAsync` treated `LdapAttributeSet.GetAttribute` as
+  returning null for a missing attribute. It throws `KeyNotFoundException`, so
+  any update that **added** an attribute the stored entry did not already carry
+  failed and returned -1 — every password write included (`PUT /api/users/{dn}`
+  with a password, and the provider's `SetUserPasswordAsync`). It now uses
+  `TryGetValue`; the same pattern in `GroupManager.SaveGroupAsync` is corrected.
+- `GroupManager.ConvertfromLdap` read members with
+  `LdapEntry.GetAttributeSet("member")`, which matches attribute *subtypes*
+  rather than names, so a plain `member` attribute was never seen and groups
+  came back with empty `Member`/`MemberOf`. Membership now goes through
+  `GetAttributeStringValues` (moved from `UserManager` to `ObjectManager` so
+  both managers share it), which also handles the ranged
+  `member;range=0-1499` windows Active Directory returns for large groups.
+
+### Added — directory test seam
+
+- `ILdapQueryManager` / `ILdapAuthenticator` plus adapters onto the existing
+  singletons; managers reach the directory through `ObjectManager.Query` /
+  `ObjectManager.Authenticator`. `tests/Ldap/FakeLdapDirectory.cs` provides an
+  in-memory directory (`LdapFakeScope`, `LdapEntries`) so manager, provider and
+  controller logic is testable without a live server.
+- 90 new tests; coverage of the files touched by 1.11.0 went from 42% to 92%,
+  clearing the CI changed-coverage gate. See AGENTS.md — *Test discipline*.
+
 ## 1.11.0
 
 ### Changed — `GET /api/users` (v2) is paginated by default
