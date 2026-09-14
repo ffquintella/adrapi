@@ -46,6 +46,8 @@ namespace tests
             public Task<User> GetUserAsync(string id, CancellationToken ct = default) => Do("GetUser:" + id, Users.FirstOrDefault(u => u.Login == id || u.ID == id));
             public Task<bool> UserExistsAsync(string id, CancellationToken ct = default) => Do("UserExists:" + id, Users.Any(u => u.Login == id || u.ID == id));
             public Task<List<User>> SearchUsersAsync(string q, CancellationToken ct = default) => Do("SearchUsers:" + q, Users);
+            public Task<UserPage> GetUsersPageAsync(string filter = "", string pageToken = "", CancellationToken ct = default)
+                => Do($"GetUsersPage:{filter}:{pageToken}", new UserPage { Users = Users, Cookie = "next-page" });
             public Task<bool> CreateUserAsync(User u, CancellationToken ct = default) { u.ID ??= "new-user"; return Do("CreateUser:" + u.Login, true); }
             public Task<bool> UpdateUserAsync(User u, CancellationToken ct = default) => Do("UpdateUser:" + u.ID, true);
             public Task<bool> DeleteUserAsync(User u, CancellationToken ct = default) => Do("DeleteUser:" + u.ID, true);
@@ -130,6 +132,51 @@ namespace tests
 
             var result = await c.Get(user: "ghost@contoso.com", _attribute: "", domain: "cloud");
             Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task Users_List_PagesByDefault()
+        {
+            EntraConfigured();
+            var fake = new FakeProvider { Users = { new User { Login = "ada@contoso.com", ID = "u1" } } };
+            var c = new TestUsersController(fake); Wire(c);
+
+            var result = await c.Get(_cookie: "page-2", _filter: "ada", domain: "cloud");
+
+            var list = Assert.IsType<UserListResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+            Assert.Equal("next-page", list.Cookie);
+            Assert.Contains("GetUsersPage:ada:page-2", fake.Calls);
+            Assert.DoesNotContain("GetUsers", fake.Calls);
+        }
+
+        [Fact]
+        public async Task Users_List_AllTrue_SkipsPagination()
+        {
+            EntraConfigured();
+            var fake = new FakeProvider { Users = { new User { Login = "ada@contoso.com", ID = "u1" } } };
+            var c = new TestUsersController(fake); Wire(c);
+
+            var result = await c.Get(all: true, domain: "cloud");
+
+            Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Contains("GetUsers", fake.Calls);
+            Assert.DoesNotContain(fake.Calls, x => x.StartsWith("GetUsersPage"));
+        }
+
+        [Fact]
+        public async Task Users_FullList_PagesByDefault_AndAllTrueDoesNot()
+        {
+            EntraConfigured();
+            var fake = new FakeProvider { Users = { new User { Login = "ada@contoso.com", ID = "u1" } } };
+            var c = new TestUsersController(fake); Wire(c);
+
+            var paged = await c.Get(_full: true, _start: 0, _end: 0, domain: "cloud");
+            var list = Assert.IsType<UserListResponse>(Assert.IsType<OkObjectResult>(paged.Result).Value);
+            Assert.Equal("next-page", list.Cookie);
+            Assert.Contains("GetUsersPage::", fake.Calls);
+
+            await c.Get(_full: true, _start: 0, _end: 0, all: true, domain: "cloud");
+            Assert.Contains("GetUsers", fake.Calls);
         }
 
         [Fact]

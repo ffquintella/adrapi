@@ -35,6 +35,9 @@ namespace adrapi.Directory
             Graph = graphClient ?? throw new ArgumentNullException(nameof(graphClient));
         }
 
+        /// <summary>Marks a continuation token that came from a <c>$skip</c> nextLink.</summary>
+        private const string SkipTokenPrefix = "skip:";
+
         public string DomainKey => config.DomainKey;
         public DirectoryBackend Backend => DirectoryBackend.EntraId;
         public bool SupportsOrganizationalUnits => false;
@@ -78,13 +81,86 @@ namespace adrapi.Directory
 
         public async Task<List<User>> SearchUsersAsync(string query, CancellationToken cancellationToken = default)
         {
-            var escaped = GraphQuery.EscapeODataLiteral(query);
-            var filter =
-                $"startswith(displayName,'{escaped}') or startswith(userPrincipalName,'{escaped}') or startswith(mailNickname,'{escaped}')";
-            var url = $"users?$filter={Uri.EscapeDataString(filter)}&$select={GraphUserMapper.SelectFields}";
+            var url = $"users?$filter={Uri.EscapeDataString(UserSearchFilter(query))}&$select={GraphUserMapper.SelectFields}";
 
             var items = await Graph.GetPagedAsync(url, cancellationToken);
             return items.Select(GraphUserMapper.ToUser).Select(NormalizeUser).ToList();
+        }
+
+        public async Task<UserPage> GetUsersPageAsync(string filter = "", string pageToken = "", CancellationToken cancellationToken = default)
+        {
+            var top = config.PageSize > 0 ? config.PageSize : EntraConfig.DefaultPageSize;
+            var url = $"users?$select={GraphUserMapper.SelectFields}&$top={top}";
+
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                url += $"&$filter={Uri.EscapeDataString(UserSearchFilter(filter))}";
+            }
+
+            // Only the skiptoken travels back to the client, never the whole
+            // nextLink: re-issuing a client-supplied absolute URL with our bearer
+            // token would let a caller aim the request anywhere.
+            if (!string.IsNullOrWhiteSpace(pageToken))
+            {
+                url += pageToken.StartsWith(SkipTokenPrefix, StringComparison.Ordinal)
+                    ? $"&$skip={Uri.EscapeDataString(pageToken.Substring(SkipTokenPrefix.Length))}"
+                    : $"&$skiptoken={Uri.EscapeDataString(pageToken)}";
+            }
+
+            var result = await Graph.GetAsync(url, cancellationToken);
+            var page = new UserPage();
+
+            if (result.Body is not { } body || body.ValueKind != JsonValueKind.Object)
+            {
+                return page;
+            }
+
+            if (body.TryGetProperty("value", out var items) && items.ValueKind == JsonValueKind.Array)
+            {
+                page.Users = items.EnumerateArray()
+                    .Select(GraphUserMapper.ToUser)
+                    .Select(NormalizeUser)
+                    .ToList();
+            }
+
+            if (body.TryGetProperty("@odata.nextLink", out var link) && link.ValueKind == JsonValueKind.String)
+            {
+                page.Cookie = ExtractSkipToken(link.GetString()) ?? "";
+            }
+
+            return page;
+        }
+
+        private static string UserSearchFilter(string query)
+        {
+            var escaped = GraphQuery.EscapeODataLiteral(query);
+            return $"startswith(displayName,'{escaped}') or startswith(userPrincipalName,'{escaped}') or startswith(mailNickname,'{escaped}')";
+        }
+
+        /// <summary>Pulls the <c>$skiptoken</c> value out of an <c>@odata.nextLink</c>.</summary>
+        private static string ExtractSkipToken(string nextLink)
+        {
+            if (string.IsNullOrWhiteSpace(nextLink) || !Uri.TryCreate(nextLink, UriKind.Absolute, out var uri))
+            {
+                return null;
+            }
+
+            foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var separator = pair.IndexOf('=');
+                if (separator < 0) continue;
+
+                var name = Uri.UnescapeDataString(pair.Substring(0, separator));
+                var value = Uri.UnescapeDataString(pair.Substring(separator + 1));
+
+                if (name.Equals("$skiptoken", StringComparison.OrdinalIgnoreCase)) return value;
+
+                // Some collections page with $skip instead; tag it so the next
+                // request re-issues the same parameter.
+                if (name.Equals("$skip", StringComparison.OrdinalIgnoreCase)) return SkipTokenPrefix + value;
+            }
+
+            return null;
         }
 
         public async Task<bool> CreateUserAsync(User user, CancellationToken cancellationToken = default)

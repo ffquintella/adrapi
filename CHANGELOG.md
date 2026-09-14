@@ -1,5 +1,55 @@
 ﻿# RELEASE NOTES
 
+## 1.12.0
+
+### Fixed — LDAP writes and group membership
+
+- `UserManager.SaveUserAsync` treated `LdapAttributeSet.GetAttribute` as
+  returning null for a missing attribute. It throws `KeyNotFoundException`, so
+  any update that **added** an attribute the stored entry did not already carry
+  failed and returned -1 — every password write included (`PUT /api/users/{dn}`
+  with a password, and the provider's `SetUserPasswordAsync`). It now uses
+  `TryGetValue`; the same pattern in `GroupManager.SaveGroupAsync` is corrected.
+- `GroupManager.ConvertfromLdap` read members with
+  `LdapEntry.GetAttributeSet("member")`, which matches attribute *subtypes*
+  rather than names, so a plain `member` attribute was never seen and groups
+  came back with empty `Member`/`MemberOf`. Membership now goes through
+  `GetAttributeStringValues` (moved from `UserManager` to `ObjectManager` so
+  both managers share it), which also handles the ranged
+  `member;range=0-1499` windows Active Directory returns for large groups.
+
+### Added — directory test seam
+
+- `ILdapQueryManager` / `ILdapAuthenticator` plus adapters onto the existing
+  singletons; managers reach the directory through `ObjectManager.Query` /
+  `ObjectManager.Authenticator`. `tests/Ldap/FakeLdapDirectory.cs` provides an
+  in-memory directory (`LdapFakeScope`, `LdapEntries`) so manager, provider and
+  controller logic is testable without a live server.
+- 90 new tests; coverage of the files touched by 1.11.0 went from 42% to 92%,
+  clearing the CI changed-coverage gate. See AGENTS.md — *Test discipline*.
+
+## 1.11.0
+
+### Changed — `GET /api/users` (v2) is paginated by default
+
+- `GET /api/users` now returns **one page** per call on every path, including
+  `?_full=true` and Entra ID-backed domains, which previously walked the whole
+  directory on each request. The response's `cookie` fetches the next page;
+  an empty cookie means the last page. Page size is `maxResults` (LDAP/AD) or
+  the new `entra:pageSize` (default 100).
+- `all=true` restores the previous unpaged behaviour for callers that really
+  want the whole directory in one response (exports, reconciliation).
+- `?_full=true` with `_start`/`_end` now honours the requested range; it used
+  to ignore both and return every user.
+- V1 (`api-version: 1.0`) is unchanged.
+- New: `IDirectoryProvider.GetUsersPageAsync` (default implementation returns a
+  single unpaged page, so third-party providers keep compiling), implemented
+  server-side for LDAP (paged-results cookie) and Graph (`$top`/`$skiptoken`).
+  Only the skiptoken travels to the client — never the full `@odata.nextLink`,
+  which would let a caller steer an authenticated Graph request.
+- Docs: `docs/API_REFERENCE.md` (*Pagination (v2)*), `docs/USAGE_GUIDE.md`,
+  `docs/CURL_COLLECTION.md`, `docs/DIRECTORIES_CONFIG.md`.
+
 ## 1.10.1
 
 ### Fixed — build path casing that broke the Linux/CI publish

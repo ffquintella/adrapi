@@ -22,8 +22,35 @@ curl -k "$ADRAPI_BASE_URL/swagger"
 
 ## Users
 
+List users — first page (the response's `Cookie` fetches the next one):
+
 ```bash
 curl -k "$ADRAPI_BASE_URL/api/users" \
+  -H "api-version: $ADRAPI_VERSION" \
+  -H "api-key: $ADRAPI_KEY"
+```
+
+Next page:
+
+```bash
+curl -k --get "$ADRAPI_BASE_URL/api/users" \
+  --data-urlencode "_cookie=<cookie from previous response>" \
+  -H "api-version: $ADRAPI_VERSION" \
+  -H "api-key: $ADRAPI_KEY"
+```
+
+Whole directory in one response (unpaged, expensive):
+
+```bash
+curl -k "$ADRAPI_BASE_URL/api/users?all=true" \
+  -H "api-version: $ADRAPI_VERSION" \
+  -H "api-key: $ADRAPI_KEY"
+```
+
+Full user objects, one page at a time:
+
+```bash
+curl -k "$ADRAPI_BASE_URL/api/users?_full=true" \
   -H "api-version: $ADRAPI_VERSION" \
   -H "api-key: $ADRAPI_KEY"
 ```

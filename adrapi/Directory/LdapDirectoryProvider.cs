@@ -45,6 +45,16 @@ namespace adrapi.Directory
             => ((await UserManager.Instance.GetListAsync("", query, "", config)).Users ?? new List<User>())
                 .Select(Normalize).ToList();
 
+        public async Task<UserPage> GetUsersPageAsync(string filter = "", string pageToken = "", CancellationToken cancellationToken = default)
+        {
+            var page = await UserManager.Instance.GetUsersPagedAsync(filter ?? "", pageToken ?? "", config);
+            return new UserPage
+            {
+                Users = (page.Users ?? new List<User>()).Select(Normalize).ToList(),
+                Cookie = page.Cookie ?? ""
+            };
+        }
+
         public async Task<bool> CreateUserAsync(User user, CancellationToken cancellationToken = default)
             => await UserManager.Instance.CreateUserAsync(user, config) == 0;
 

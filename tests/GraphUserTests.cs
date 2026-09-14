@@ -196,6 +196,54 @@ namespace tests
         }
 
         [Fact]
+        public async Task GetUsersPage_RequestsOnePage_AndReturnsSkipTokenAsCookie()
+        {
+            var graph = new FakeGraphClient();
+            var provider = new GraphDirectoryProvider(new EntraConfig { DomainKey = "cloud", PageSize = 25 }, graph);
+            graph.GetResponder = _ => new GraphResult(HttpStatusCode.OK, Parse(@"{
+                ""value"": [ {""id"":""1"",""displayName"":""A""} ],
+                ""@odata.nextLink"": ""https://graph.microsoft.com/v1.0/users?$top=25&$skiptoken=X%2744%27"" }"), null, null);
+
+            var page = await provider.GetUsersPageAsync();
+
+            Assert.Single(page.Users);
+            Assert.Equal("X'44'", page.Cookie); // decoded, so it can be re-escaped on the next hop
+            Assert.Contains("$top=25", graph.Gets.Single());
+            Assert.DoesNotContain("$skiptoken", graph.Gets.Single());
+        }
+
+        [Fact]
+        public async Task GetUsersPage_EchoesCookieBack_AsSkipToken_AndAppliesFilter()
+        {
+            var (provider, graph) = Build();
+            graph.GetResponder = _ => new GraphResult(HttpStatusCode.OK, Parse(@"{""value"": []}"), null, null);
+
+            var page = await provider.GetUsersPageAsync("a'b", "X'44'");
+
+            Assert.Empty(page.Users);
+            Assert.Equal("", page.Cookie); // no nextLink: last page
+            var url = Uri.UnescapeDataString(graph.Gets.Single());
+            Assert.Contains("$skiptoken=X'44'", url);
+            Assert.Contains("startswith", url);
+            Assert.Contains("a''b", url);
+        }
+
+        [Fact]
+        public async Task GetUsersPage_NextLinkWithSkip_RoundTripsAsSkip()
+        {
+            var (provider, graph) = Build();
+            graph.GetResponder = _ => new GraphResult(HttpStatusCode.OK, Parse(@"{
+                ""value"": [],
+                ""@odata.nextLink"": ""https://graph.microsoft.com/v1.0/users?$skip=100"" }"), null, null);
+
+            var first = await provider.GetUsersPageAsync();
+            Assert.Equal("skip:100", first.Cookie);
+
+            await provider.GetUsersPageAsync("", first.Cookie);
+            Assert.Contains("$skip=100", Uri.UnescapeDataString(graph.Gets.Last()));
+        }
+
+        [Fact]
         public async Task CreateUser_PostsBody_AndCapturesGeneratedId()
         {
             var (provider, graph) = Build();

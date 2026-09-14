@@ -107,11 +107,54 @@ curl -k -X GET 'https://localhost:6001/api/lab/users' \
 
 ### Example: paged list users (cookie flow)
 
+`GET /api/users` returns one page at a time. The response carries a `Cookie`;
+send it back as `_cookie` to fetch the next page, and stop when `Cookie` comes
+back empty.
+
 ```bash
-curl -k -X GET 'https://localhost:6001/api/users?_cookie=<cookie>' \
+# first page
+curl -k -X GET 'https://localhost:6001/api/users' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <keyId>:<secretKey>'
+
+# next page — echo the Cookie from the previous response
+curl -k --get 'https://localhost:6001/api/users' \
+  --data-urlencode '_cookie=<cookie>' \
   -H 'api-version: 2.0' \
   -H 'api-key: <keyId>:<secretKey>'
 ```
+
+Loop until the cookie is empty:
+
+```bash
+cookie=""
+while :; do
+  page=$(curl -sk --get 'https://localhost:6001/api/users' \
+    --data-urlencode "_cookie=$cookie" \
+    -H 'api-version: 2.0' -H 'api-key: <keyId>:<secretKey>')
+  echo "$page" | jq -r '.userNames[]'
+  cookie=$(echo "$page" | jq -r '.cookie // ""')
+  [ -z "$cookie" ] && break
+done
+```
+
+The cookie is opaque (an LDAP paged-results cookie or a Graph `$skiptoken`
+depending on the domain's backend) — pass it back verbatim, don't build one.
+Page size comes from the domain config: `maxResults` for LDAP/AD, `pageSize`
+for Entra ID (default 100).
+
+### Example: list every user without pagination
+
+```bash
+curl -k -X GET 'https://localhost:6001/api/users?all=true' \
+  -H 'api-version: 2.0' \
+  -H 'api-key: <keyId>:<secretKey>'
+```
+
+`all=true` makes the server walk every page and return the whole directory in
+one response. It is the expensive path — reserve it for exports and batch jobs.
+The same flag applies to `?_full=true` (full user objects), which is likewise
+paginated by default now.
 
 ### Example: authenticate explicit login
 
