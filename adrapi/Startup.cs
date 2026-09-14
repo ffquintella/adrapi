@@ -48,7 +48,7 @@ namespace adrapi
         /// </summary>
         public void ConfigureServices(IServiceCollection services)
         {
-            ValidateLdapConfiguration();
+            ValidateDirectoryConfiguration();
 
             //services.AddMvc();
 
@@ -158,69 +158,84 @@ namespace adrapi
             });
         }
 
-        private void ValidateLdapConfiguration()
+        /// <summary>
+        /// Validates every configured directory domain, whichever layout declares
+        /// it. <see cref="Directory.DirectorySchema"/> owns the layout question;
+        /// this method only validates what each domain's <c>kind</c> requires.
+        /// </summary>
+        private void ValidateDirectoryConfiguration()
         {
+            if (!Configuration.GetSection(Directory.DirectorySchema.SectionName).Exists()
+                && !Configuration.GetSection(Directory.DirectorySchema.LegacySectionName).Exists())
+            {
+                throw new InvalidOperationException(
+                    "Invalid configuration: missing 'directories' section (and no legacy 'ldap' section).");
+            }
+
             var errors = new List<string>();
-            var ldap = Configuration.GetSection("ldap");
-
-            if (!ldap.Exists())
-            {
-                throw new InvalidOperationException("Invalid configuration: missing 'ldap' section.");
-            }
-
-            // The top-level ldap section is the default domain.
-            ValidateLdapSection("ldap", ldap, errors);
-
-            // Each named domain under ldap:domains is validated the same way.
             var reservedNames = new[] { "users", "groups", "ous", "infos" };
-            var domains = ldap.GetSection("domains");
-            if (domains.Exists())
+
+            foreach (var name in Directory.DirectorySchema.EnumerateDomains())
             {
-                foreach (var domain in domains.GetChildren())
+                if (reservedNames.Contains(name, StringComparer.OrdinalIgnoreCase))
                 {
-                    if (reservedNames.Contains(domain.Key, StringComparer.OrdinalIgnoreCase))
-                    {
-                        errors.Add($"ldap.domains.{domain.Key} uses a reserved resource name. Domains may not be named users/groups/ous/infos.");
-                    }
-
-                    var kind = domain.GetValue<string>("kind");
-                    if (string.Equals(kind, Ldap.LdapDomainRegistry.KindEntraId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Entra ID-backed domain: validate the app registration, not LDAP servers.
-                        var entra = Entra.EntraConfig.FromSection(domain.GetSection("entra"), domain.Key);
-                        foreach (var e in entra.Validate())
-                        {
-                            errors.Add($"ldap.domains.{domain.Key}.{e}");
-                        }
-
-                        // Least-privilege check (non-fatal): warn when the declared
-                        // granted permissions don't cover the read baseline, so a
-                        // missing admin-consent is visible at startup rather than as
-                        // an opaque 403 at request time.
-                        var missingRead = Entra.EntraScopeMap.MissingRoles(entra.GrantedPermissions, Entra.EntraScopeMap.Reading);
-                        if (missingRead.Count > 0)
-                        {
-                            NLog.LogManager.GetCurrentClassLogger().Warn(
-                                "Entra domain '{domain}' is missing granted Graph app roles for the Reading policy: {roles}. Grant admin consent and list them under entra.grantedPermissions.",
-                                domain.Key, string.Join(", ", missingRead));
-                        }
-                    }
-                    else
-                    {
-                        ValidateLdapSection($"ldap.domains.{domain.Key}", domain, errors);
-                    }
+                    errors.Add($"directories.domains.{name} uses a reserved resource name. Domains may not be named users/groups/ous/infos.");
+                    continue;
                 }
-            }
 
-            var defaultDomain = ldap.GetValue<string>("defaultDomain");
-            if (!string.IsNullOrWhiteSpace(defaultDomain) && reservedNames.Contains(defaultDomain.Trim(), StringComparer.OrdinalIgnoreCase))
-            {
-                errors.Add($"ldap.defaultDomain '{defaultDomain}' uses a reserved resource name.");
+                var descriptor = Directory.DirectorySchema.Describe(name);
+                if (descriptor == null)
+                {
+                    errors.Add($"directories.defaultDomain '{name}' has no configuration. Declare it under 'directories:domains:{name}'.");
+                    continue;
+                }
+
+                var label = descriptor.IsLegacyLayout
+                    ? (descriptor.LdapPath ?? descriptor.BasePath).Replace(':', '.')
+                    : $"directories.domains.{name}";
+
+                switch (descriptor.Kind)
+                {
+                    case Directory.DirectorySchema.KindEntraId:
+                        ValidateEntraDomain(name, label, errors);
+                        break;
+
+                    case Directory.DirectorySchema.KindLdap:
+                        ValidateLdapSection(label, Configuration.GetSection(descriptor.LdapPath), errors);
+                        break;
+
+                    default:
+                        errors.Add($"{label}.kind '{descriptor.Kind}' is not a supported directory backend. Expected 'ldap' or 'entraid'.");
+                        break;
+                }
             }
 
             if (errors.Count > 0)
             {
-                throw new InvalidOperationException("Invalid LDAP configuration: " + string.Join(" ", errors));
+                throw new InvalidOperationException("Invalid directory configuration: " + string.Join(" ", errors));
+            }
+        }
+
+        private static void ValidateEntraDomain(string name, string label, List<string> errors)
+        {
+            // Entra ID-backed domain: validate the app registration, not LDAP servers.
+            // Resolve through EntraConfig.ForDomain so legacy secret paths count as
+            // configured credentials.
+            var entra = Entra.EntraConfig.ForDomain(name);
+            foreach (var e in entra.Validate())
+            {
+                errors.Add($"{label}.{e}");
+            }
+
+            // Least-privilege check (non-fatal): warn when the declared granted
+            // permissions don't cover the read baseline, so a missing admin-consent
+            // is visible at startup rather than as an opaque 403 at request time.
+            var missingRead = Entra.EntraScopeMap.MissingRoles(entra.GrantedPermissions, Entra.EntraScopeMap.Reading);
+            if (missingRead.Count > 0)
+            {
+                NLog.LogManager.GetCurrentClassLogger().Warn(
+                    "Entra domain '{domain}' is missing granted Graph app roles for the Reading policy: {roles}. Grant admin consent and list them under entra.grantedPermissions.",
+                    name, string.Join(", ", missingRead));
             }
         }
 

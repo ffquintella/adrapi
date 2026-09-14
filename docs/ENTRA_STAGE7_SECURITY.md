@@ -29,7 +29,7 @@ identifier edge validation (Stage 6).
   secret store** (`SqliteSecretsConfigurationSource`) — the same pipeline that
   protects `ldap:bindCredentials`. Set it with:
   ```bash
-  adrapi-api-keys secret set ldap:domains:<name>:entra:clientSecret '<secret>'
+  adrapi-api-keys secret set directories:domains:<name>:entra:clientSecret '<secret>'
   ```
 - [x] A client **certificate** (`certificatePath` to a PKCS#12/.p12 +
   `certificatePassword`) is supported as a stronger alternative; exactly one of

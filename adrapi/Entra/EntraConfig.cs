@@ -9,8 +9,10 @@ namespace adrapi.Entra
     /// <summary>
     /// App-registration configuration for an Entra ID-backed domain.
     ///
-    /// Lives under <c>ldap:domains:{name}:entra</c> (the domain's <c>kind</c> must
-    /// be <c>entraid</c>). The client secret is read from configuration, which is
+    /// Lives under <c>directories:domains:{name}:entra</c> (the domain's <c>kind</c>
+    /// must be <c>entraid</c>); the deprecated <c>ldap:domains:{name}:entra</c>
+    /// location is still read and is removed in 2.0.0.
+    /// The client secret is read from configuration, which is
     /// overlaid by the encrypted secret store (<see cref="SqliteSecretsConfigurationSource"/>),
     /// so it is never required to sit in plaintext appsettings. A client
     /// certificate is supported as an alternative to a secret.
@@ -88,8 +90,54 @@ namespace adrapi.Entra
         {
             var key = LdapDomainRegistry.NormalizeKey(domain);
             var config = ConfigurationManager.Instance.Config;
-            var section = config?.GetSection($"ldap:domains:{domain}:entra");
-            return FromSection(section, key);
+            var descriptor = adrapi.Directory.DirectorySchema.Describe(domain);
+
+            var path = descriptor?.EntraPath ?? $"ldap:domains:{domain}:entra";
+            var cfg = FromSection(config?.GetSection(path), key);
+
+            if (descriptor?.LegacyEntraPath != null)
+            {
+                ApplyLegacySecrets(cfg, config, path, descriptor.LegacyEntraPath);
+            }
+
+            return cfg;
+        }
+
+        /// <summary>
+        /// Fills credentials still stored under the deprecated
+        /// <c>ldap:domains:{name}:entra:*</c> secret keys, so moving the config to
+        /// <c>directories</c> doesn't require re-keying the encrypted secret store
+        /// in the same step. Removed in 2.0.0 — re-key with
+        /// <c>adrapi-api-keys secret migrate-directories</c>.
+        /// </summary>
+        private static void ApplyLegacySecrets(
+            EntraConfig cfg, IConfiguration config, string path, string legacyPath)
+        {
+            void Fallback(string name, Action<string> assign)
+            {
+                var value = config?.GetValue<string>($"{legacyPath}:{name}");
+                if (string.IsNullOrWhiteSpace(value)) return;
+
+                adrapi.Directory.DirectorySchema.WarnLegacy(
+                    $"'{path}:{name}' is unset; falling back to the deprecated " +
+                    $"'{legacyPath}:{name}'. Re-key it with " +
+                    "'adrapi-api-keys secret migrate-directories'; the legacy path is removed in 2.0.0.");
+                assign(value);
+            }
+
+            // Only fill in a credential when the new location declares none at all —
+            // never mix a new certificate with a stale legacy secret, which
+            // Validate() rejects as ambiguous.
+            if (!cfg.HasClientSecret && !cfg.HasCertificate)
+            {
+                Fallback("clientSecret", v => cfg.ClientSecret = v);
+                if (!cfg.HasClientSecret) Fallback("certificatePath", v => cfg.CertificatePath = v);
+            }
+
+            if (cfg.HasCertificate && string.IsNullOrWhiteSpace(cfg.CertificatePassword))
+            {
+                Fallback("certificatePassword", v => cfg.CertificatePassword = v);
+            }
         }
 
         /// <summary>Returns config errors (empty when valid).</summary>

@@ -26,14 +26,20 @@ Dependency added: `Microsoft.Identity.Client` (MSAL.NET) 4.84.1.
 ## 1. App-registration onboarding
 
 An Entra ID-backed domain is just a domain with `kind: entraid` and an `entra`
-block under `ldap:domains:{name}`:
+block under `directories:domains:{name}` (`ldap:domains:{name}` since 1.10.0 —
+deprecated, removed in 2.0.0):
 
 ```jsonc
-"ldap": {
+"directories": {
   "defaultDomain": "corp",
-  "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
-  "bindDn": "...", "searchBase": "DC=corp,DC=example", ... ,
   "domains": {
+    "corp": {
+      "kind": "ldap",
+      "ldap": {
+        "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
+        "bindDn": "...", "searchBase": "DC=corp,DC=example", "maxResults": 999
+      }
+    },
     "cloud": {
       "kind": "entraid",
       "entra": {
@@ -68,11 +74,11 @@ SQLite secret store (`SqliteSecretsConfigurationSource`) — the same pipeline t
 protects `ldap:bindCredentials`. Store it with the management CLI:
 
 ```bash
-adrapi-api-keys secret set ldap:domains:cloud:entra:clientSecret '<the-secret>'
+adrapi-api-keys secret set directories:domains:cloud:entra:clientSecret '<the-secret>'
 ```
 
 The secret name is the verbatim config path, so it overlays
-`ldap:domains:cloud:entra:clientSecret` at runtime without ever appearing in
+`directories:domains:cloud:entra:clientSecret` at runtime without ever appearing in
 appsettings. A client **certificate** (`certificatePath` to a PKCS#12/.p12 +
 `certificatePassword`) is supported as a stronger alternative.
 

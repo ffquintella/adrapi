@@ -122,18 +122,25 @@ For most teams the **portal** (§1–3) or **az CLI** (§4) is the fastest path.
 
 ## 5. Configure adrapi
 
-Add an Entra-backed **domain** under `ldap:domains:<name>` with `kind: entraid`.
-The default top-level `ldap` section stays your on-prem directory; the new domain
-is selected via the `{domain}` route segment.
+Add an Entra-backed **domain** under `directories:domains:<name>` with
+`kind: entraid`, alongside your on-prem LDAP domain; the new domain is selected
+via the `{domain}` route segment. (The deprecated `ldap:domains:<name>` location
+is still read through the 1.x line — see
+[Directory configuration reference](DIRECTORIES_CONFIG.md).)
 
 `adrapi/appsettings.json`:
 
 ```jsonc
-"ldap": {
+"directories": {
   "defaultDomain": "corp",
-  "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
-  "bindDn": "...", "searchBase": "DC=corp,DC=example", "maxResults": 999,
   "domains": {
+    "corp": {
+      "kind": "ldap",
+      "ldap": {
+        "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
+        "bindDn": "...", "searchBase": "DC=corp,DC=example", "maxResults": 999
+      }
+    },
     "cloud": {
       "kind": "entraid",
       "entra": {
@@ -157,10 +164,10 @@ Store the secret (or cert password) in the encrypted SQLite store — the secret
 
 ```bash
 # client secret:
-adrapi-api-keys secret set ldap:domains:cloud:entra:clientSecret '<the secret value>'
+adrapi-api-keys secret set directories:domains:cloud:entra:clientSecret '<the secret value>'
 
 # OR, if using a certificate:
-adrapi-api-keys secret set ldap:domains:cloud:entra:certificatePassword '<p12 password>'
+adrapi-api-keys secret set directories:domains:cloud:entra:certificatePassword '<p12 password>'
 ```
 
 `grantedPermissions` should list exactly what you consented to in §2/§4 — adrapi

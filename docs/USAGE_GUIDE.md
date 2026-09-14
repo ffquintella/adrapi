@@ -28,25 +28,38 @@ Primary config files:
 
 ### Multiple directories (domains)
 
-One adrapi instance can serve several directories. The top-level `ldap` section
-is the **default** domain. Add more under `ldap.domains.<name>` (same shape) and
-optionally name the default with `ldap.defaultDomain`:
+One adrapi instance can serve several directories. Each lives under
+`directories.domains.<name>` with a `kind` discriminator, and
+`directories.defaultDomain` names the one the domain-less routes use:
 
 ```jsonc
-"ldap": {
+"directories": {
   "defaultDomain": "corp",
-  "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
-  "bindDn": "...", "bindCredentials": "...", "searchBase": "DC=corp,DC=example",
-  "searchFilter": "", "maxResults": 999, "adminCn": "",
   "domains": {
+    "corp": {
+      "kind": "ldap",
+      "ldap": {
+        "servers": [ "dc-corp:636" ], "ssl": true, "poolSize": 10,
+        "bindDn": "...", "bindCredentials": "", "searchBase": "DC=corp,DC=example",
+        "searchFilter": "", "maxResults": 999, "adminCn": ""
+      }
+    },
     "lab": {
-      "servers": [ "dc-lab:636" ], "ssl": true, "poolSize": 5,
-      "bindDn": "...", "bindCredentials": "...", "searchBase": "DC=lab,DC=example",
-      "searchFilter": "", "maxResults": 999, "adminCn": ""
+      "kind": "ldap",
+      "ldap": {
+        "servers": [ "dc-lab:636" ], "ssl": true, "poolSize": 5,
+        "bindDn": "...", "bindCredentials": "", "searchBase": "DC=lab,DC=example",
+        "searchFilter": "", "maxResults": 999, "adminCn": ""
+      }
     }
   }
 }
 ```
+
+The pre-1.10.0 layout (top-level `ldap` section as the default domain, extra
+domains under `ldap.domains.<name>`) is still read and logs a deprecation
+warning; it is removed in 2.0.0. Full schema, key-by-key mapping and the secret
+re-key steps: [Directory configuration reference](DIRECTORIES_CONFIG.md).
 
 Each domain keeps its own connection pool. Domain names cannot be
 `users`/`groups`/`ous`/`infos`. V2 endpoints accept an optional `{domain}`

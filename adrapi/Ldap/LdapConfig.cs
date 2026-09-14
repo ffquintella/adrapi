@@ -33,28 +33,38 @@ namespace adrapi.Ldap
 
         /// <summary>
         /// Initializes a new instance of the <see cref="T:adrapi.Ldap.LdapConfig"/> class
-        /// from the default <c>ldap</c> configuration section (the default domain).
+        /// from the default domain's configuration.
         /// </summary>
         public LdapConfig()
         {
-            LoadFromSection("ldap");
+            var descriptor = Directory.DirectorySchema.Describe(null);
+            LoadFromSection(
+                descriptor?.LdapPath ?? Directory.DirectorySchema.LegacySectionName,
+                descriptor?.LegacyLdapPath);
             DomainKey = LdapDomainRegistry.NormalizeKey(null);
         }
 
         /// <summary>
         /// Builds an <see cref="LdapConfig"/> from an arbitrary configuration section
-        /// (e.g. <c>ldap</c> for the default domain or <c>ldap:domains:lab</c> for a
-        /// named domain), stamping the supplied domain key for pool bucketing.
+        /// (e.g. <c>directories:domains:corp:ldap</c>, or the deprecated <c>ldap</c> /
+        /// <c>ldap:domains:lab</c>), stamping the supplied domain key for pool bucketing.
         /// </summary>
-        public static LdapConfig ForSection(string sectionPath, string domainKey)
+        /// <param name="legacySectionPath">
+        /// Optional deprecated section consulted per-setting when the primary one
+        /// leaves a value unset. This is what lets a deployment move its config to
+        /// <c>directories</c> while its per-domain secrets (notably
+        /// <c>bindCredentials</c>) are still stored under the old key paths.
+        /// Removed in 2.0.0 along with the legacy layout.
+        /// </param>
+        public static LdapConfig ForSection(string sectionPath, string domainKey, string legacySectionPath = null)
         {
             var cfg = new LdapConfig(true);
-            cfg.LoadFromSection(sectionPath);
+            cfg.LoadFromSection(sectionPath, legacySectionPath);
             cfg.DomainKey = domainKey;
             return cfg;
         }
 
-        private void LoadFromSection(string sectionPath)
+        private void LoadFromSection(string sectionPath, string legacySectionPath = null)
         {
             var config = ConfigurationManager.Instance.Config;
             if (config == null)
@@ -65,12 +75,31 @@ namespace adrapi.Ldap
             }
 
             var section = config.GetSection(sectionPath);
+            var legacy = string.IsNullOrEmpty(legacySectionPath) || legacySectionPath == sectionPath
+                ? null
+                : config.GetSection(legacySectionPath);
 
-            servers = section.GetSection("servers").Get<string[]>();
+            string Value(string name)
+            {
+                var value = section.GetValue<string>(name);
+                if (!string.IsNullOrEmpty(value)) return value;
+
+                var fallback = legacy?.GetValue<string>(name);
+                if (string.IsNullOrEmpty(fallback)) return value;
+
+                Directory.DirectorySchema.WarnLegacy(
+                    $"'{sectionPath}:{name}' is unset; falling back to the deprecated " +
+                    $"'{legacySectionPath}:{name}'. Re-key it (see docs/MIGRATION_NOTES.md); " +
+                    "the legacy path is removed in 2.0.0.");
+                return fallback;
+            }
+
+            servers = section.GetSection("servers").Get<string[]>()
+                ?? legacy?.GetSection("servers").Get<string[]>();
             ssl = section.GetValue<bool>("ssl");
             poolSize = section.GetValue<short>("poolSize");
-            bindDn = section.GetValue<string>("bindDn");
-            bindCredentials = section.GetValue<string>("bindCredentials");
+            bindDn = Value("bindDn");
+            bindCredentials = Value("bindCredentials");
             searchBase = section.GetValue<string>("searchBase");
             searchFilter = section.GetValue<string>("searchFilter");
             maxResults = section.GetValue<int>("maxResults");

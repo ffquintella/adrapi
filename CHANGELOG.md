@@ -1,5 +1,57 @@
 ﻿# RELEASE NOTES
 
+## 1.10.0
+
+### Changed — backend-neutral `directories` configuration section
+
+- Directory domains now live under a **`directories`** section where LDAP is one
+  `kind` among peers, instead of being nested inside `ldap`:
+
+  ```jsonc
+  "directories": {
+    "defaultDomain": "corp",
+    "domains": {
+      "corp":  { "kind": "ldap",    "ldap":  { "servers": [ "dc-corp:636" ], "ssl": true, ... } },
+      "cloud": { "kind": "entraid", "entra": { "tenantId": "...", "clientId": "...", ... } }
+    }
+  }
+  ```
+
+  An Entra ID domain is no longer described as a sub-section of `ldap`, and
+  `defaultDomain` may now name a domain of **any** kind — the domain-less routes
+  can be served by Entra ID. Adding a future backend (SCIM/Okta/Google) is a new
+  `kind`, not a new top-level section.
+- Secret names follow the config path, so per-domain secrets move with it:
+  `directories:domains:<name>:entra:clientSecret`,
+  `...:entra:certificatePassword`, `directories:domains:<name>:ldap:bindCredentials`.
+- New `adrapi/Directory/DirectorySchema.cs` is the single place that knows how
+  domains are laid out; `LdapDomainRegistry`, `LdapConfig`, `EntraConfig` and
+  startup validation all resolve through it.
+- Startup validation is now per-domain and driven by `kind`
+  (`Invalid directory configuration: ...`), and rejects an unsupported `kind`
+  instead of silently treating it as LDAP.
+
+### Backwards compatibility
+
+- The pre-1.10.0 layout (top-level `ldap` as the default domain, extra domains
+  under `ldap:domains:<name>`, `ldap:defaultDomain`) and the legacy
+  `ldap:domains:<name>:entra:*` / `ldap:bindCredentials` **secret** paths are
+  still read when the new ones are absent. Existing deployments upgrade with no
+  config change.
+- Using a legacy path logs a one-time deprecation warning naming the new key.
+- Both layouts may be mixed while migrating; a domain present in `directories`
+  wins over a same-named legacy block.
+- **The legacy layout and legacy secret paths are removed in 2.0.0.**
+
+### Added
+
+- `adrapi-api-keys secret migrate-directories [--domain <default-domain>] [--yes]`
+  re-keys stored secrets from the legacy names to the new ones (idempotent;
+  copies by default, `--yes` also deletes the legacy entries).
+- [docs/DIRECTORIES_CONFIG.md](docs/DIRECTORIES_CONFIG.md) — full schema, the
+  key-by-key legacy mapping, and the exact secret key paths (the reference the
+  Puppet module renders against).
+
 ## 1.9.0
 
 ### Added — Entra ID REST surface (controller dispatch)

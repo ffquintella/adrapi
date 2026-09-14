@@ -9,6 +9,7 @@
   - [API Reference](API_REFERENCE.md)
   - [Curl Collection](CURL_COLLECTION.md)
   - [Code Overview](CODE_OVERVIEW.md)
+  - [Directory Configuration](DIRECTORIES_CONFIG.md)
   - [Migration Notes](MIGRATION_NOTES.md)
 
 - Microsoft Entra ID

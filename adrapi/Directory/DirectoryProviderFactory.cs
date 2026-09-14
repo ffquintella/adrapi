@@ -16,7 +16,7 @@ namespace adrapi.Directory
     /// <item><b>per request</b> — the <c>{domain}</c> route segment picks the domain,
     /// and thus its backend, for that call;</item>
     /// <item><b>per deployment</b> — the default domain's <c>kind</c> (and
-    /// <c>ldap:defaultDomain</c>) decides the backend used by the legacy
+    /// <c>directories:defaultDomain</c>) decides the backend used by the legacy
     /// domain-less routes.</item>
     /// </list>
     /// Unknown domains throw (mirroring <see cref="LdapDomainRegistry.GetConfig"/>);

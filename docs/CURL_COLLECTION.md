@@ -129,7 +129,7 @@ curl -k -X DELETE "$ADRAPI_BASE_URL/api/ous/OU=Platform,DC=homologa,DC=br" \
 
 ## Microsoft Entra ID-backed endpoints
 
-These target an Entra ID domain configured under `ldap:domains:<name>` with
+These target an Entra ID domain configured under `directories:domains:<name>` with
 `kind: entraid` (see the [Entra ID Guide](ENTRA_ID_GUIDE.md)). The `{domain}`
 segment selects that directory; identifiers are an **objectId (GUID)** or
 **userPrincipalName** for users, and an **objectId** or **displayName** for groups

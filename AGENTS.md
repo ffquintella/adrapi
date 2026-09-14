@@ -103,18 +103,25 @@ Rules when adding/most touching a V2 controller action:
    domain rows for `1.0`.
 
 A domain may be backed by **LDAP** (default) or **Entra ID** via
-`ldap:domains:{name}:kind` (`ldap` | `entraid`). Entra domains carry an `entra`
-block (tenant/client + secret-or-certificate); the client secret must be stored
-in the encrypted secret store (`adrapi-api-keys secret set ldap:domains:{name}:entra:clientSecret ...`),
+`directories:domains:{name}:kind` (`ldap` | `entraid`). Entra domains carry an
+`entra` block (tenant/client + secret-or-certificate); the client secret must be
+stored in the encrypted secret store
+(`adrapi-api-keys secret set directories:domains:{name}:entra:clientSecret ...`),
 never in plaintext config. Token acquisition + policy→Graph-role mapping live in
 `adrapi/Entra/` — see `docs/ENTRA_STAGE2_AUTH.md`. OU operations remain LDAP-only.
 
-Configuration: the top-level `ldap` section is the default domain; additional
-domains live under `ldap:domains:{name}` (same shape), and `ldap:defaultDomain`
-names the default. Domain names may not be `users`/`groups`/`ous`/`infos`
-(reserved to avoid route ambiguity). Connection pools are bucketed per-domain by
-`LdapConfig.DomainKey`. Header-based API versioning (`api-version` header) is
-unchanged and orthogonal to the domain segment.
+Configuration (since 1.10.0) lives under the backend-neutral `directories`
+section: `directories:defaultDomain` names the default domain and each domain
+sits at `directories:domains:{name}` with a `kind` discriminator plus a
+backend-specific sub-object (`ldap` / `entra`). The pre-1.10.0 layout — top-level
+`ldap` section as the default domain, extra domains under `ldap:domains:{name}`,
+`ldap:defaultDomain` — is still read, logs a deprecation warning, and is
+**removed in 2.0.0**. `adrapi/Directory/DirectorySchema.cs` is the single place
+that knows either layout: never hard-code a `ldap:domains:...` path elsewhere.
+Domain names may not be `users`/`groups`/`ous`/`infos` (reserved to avoid route
+ambiguity). Connection pools are bucketed per-domain by `LdapConfig.DomainKey`.
+Header-based API versioning (`api-version` header) is unchanged and orthogonal to
+the domain segment. Full schema + secret key paths: `docs/DIRECTORIES_CONFIG.md`.
 
 ### Test discipline
 
@@ -175,6 +182,7 @@ there's a written reason in the PR description.
 | API key store + Argon2id hasher    | `domain/Security/{ApiKeyStore,ApiKeyHasher}.cs`                   |
 | Encrypted app secrets              | `domain/Security/{SecretBox,AppSecretsStore,MachineKeyProvider}.cs` |
 | Config pipeline / SQLite secrets   | `adrapi/SqliteSecretsConfigurationSource.cs` + `adrapi/Program.cs` |
+| Directory config schema + legacy   | `adrapi/Directory/DirectorySchema.cs`                             |
 | LDAPS cert pinning                 | `adrapi/Ldap/Security/LdapCertificateValidator.cs`                |
 | Endpoint auth test catalog         | `tests/Authentication/EndpointCatalog.cs`                         |
 | Endpoint auth test suite           | `tests/Authentication/EndpointAuthenticationTests.cs`             |
