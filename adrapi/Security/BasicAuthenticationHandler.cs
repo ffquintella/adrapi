@@ -55,7 +55,7 @@ namespace adrapi.Security
                 return Task.FromResult(AuthenticateResult.Fail("Unauthorized source IP"));
             }
 
-            const string Issuer = "https://fgv.br";
+            const string Issuer = "https://example.com";
             var claims = new System.Collections.Generic.List<Claim>
             {
                 new Claim(ClaimTypes.Name, record.keyID, ClaimValueTypes.String, Issuer),

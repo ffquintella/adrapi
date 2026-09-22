@@ -47,6 +47,51 @@ Important settings:
 - `certificate:file` / `certificate:password`: HTTPS certificate for Kestrel
 - `AllowedHosts`: Host binding behavior (`*` maps to `0.0.0.0` in startup)
 
+### Directory Domains (LDAP / Entra ID)
+
+Directory domains are declared under `directories`, keyed by domain name, with a
+`kind` discriminator per domain. `kind` defaults to `ldap` when omitted. A domain
+can be LDAP-backed or Entra ID-backed:
+
+```json
+"directories": {
+  "defaultDomain": "corp",
+  "domains": {
+    "corp": {
+      "kind": "ldap",
+      "ldap": {
+        "servers": [ "127.0.0.1:389" ],
+        "ssl": true,
+        "poolSize": 10,
+        "bindDn": "",
+        "bindCredentials": "",
+        "searchBase": "",
+        "searchFilter": "",
+        "maxResults": 999,
+        "adminCn": ""
+      }
+    },
+    "cloud": {
+      "kind": "entraid",
+      "entra": {
+        "tenantId": "<tenant-guid-or-verified-domain>",
+        "clientId": "<app-registration-client-id>",
+        "clientSecret": "<client-secret>"
+      }
+    }
+  }
+}
+```
+
+- `entra.tenantId` must be a specific tenant GUID or verified domain, never
+  `common`/`organizations`/`consumers` (the client-credentials flow requires a
+  tenant-specific authority).
+- Configure exactly one of `entra.clientSecret` or `entra.certificatePath` —
+  having both, or neither, fails validation.
+- The deprecated flat top-level `ldap:` section (with extra domains under
+  `ldap:domains:{name}`) still works but is removed in 2.0.0. See
+  `adrapi/docs/MIGRATION_NOTES.md` for the migration path.
+
 ### Local Secrets (Development)
 
 LDAP bind credentials, the HTTPS certificate password, and any other secret value
@@ -61,7 +106,7 @@ The project is already initialized (`UserSecretsId` in `adrapi/adrapi.csproj`). 
 populate your local store, from `adrapi/`:
 
 ```bash
-dotnet user-secrets set "ldap:bindDn" "cn=<service-account>,...,dc=fgv,dc=br"
+dotnet user-secrets set "ldap:bindDn" "cn=<service-account>,...,dc=example,dc=com"
 dotnet user-secrets set "ldap:bindCredentials" "<password>"
 dotnet user-secrets set "certificate:password" "<cert-password>"
 
@@ -98,20 +143,20 @@ To authorize a new LDAPS server (one-time per certificate), use the helper tool:
 
 ```bash
 # Inspect the certificate and add it to the pin store after operator confirmation
-dotnet run --project tools/AdrapiLdapCertPin -- sdcdc1vpr0006.fgv.br:636
+dotnet run --project tools/AdrapiLdapCertPin -- dc01.example.com:636
 
 # Non-interactive (e.g. for provisioning scripts)
-dotnet run --project tools/AdrapiLdapCertPin -- sdcdc1vpr0006.fgv.br:636 --yes \
+dotnet run --project tools/AdrapiLdapCertPin -- dc01.example.com:636 --yes \
     --note "Initial pin after DC certificate renewal 2026-05"
 
 # List currently trusted pins
 dotnet run --project tools/AdrapiLdapCertPin -- --list
 
 # Remove a pin (e.g. after rotation)
-dotnet run --project tools/AdrapiLdapCertPin -- --remove sdcdc1vpr0006.fgv.br ab:cd:ef:...
+dotnet run --project tools/AdrapiLdapCertPin -- --remove dc01.example.com ab:cd:ef:...
 
 # Use a different store file (e.g. for a container deployment)
-dotnet run --project tools/AdrapiLdapCertPin -- dc.example.com:636 --store /etc/adrapi/ldap-pins.json
+dotnet run --project tools/AdrapiLdapCertPin -- dc01.example.com:636 --store /etc/adrapi/ldap-pins.json
 ```
 
 The tool connects to the LDAPS endpoint, prints the certificate's subject /
