@@ -45,7 +45,7 @@ namespace tests.Authentication
             Directory.CreateDirectory(TempDir);
         }
 
-        public Task InitializeAsync()
+        public ValueTask InitializeAsync()
         {
             // Seed the store BEFORE the host boots so ApiKeyManager can read it.
             var store = new ApiKeyStore(DbPath);
@@ -67,14 +67,14 @@ namespace tests.Authentication
                 authorizedIP = "192.0.2.99",
                 claims = new List<string> { "isAdministrator" },
             }, plaintextSecret: WrongIpSecret);
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
-        public new Task DisposeAsync()
+        public new ValueTask DisposeAsync()
         {
             base.Dispose();
             try { Directory.Delete(TempDir, recursive: true); } catch { }
-            return Task.CompletedTask;
+            return ValueTask.CompletedTask;
         }
 
         protected override IHost CreateHost(IHostBuilder builder)

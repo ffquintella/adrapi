@@ -1,5 +1,24 @@
 ﻿# RELEASE NOTES
 
+## 1.13.1
+
+### Changed — maintained dependencies and test tooling
+
+- Update the .NET SDK to 10.0.403 and refresh identity-client, SQLite, logging,
+  Swagger, and build dependencies while retaining the .NET 10 target framework.
+- Replace deprecated ASP.NET API-versioning packages with
+  `Asp.Versioning.Mvc` / `Asp.Versioning.Mvc.ApiExplorer` 10.2.1. Use endpoint
+  routing with authentication, rate limiting, and authorization; retain the
+  `api-version` header, V1 support, V2 default, and domain routes.
+- Migrate tests to `xunit.v3` 4.0.2 and Microsoft Testing Platform; replace the
+  retired xUnit CLI reference and use the supported Microsoft coverage extension
+  in the NUKE quality gate. Add version-selection and Swagger regression tests.
+- Override vulnerable NUKE transitive dependencies. Keep Microsoft.Build.Tasks.Core
+  at 18.9.6 because later releases require .NET 11, and Microsoft.OpenApi at 2.13.0
+  because Swashbuckle 10.3.1 requires its 2.x binary contract.
+
+Release change and validation record: `docs/releases/1.13.1.md`.
+
 ## 1.13.0
 
 ### Fixed - LDAP list projection mislabeled givenName

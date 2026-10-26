@@ -170,7 +170,7 @@ class Build : NukeBuild
         {
             CoverageDirectory.CreateOrCleanDirectory();
             Log.Write(LogEventLevel.Information, "Collecting test coverage artifacts...");
-            DotNet($"test \"{Solution}\" --configuration {Configuration} --no-restore --collect:\"XPlat Code Coverage\" --results-directory \"{CoverageDirectory}\"");
+            DotNet($"test \"{Solution}\" --configuration {Configuration} --no-restore --coverage --coverage-output-format cobertura --results-directory \"{CoverageDirectory}\"");
         });
 
     Target Integration_Test => _ => _

@@ -12,13 +12,12 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Hosting;
 using Swashbuckle.AspNetCore.Swagger;
 using Microsoft.OpenApi;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Asp.Versioning.ApiExplorer;
 
 
 namespace adrapi
@@ -52,24 +51,25 @@ namespace adrapi
 
             //services.AddMvc();
 
-            services.AddMvc(options => options.EnableEndpointRouting = false);
+            services.AddMvc();
+            services.AddProblemDetails();
 
             services.AddApiVersioning(o =>
-            {   
-                o.ReportApiVersions = true;
-                o.ApiVersionReader = new HeaderApiVersionReader("api-version");
-                o.AssumeDefaultVersionWhenUnspecified = true;
-                o.DefaultApiVersion = new ApiVersion(2, 0);
-            });
-            
-            services.AddVersionedApiExplorer(options =>
-            {
-                // Agrupar por número de versão
-                options.GroupNameFormat = "'v'VVV";
+                {
+                    o.ReportApiVersions = true;
+                    o.ApiVersionReader = new HeaderApiVersionReader("api-version");
+                    o.AssumeDefaultVersionWhenUnspecified = true;
+                    o.DefaultApiVersion = new ApiVersion(2, 0);
+                })
+                .AddMvc()
+                .AddApiExplorer(options =>
+                {
+                    // Agrupar por número de versão
+                    options.GroupNameFormat = "'v'VVV";
 
-                // Necessário para o correto funcionamento das rotas
-                options.SubstituteApiVersionInUrl = true;
-            } );
+                    // Necessário para o correto funcionamento das rotas
+                    options.SubstituteApiVersionInUrl = true;
+                });
 
             services.AddAuthorization(options =>
             {
@@ -301,9 +301,11 @@ namespace adrapi
             app.UseHttpsRedirection();
 
             app.UseFileServer();
+            app.UseRouting();
             app.UseAuthentication();
             // Rate limiter sits after authentication so policies can read the keyID claim.
             app.UseRateLimiter();
+            app.UseAuthorization();
 
             //app.UseMiddleware<Security.KeyAuthenticationMiddleware>();
 
@@ -321,7 +323,7 @@ namespace adrapi
                 }
             });
 
-            app.UseMvc();
+            app.UseEndpoints(endpoints => endpoints.MapControllers());
         }
     }
 }

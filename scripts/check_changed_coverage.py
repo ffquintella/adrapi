@@ -44,7 +44,7 @@ def changed_source_files(base_sha, head_sha):
 
 
 def find_latest_coverage_file(root):
-    matches = sorted(Path(root).glob("**/coverage.cobertura.xml"), key=lambda p: p.stat().st_mtime, reverse=True)
+    matches = sorted(Path(root).glob("**/*.cobertura.xml"), key=lambda p: p.stat().st_mtime, reverse=True)
     return matches[0] if matches else None
 
 
@@ -52,11 +52,18 @@ def parse_coverage(path):
     tree = ET.parse(path)
     root = tree.getroot()
     coverage = {}
+    repository_root = Path(__file__).resolve().parents[1]
 
     for cls in root.findall(".//class"):
         filename = (cls.attrib.get("filename") or "").replace("\\", "/")
         if not filename:
             continue
+        file_path = Path(filename)
+        if file_path.is_absolute():
+            try:
+                filename = file_path.resolve().relative_to(repository_root).as_posix()
+            except ValueError:
+                pass
 
         valid = 0
         covered = 0
@@ -77,7 +84,7 @@ def parse_coverage(path):
 
 def main():
     parser = argparse.ArgumentParser(description="Fail build when changed source coverage is below threshold.")
-    parser.add_argument("--coverage-root", required=True, help="Coverage root folder (contains coverage.cobertura.xml).")
+    parser.add_argument("--coverage-root", required=True, help="Coverage root folder (contains a *.cobertura.xml report).")
     parser.add_argument("--threshold", type=float, default=0.70, help="Minimum changed-source line coverage [0-1].")
     parser.add_argument("--base-sha", default=None, help="Base commit sha for diff.")
     parser.add_argument("--head-sha", default=None, help="Head commit sha for diff.")
@@ -97,7 +104,7 @@ def main():
 
     cov_file = find_latest_coverage_file(args.coverage_root)
     if not cov_file:
-        print(f"Coverage gate failed: no coverage.cobertura.xml found under {args.coverage_root}.")
+        print(f"Coverage gate failed: no *.cobertura.xml report found under {args.coverage_root}.")
         return 1
 
     coverage = parse_coverage(cov_file)

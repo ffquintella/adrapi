@@ -4,7 +4,7 @@ Active Directory REST API for querying and managing users, groups, and OUs over 
 
 ## Current Runtime/Tooling
 
-- SDK used in this workspace: .NET `10.0.101`
+- SDK used in this workspace: .NET `10.0.403`
 - Application target framework: `net10.0`
 - Test target framework: `net10.0`
 
