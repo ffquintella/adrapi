@@ -41,8 +41,12 @@ namespace tests
                 EntraTokenProvider.Instance.AcquireTokenAsync(config, cancellation.Token));
         }
 
-        [Fact]
-        public void InfosController_ReturnsListAboutVersionAndNotFound()
+        [Theory]
+        [InlineData("1.13.3\n")]
+        [InlineData("1.13.3\r\n")]
+        [InlineData("1.13.3\r\n\n")]
+        [InlineData("1.13.3")]
+        public void InfosController_ReturnsListAboutVersionAndNotFound(string versionText)
         {
             var controller = new InfosController(NullLogger<InfosController>.Instance);
 
@@ -53,16 +57,19 @@ namespace tests
             Assert.IsType<NotFoundResult>(controller.Get(info: "unknown").Result);
 
             var originalDirectory = Environment.CurrentDirectory;
+            var tempDirectory = Path.Combine(Path.GetTempPath(), $"adrapi-version-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDirectory);
             try
             {
-                Environment.CurrentDirectory = Path.GetFullPath(
-                    Path.Combine(AppContext.BaseDirectory, "../../../../adrapi"));
+                File.WriteAllText(Path.Combine(tempDirectory, "version.txt"), versionText);
+                Environment.CurrentDirectory = tempDirectory;
                 var version = Assert.IsType<OkObjectResult>(controller.Get(info: "version").Result);
-                Assert.Equal(File.ReadAllText("version.txt"), version.Value);
+                Assert.Equal("1.13.3", version.Value);
             }
             finally
             {
                 Environment.CurrentDirectory = originalDirectory;
+                Directory.Delete(tempDirectory, recursive: true);
             }
         }
 

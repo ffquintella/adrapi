@@ -44,7 +44,7 @@ namespace adrapi.Controllers
             switch (info)
             {
                 case "version":
-                    string text = System.IO.File.ReadAllText(@"version.txt");
+                    string text = System.IO.File.ReadAllText(@"version.txt").TrimEnd('\r', '\n');
 
                     resp = text;
                     return Ok(resp);
