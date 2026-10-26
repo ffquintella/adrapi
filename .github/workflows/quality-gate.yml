@@ -29,6 +29,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Test coverage gate script
+        run: python3 -m unittest scripts.tests.test_check_changed_coverage
+
       - name: Run quality gate
         run: dotnet run --project build/_build.csproj -- Quality_Gate --configuration Release --changed-coverage-threshold $ADRAPI_COVERAGE_THRESHOLD
 
