@@ -84,48 +84,59 @@ namespace adrapi.domain.Security
         /// hostname + OS string when no OS-native source is available.
         /// </summary>
         public static string GetMachineId()
+            => GetMachineId(
+                RuntimeInformation.IsOSPlatform,
+                File.Exists,
+                File.ReadAllText,
+                RunProcess,
+                () => $"{Environment.MachineName}|{Environment.OSVersion}");
+
+        internal static string GetMachineId(
+            Func<OSPlatform, bool> isPlatform,
+            Func<string, bool> fileExists,
+            Func<string, string> readAllText,
+            Func<string, string, string> runProcess,
+            Func<string> fallback)
         {
             try
             {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                if (isPlatform(OSPlatform.Linux))
                 {
                     foreach (var p in new[] { "/etc/machine-id", "/var/lib/dbus/machine-id" })
-                        if (File.Exists(p)) return File.ReadAllText(p).Trim();
+                        if (fileExists(p)) return readAllText(p).Trim();
                 }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                else if (isPlatform(OSPlatform.OSX))
                 {
-                    var psi = new ProcessStartInfo("ioreg", "-rd1 -c IOPlatformExpertDevice")
-                    {
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                    };
-                    using var proc = Process.Start(psi);
-                    var output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit(2000);
+                    var output = runProcess("ioreg", "-rd1 -c IOPlatformExpertDevice");
                     var m = Regex.Match(output, "IOPlatformUUID.*=.*\"([^\"]+)\"");
                     if (m.Success) return m.Groups[1].Value;
                 }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                else if (isPlatform(OSPlatform.Windows))
                 {
-                    var psi = new ProcessStartInfo("reg",
-                        @"query HKLM\SOFTWARE\Microsoft\Cryptography /v MachineGuid")
-                    {
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                    };
-                    using var proc = Process.Start(psi);
-                    var output = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit(2000);
+                    var output = runProcess("reg",
+                        @"query HKLM\SOFTWARE\Microsoft\Cryptography /v MachineGuid");
                     var m = Regex.Match(output, @"MachineGuid\s+REG_SZ\s+([0-9a-fA-F-]+)");
                     if (m.Success) return m.Groups[1].Value;
                 }
             }
             catch { /* fall through to default */ }
 
-            return $"{Environment.MachineName}|{Environment.OSVersion}";
+            return fallback();
+        }
+
+        internal static string RunProcess(string fileName, string arguments)
+        {
+            var psi = new ProcessStartInfo(fileName, arguments)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = string.Equals(fileName, "reg", StringComparison.Ordinal),
+            };
+            using var proc = Process.Start(psi);
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(2000);
+            return output;
         }
     }
 }

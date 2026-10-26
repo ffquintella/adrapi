@@ -164,7 +164,7 @@ namespace adrapi
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error converting the SID");
+                logger?.Error(ex, "Error converting the SID");
                 //Trace.Warn(ex.Message);
                 return "";
             }

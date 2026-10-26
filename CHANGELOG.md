@@ -1,5 +1,26 @@
 ﻿# RELEASE NOTES
 
+## 1.13.2
+
+### Added — production coverage above 90%
+
+- Add controller, LDAP, security, and service-path regression tests. Production
+  line coverage rises from 66.79% to 90.05% (3,974/4,413 lines), with 806 tests
+  passing and 78.15% branch coverage.
+- Exercise LDAP searches, paging controls, connection reuse/reconnects, referrals,
+  and bind failures using isolated connection instances and a loopback protocol
+  fixture. Add internal dependency seams for LDAP queries, legacy API-key import,
+  and machine identity discovery without changing public contracts.
+- Cover certificate pins, encrypted stores, key migration, legacy and V2
+  controllers, and token failure paths without requiring live directory services.
+
+### Fixed — malformed SID error handling
+
+- Preserve the empty-result error path when SID conversion fails before a logger
+  has been initialized, instead of throwing a secondary null-reference exception.
+
+Release change and validation record: `docs/releases/1.13.2.md`.
+
 ## 1.13.1
 
 ### Changed — maintained dependencies and test tooling

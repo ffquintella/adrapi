@@ -22,6 +22,15 @@ namespace adrapi.Security
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public static void ImportLegacyJsonIfPresent(IConfiguration configuration)
+            => ImportLegacyJsonIfPresent(
+                configuration,
+                () => ApiKeyManager.Store,
+                () => DateTime.UtcNow);
+
+        internal static void ImportLegacyJsonIfPresent(
+            IConfiguration configuration,
+            Func<ApiKeyStore> storeFactory,
+            Func<DateTime> utcNow)
         {
             var path = configuration.GetSection("security").GetValue<string>("legacyJsonFile")
                 ?? "security.json";
@@ -38,7 +47,7 @@ namespace adrapi.Security
                     return;
                 }
 
-                var store = ApiKeyManager.Store;
+                var store = storeFactory();
                 int imported = 0, skipped = 0;
                 foreach (var k in legacy)
                 {
@@ -61,7 +70,7 @@ namespace adrapi.Security
                     imported++;
                 }
 
-                var archived = $"{path}.imported.{DateTime.UtcNow:yyyyMMddHHmmss}";
+                var archived = $"{path}.imported.{utcNow():yyyyMMddHHmmss}";
                 File.Move(path, archived);
                 logger.Warn(
                     "Imported {imported} key(s) from legacy {path} into the SQLite store (skipped {skipped}). " +

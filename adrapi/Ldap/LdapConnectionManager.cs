@@ -26,7 +26,7 @@ namespace adrapi.Ldap
 
         public static LdapConnectionManager Instance { get { return Lazy.Value; } }
 
-        private LdapConnectionManager()
+        internal LdapConnectionManager()
         {
             logger = NLog.LogManager.GetCurrentClassLogger();
         }
