@@ -1,5 +1,19 @@
 ﻿# RELEASE NOTES
 
+## 1.13.3
+
+### Fixed — coverage gate on new-branch pushes
+
+- Handle GitHub's all-zero previous-commit SHA for a branch's first push. Compare
+  with the head commit's parent, or Git's empty tree for an initial commit, so
+  changed-source coverage is still enforced.
+- Fail with a clear error for invalid supplied coverage baselines. Preserve
+  ordinary push and pull-request merge-base behavior.
+- Add nine real-repository Python regression tests and run them in CI, including
+  a check that insufficient coverage still fails with a new-branch baseline.
+
+Release change and validation record: `docs/releases/1.13.3.md`.
+
 ## 1.13.2
 
 ### Added — production coverage above 90%
